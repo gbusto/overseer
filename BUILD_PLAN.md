@@ -1,264 +1,464 @@
+# Layered Development Plan for Genesis Protocol Failure
 
-# Layered Development Plan for AI Overseer Arena
-
-Looking at your game concept in GAME_INFO.md, I think a layered approach makes a lot of sense, focusing on the most complex and unfamiliar components first. Here's a development plan broken down into phases, with testing commands for each component:
+This updated development plan incorporates the expanded lore and mechanics for the Genesis Biodome Delta and K.O.R.O. (Kinetic Operations & Resource Overseer).
 
 ## Phase 1: Core Technical Infrastructure
 
-### 1. LLM Integration Layer
-This is one of the most critical and complex parts of your game, so starting here makes sense.
+### 1. KORO AI Integration (LLM Layer)
+The foundation of KORO's decision-making and personality.
 
 **Components to build:**
-- LLM API integration service
-- Game state formatter for LLM context
-- Response parser for LLM actions
-- Command scheduler to execute LLM decisions
+- Gemini 2.0 Flash LLM API integration
+- Game state formatter with KORO's "bureaucratic" perspective
+- Response parser for LLM actions (attacks, environmental hazards, spawns)
+- Context management system for KORO's "memory"
+- Fallback systems for API failures
 
 **Test commands:**
 ```
-/llm-test-call [prompt]         // Test basic LLM connectivity
-/llm-test-state                 // Send current game state to LLM and display response
-/llm-force-action [action-name] // Force a specific LLM action
-/llm-toggle                     // Enable/disable LLM integration (for testing without API calls)
+/koro-test-call [prompt]        // Test basic LLM connectivity
+/koro-test-state                // Send current game state to LLM and display response
+/koro-force-action [action-type] [params] // Force KORO to perform specific action
+/koro-toggle                    // Enable/disable LLM integration (for testing without API calls)
+/koro-persona [state]           // Set KORO's persona state (normal, angry, desperate)
 ```
 
-### 2. TTS Integration Layer
-The voice component will be critical for the Overseer's personality.
+### 2. Dual Communication System (Text + Delayed TTS)
+Implement KORO's immediate text and delayed voice feedback systems.
 
 **Components to build:**
-- TTS API integration
-- Audio playback system for TTS responses
-- Voice degradation effects based on Overseer health
+- Text display system for immediate feedback
+- Kokoro TTS API integration via Replicate
+- Audio playback system with configurable delay (~4 seconds)
+- Voice degradation effects based on KORO's health
+- Audio caching for frequently used messages
 
 **Test commands:**
 ```
-/tts-test [text]                // Test TTS with specific text
-/tts-play [audio-file]          // Play pre-recorded TTS
-/tts-damage-level [0-100]       // Test voice degradation at different damage levels
-/tts-toggle                     // Enable/disable TTS
+/koro-say [text]                // Test immediate text + delayed TTS
+/koro-voice-delay [seconds]     // Adjust TTS delay for testing
+/koro-damage-level [0-100]      // Test voice degradation at different damage levels
+/koro-instant-sfx [effect-name] // Test instant sound effects for critical events
+/communication-toggle [text/voice/both] // Toggle communication channels
 ```
 
 ### 3. Entity System Foundation
-Build the basic entity framework that will support the game mechanics.
+Build the basic entity hierarchy.
 
 **Components to build:**
-- Enhanced Overseer entity (beyond current test version)
+- KORO entity with shield and health systems
 - Player entity with health, energy, and inventory
-- Item entities (energy orbs, health packs)
+- Resource entities (energy orbs, health packs)
+- Protective item entities (Cooling Gel, Thermal Coat, Oxygen Mask)
+- Basic interaction system
 
 **Test commands:**
 ```
-/spawn-overseer                 // Spawn the Overseer entity
+/spawn-koro                     // Spawn/respawn KORO entity
 /spawn-item [item-type] [x] [y] [z] // Spawn specific item at coordinates
 /player-health [amount]         // Set player health 
 /player-energy [amount]         // Set player energy
-/overseer-health [amount]       // Set Overseer health
-/overseer-shield [on/off]       // Toggle Overseer shield
+/koro-health [amount]           // Set KORO health
+/koro-shield [on/off]           // Toggle KORO shield
+/give-item [item-id]            // Give protective item to player
 ```
 
 ## Phase 2: Core Game Mechanics
 
-### 4. Shield and Combat System
-Implement the shield mechanics and basic combat.
+### 4. Environmental Hazard System
+Implement KORO's environmental attacks and protective counters.
 
 **Components to build:**
-- Overseer shield system (visual effects, toggle logic)
-- Basic weapon system with energy consumption
-- Shield Piercer special weapon
-- Damage system (player-to-overseer, overseer-to-player)
+- Environmental hazard manager (Heat, Freeze, O2 Depletion, Blackout)
+- Environmental effect zones and visualization
+- Protective item usage system with duration tracking
+- Player status effect system (overheating, freezing, suffocating)
+- Visual and audio feedback for environmental states
+
+**Test commands:**
+```
+/env-trigger [hazard-type]      // Trigger specific environmental hazard
+/env-intensity [1-5]            // Set hazard intensity level
+/env-duration [seconds]         // Set hazard duration
+/env-clear                      // Clear all environmental hazards
+/protect [hazard-type]          // Give player protection against specific hazard
+```
+
+### 5. Shield and Combat System
+Implement the core combat mechanics.
+
+**Components to build:**
+- KORO shield system with visual effects and toggle logic
+- Basic energy weapon system with varying consumption rates
+- Shield Piercer special weapon implementation
+- Damage system (player-to-KORO, KORO-to-player)
+- Direct attack patterns for KORO (lasers, energy pulses)
 
 **Test commands:**
 ```
 /shield-toggle                  // Toggle the shield on/off
 /give-weapon [weapon-type]      // Give specific weapon to player
 /fire-weapon [weapon-type]      // Simulate weapon fire
-/test-attack [attack-type]      // Trigger an Overseer attack
+/koro-attack [attack-type]      // Trigger a KORO attack
 /test-damage [amount] [target]  // Apply damage to target
 ```
 
-### 5. Game State Management
-Build the game loop and state tracking system.
+### 6. Game State Management
+Build the overarching game loop and state tracking.
 
 **Components to build:**
-- Game Manager for overall state
-- Win/loss condition tracking
+- Game Manager for tracking overall state
+- Win/loss condition checking
 - Match timer and event system
-- Player state persistence (health, inventory, etc.)
+- Player state persistence
+- Event history for KORO context
 
 **Test commands:**
 ```
-/game-start                     // Start a new game
+/game-start                     // Start a new game session
 /game-end [winner]              // End current game with specified winner
 /game-state                     // Display current game state
 /game-timer [seconds]           // Set/adjust game timer
 /trigger-event [event-name]     // Trigger a specific game event
 ```
 
-### 6. Betrayal System
+### 7. Betrayal System
 Implement the betrayal mechanics.
 
 **Components to build:**
 - Betrayal command and state tracking
-- LLM integration for betrayal responses
-- Betrayal-specific gameplay mechanics
+- LLM integration for KORO's betrayal responses
+- Traitor-specific game mechanics
+- Resource hoarding tracking
+- Betrayal consequence system
 
 **Test commands:**
 ```
 /betray                         // Execute betrayal command
 /list-traitors                  // List current traitors (admin only)
+/traitor-power [power-name]     // Test traitor-specific abilities
 /test-betrayal-scenario [scenario] // Run a specific betrayal scenario
 ```
 
 ## Phase 3: Polish and Integration
 
-### 7. Visual and Audio Effects
+### 8. Visual and Audio Effects
 Enhance the game's feedback systems.
 
 **Components to build:**
-- Weapon effects (lasers, pulses, etc.)
-- Shield visual effects
+- KORO attack visual effects (lasers, pulses)
+- Shield impact and breakdown effects
+- Environmental hazard visualizations
 - Damage feedback effects
-- Environmental audio
+- Ambient biodome sounds
+- Instant SFX for critical gameplay events
 
 **Test commands:**
 ```
 /play-effect [effect-name] [x] [y] [z] // Play effect at position
 /play-sound [sound-name]        // Play specific sound
 /toggle-effect [effect-name]    // Toggle a persistent effect
+/effect-intensity [1-5]         // Adjust effect intensity
 ```
 
-### 8. Environment and Map
-Develop the biodome arena environment.
+### 9. Biodome Environment
+Develop the Genesis Biodome Delta environment.
 
 **Components to build:**
-- Basic level layout
-- Resource spawn points
-- Visual environment elements
+- Verdant Horizons Corporation themed environment
+- Biodome structure with KORO mounted near apex
+- Resource and item spawn points
+- Environmental hazard zones
+- Narrative elements (documents, terminals)
 
 **Test commands:**
 ```
 /teleport [x] [y] [z]           // Teleport to coordinates
 /spawn-point-list               // Show all spawn points
 /reload-map                     // Reload the current map
+/toggle-area [area-name]        // Enable/disable specific area features
 ```
 
-### 9. UI and Player Feedback
+### 10. UI and Player Feedback
 Build the user interface and player communication systems.
 
 **Components to build:**
-- Health/energy HUD
+- Health/energy HUD with environmental status indicators
+- Protective item status display
+- KORO text communication display
 - Objective indicators
-- Game state notifications
-- Chat system
+- Environmental hazard warnings
+- Inventory management UI
 
 **Test commands:**
 ```
 /show-ui [ui-element]           // Toggle specific UI element
 /test-notification [message]    // Display test notification
-/fake-objective [text]          // Display fake objective
+/test-warning [hazard-type]     // Display environmental warning
+/inventory-ui                   // Toggle inventory interface
 ```
 
-## Integration Testing Framework
+## Implementation Example: KORO Communication System
 
-To support all these systems, I recommend building a comprehensive command and event system:
+The dual text+voice system is a key feature of the game. Here's how it might be implemented:
 
 ```typescript
-// Core testing framework to add to your Hytopia game
-world.chatManager.registerCommand('/test-mode', (player) => {
-  // Toggle testing mode for admin players
-  const isAdmin = checkAdmin(player);
-  if (!isAdmin) {
-    world.chatManager.sendPlayerMessage(player, "You don't have permission to use this command.");
-    return;
+export class KOROCommunicationManager {
+  private _voiceDelay: number = 4000; // 4 second delay
+  private _damageLevel: number = 0; // 0-100 scale of voice degradation
+  private _messageQueue: Array<{text: string, type: string}> = [];
+  private _isSpeaking: boolean = false;
+  
+  constructor(private _world: World, private _koroEntity: OverseerEntity) {}
+  
+  // Called by the LLM integration when KORO decides to speak
+  public async speak(text: string, type: 'normal'|'alert'|'warning' = 'normal'): Promise<void> {
+    // Immediately display text to all players
+    this._showTextToPlayers(text, type);
+    
+    // Queue the voice message
+    this._messageQueue.push({text, type});
+    
+    // Process queue if not already processing
+    if (!this._isSpeaking) {
+      this._processVoiceQueue();
+    }
   }
   
-  const testMode = toggleTestMode(player);
-  world.chatManager.sendPlayerMessage(player, `Test mode ${testMode ? 'enabled' : 'disabled'}`);
-});
-
-// Example of a test command that can be used in any phase
-world.chatManager.registerCommand('/debug-state', (player) => {
-  // Display full debugging information
-  if (!isTestModeEnabled(player)) return;
-  
-  const gameState = GameManager.instance.getDebugState();
-  world.chatManager.sendPlayerMessage(player, JSON.stringify(gameState, null, 2));
-});
-```
-
-## Development Approach Recommendations
-
-1. **Start with a Technical Prototype**:
-   - Build the LLM integration first, using a placeholder for the Overseer entity
-   - Create a simple test arena for validating the concept
-   - Implement basic test commands for triggering various game states
-
-2. **Focus on State Management Early**:
-   - Build a robust GameManager class that tracks all relevant state
-   - Ensure all state changes can be triggered manually via commands
-   - Implement event recording for debugging
-
-3. **Use Pseudo-Components for Missing Elements**:
-   - For complex features like the shield visual effect, start with a simple placeholder
-   - Focus on the functional aspects first, then enhance visuals later
-
-4. **Build a Test Console UI**:
-   - Create a debug UI panel that shows game state and allows easy command execution
-   - Make it toggleable for admin players only
-
-5. **LLM Integration Strategy**:
-   - Start with a simplified JSON-based protocol for LLM communication
-   - Define clear action types the LLM can take (attack, speak, spawn items)
-   - Include fallbacks for when the LLM is unavailable or slow
-
-## Technical Considerations
-
-For the LLM and TTS integration, you might face challenges with the client-server architecture. Here's my recommendation:
-
-```typescript
-// On the server side
-export class OverseerManager {
-  private _lastStateUpdate: number = 0;
-  private _stateUpdateInterval: number = 15000; // 15 seconds
-  
-  public async updateOverseerState() {
-    const now = Date.now();
-    if (now - this._lastStateUpdate < this._stateUpdateInterval) return;
-    
-    // Format game state for LLM
-    const gameState = this._formatGameState();
-    
-    // Make API call to your server
-    const response = await fetch('https://your-server.com/overseer-ai', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(gameState)
+  // Display text immediately to all players
+  private _showTextToPlayers(text: string, type: string): void {
+    this._world.entityManager.getAllPlayerEntities().forEach(playerEntity => {
+      playerEntity.player.ui.sendData({
+        type: 'koro-message',
+        messageType: type,
+        text: text
+      });
     });
+  }
+  
+  // Process voice messages with delay
+  private async _processVoiceQueue(): Promise<void> {
+    this._isSpeaking = true;
     
-    // Process response
-    const aiResponse = await response.json();
-    this._processOverseerActions(aiResponse.actions);
-    
-    // Handle TTS if included in response
-    if (aiResponse.speech) {
-      this._playSpeech(aiResponse.speech);
+    while (this._messageQueue.length > 0) {
+      const message = this._messageQueue.shift();
+      if (!message) continue;
+      
+      try {
+        // Generate TTS with the current damage level
+        const audioUrl = await this._generateTTS(message.text);
+        
+        // Wait for the intentional delay
+        await new Promise(resolve => setTimeout(resolve, this._voiceDelay));
+        
+        // Play the audio if KORO is still alive
+        if (this._koroEntity.isSpawned) {
+          const audio = new Audio({
+            uri: audioUrl,
+            attachedToEntity: this._koroEntity,
+            volume: 0.8,
+            referenceDistance: 50
+          });
+          audio.play(this._world);
+        }
+      } catch (error) {
+        console.error('TTS generation failed:', error);
+      }
     }
     
-    this._lastStateUpdate = now;
+    this._isSpeaking = false;
   }
   
-  private _playSpeech(speechData) {
-    // Create audio from the speech data
-    const audio = new Audio({ 
-      uri: speechData.audioUrl,
-      attachedToEntity: GameManager.instance.overseerEntity,
-      volume: 0.8,
-      referenceDistance: 50
+  // Generate TTS audio with degradation effects based on damage
+  private async _generateTTS(text: string): Promise<string> {
+    // Format request for your server
+    const response = await fetch('https://your-api-endpoint.com/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: text,
+        model: 'kokoro',
+        damageLevel: this._damageLevel
+      })
     });
     
-    audio.play(this.world);
+    const data = await response.json();
+    return data.audioUrl;
+  }
+  
+  // Update the damage level for voice degradation
+  public setDamageLevel(level: number): void {
+    this._damageLevel = Math.max(0, Math.min(100, level));
   }
 }
 ```
 
-This approach keeps the LLM and TTS integration on your server side, with Hytopia just handling the final audio playback.
+## Environmental Hazard System Example
+
+The environmental hazards are a new key feature in your expanded concept:
+
+```typescript
+export enum HazardType {
+  HEAT = 'heat',
+  FREEZE = 'freeze',
+  OXYGEN_DEPLETION = 'oxygen_depletion',
+  BLACKOUT = 'blackout'
+}
+
+export class EnvironmentalHazardManager {
+  private _activeHazards: Map<HazardType, {intensity: number, endTime: number}> = new Map();
+  private _hazardEffects: Map<HazardType, any> = new Map();
+  
+  constructor(private _world: World) {
+    // Set up tick handler for environmental effects
+    _world.on(WorldEvent.TICK, this._updateHazards);
+  }
+  
+  // Trigger a specific environmental hazard
+  public triggerHazard(type: HazardType, intensity: number = 3, durationSeconds: number = 60): void {
+    // Set hazard end time
+    const endTime = Date.now() + (durationSeconds * 1000);
+    this._activeHazards.set(type, {intensity, endTime});
+    
+    // Create visual effects
+    this._createHazardEffects(type, intensity);
+    
+    // Notify all players
+    this._notifyPlayers(type, intensity, durationSeconds);
+  }
+  
+  // Update hazards on each tick
+  private _updateHazards = ({ deltaTimeMs }: { deltaTimeMs: number }): void => {
+    const now = Date.now();
+    
+    // Check each active hazard
+    this._activeHazards.forEach((hazardData, type) => {
+      // Remove expired hazards
+      if (hazardData.endTime <= now) {
+        this._endHazard(type);
+        return;
+      }
+      
+      // Apply hazard effects to players without protection
+      this._world.entityManager.getAllPlayerEntities().forEach(playerEntity => {
+        if (playerEntity instanceof GamePlayerEntity) {
+          if (!playerEntity.hasProtection(type)) {
+            this._applyHazardEffect(playerEntity, type, hazardData.intensity, deltaTimeMs);
+          }
+        }
+      });
+    });
+  }
+  
+  // Apply hazard effect to a player
+  private _applyHazardEffect(player: GamePlayerEntity, type: HazardType, intensity: number, deltaTimeMs: number): void {
+    switch (type) {
+      case HazardType.HEAT:
+        // Apply heat damage over time
+        const heatDamage = (intensity * 0.05) * (deltaTimeMs / 1000);
+        player.takeDamage(heatDamage);
+        break;
+        
+      case HazardType.FREEZE:
+        // Apply movement slowdown and damage
+        player.moveSpeedMultiplier = Math.max(0.2, 1 - (intensity * 0.15));
+        const freezeDamage = (intensity * 0.03) * (deltaTimeMs / 1000);
+        player.takeDamage(freezeDamage);
+        break;
+        
+      case HazardType.OXYGEN_DEPLETION:
+        // Apply oxygen depletion effects (vision darkening, damage)
+        const o2Damage = (intensity * 0.08) * (deltaTimeMs / 1000);
+        player.takeDamage(o2Damage);
+        player.oxygenLevel = Math.max(0, player.oxygenLevel - (intensity * 0.1) * (deltaTimeMs / 1000));
+        break;
+        
+      case HazardType.BLACKOUT:
+        // Apply visibility reduction (handled in UI)
+        player.player.ui.sendData({
+          type: 'visibility',
+          level: Math.max(0.1, 1 - (intensity * 0.2))
+        });
+        break;
+    }
+  }
+  
+  // Create visual/audio effects for hazards
+  private _createHazardEffects(type: HazardType, intensity: number): void {
+    // Remove any existing effect
+    if (this._hazardEffects.has(type)) {
+      const oldEffect = this._hazardEffects.get(type);
+      // Clean up old effect...
+    }
+    
+    // Create new effect based on hazard type
+    switch (type) {
+      case HazardType.HEAT:
+        // Heat distortion effect
+        // ...
+        break;
+        
+      case HazardType.FREEZE:
+        // Frost particle effect
+        // ...
+        break;
+        
+      case HazardType.OXYGEN_DEPLETION:
+        // Gas particle effect
+        // ...
+        break;
+        
+      case HazardType.BLACKOUT:
+        // Darkness effect
+        // ...
+        break;
+    }
+  }
+  
+  // End a specific hazard
+  private _endHazard(type: HazardType): void {
+    this._activeHazards.delete(type);
+    
+    // Clean up effects
+    if (this._hazardEffects.has(type)) {
+      const effect = this._hazardEffects.get(type);
+      // Cleanup effect code...
+      this._hazardEffects.delete(type);
+    }
+    
+    // Reset player states
+    this._world.entityManager.getAllPlayerEntities().forEach(playerEntity => {
+      if (playerEntity instanceof GamePlayerEntity) {
+        switch (type) {
+          case HazardType.FREEZE:
+            playerEntity.moveSpeedMultiplier = 1.0;
+            break;
+          case HazardType.BLACKOUT:
+            playerEntity.player.ui.sendData({
+              type: 'visibility',
+              level: 1.0
+            });
+            break;
+        }
+      }
+    });
+    
+    // Notify players
+    this._notifyHazardEnd(type);
+  }
+  
+  // Notify players of hazard
+  private _notifyPlayers(type: HazardType, intensity: number, durationSeconds: number): void {
+    // Send UI notifications to all players
+    // ...
+  }
+  
+  // Notify hazard has ended
+  private _notifyHazardEnd(type: HazardType): void {
+    // Send UI notifications to all players
+    // ...
+  }
+}
+```
+
+This updated plan now incorporates all the new elements from your expanded lore and gameplay concept while maintaining a clear, phased development approach.
