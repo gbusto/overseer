@@ -18,6 +18,7 @@ import type {
 
 import { KOROBrain } from '../ai/KOROBrain';
 import { Logger } from '../../utils/logger';
+import GameManager from '../GameManager';
 
 // Configuration for TTS API
 const TTS_API_URL = process.env.TTS_API_URL || 'http://localhost:8000/tts';
@@ -556,6 +557,11 @@ export default class OverseerEntity extends Entity {
   private _updateAllPlayersWithHealth(): void {
     if (!this._world) return;
     
+    // Check if game is active before sending health updates
+    if (GameManager.instance.gameState !== 'ACTIVE') {
+      return; // Don't send health updates unless game is active
+    }
+    
     const players = this._world.entityManager.getAllPlayerEntities().map(entity => entity.player);
     players.forEach(player => {
       player.ui.sendData({
@@ -565,4 +571,4 @@ export default class OverseerEntity extends Entity {
       });
     });
   }
-} 
+}

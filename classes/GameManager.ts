@@ -18,8 +18,11 @@ export enum GameState {
   ENDING = 'ENDING'
 }
 
+const DEV_MATCH_DURATION = 1 * 60 * 1000; // 1 minute
+const PROD_MATCH_DURATION = 10 * 60 * 1000; // 10 minutes
+
 // Game constants
-const GAME_DURATION_MS = 10 * 60 * 1000; // 10 minutes
+const GAME_DURATION_MS = DEV_MATCH_DURATION ? DEV_MATCH_DURATION : PROD_MATCH_DURATION;
 const COUNTDOWN_DURATION_MS = 5 * 1000; // 5 seconds countdown
 const FADE_DURATION_MS = 1000; // 1 second fade transition
 
@@ -221,6 +224,13 @@ export default class GameManager {
     this._gameState = GameState.IDLE;
     this._logger.info('Game reset to idle state');
 
+    // Hide game UI elements for all players
+    this._world.entityManager.getAllPlayerEntities().forEach(entity => {
+      entity.player.ui.sendData({
+        type: 'game-reset'
+      });
+    });
+
     // Send fade from white effect to all players
     this._world.entityManager.getAllPlayerEntities().forEach(entity => {
       entity.player.ui.sendData({
@@ -243,27 +253,33 @@ export default class GameManager {
     const playerEntity = new GamePlayerEntity(player);
     playerEntity.spawn(this._world, { x: 0, y: 10, z: 0 });
     
-    // Get the overseer health to update the player UI
-    const overseer = this._world.entityManager.getEntitiesByTag('overseer')[0];
-    if (overseer) {
-      const overseerEntity = overseer as any; // Using 'any' to access the method
-      if (typeof overseerEntity.getHealth === 'function') {
-        const health = overseerEntity.getHealth();
-        player.ui.sendData({
-          type: 'overseer-health-update',
-          health: health,
-          maxHealth: 100
-        });
-      }
-    }
-
-    // Update player with current game state
+    // Only send health updates if the game is active
     if (this._gameState === GameState.ACTIVE) {
+      // Get the overseer health to update the player UI
+      const overseer = this._world.entityManager.getEntitiesByTag('overseer')[0];
+      if (overseer) {
+        const overseerEntity = overseer as any; // Using 'any' to access the method
+        if (typeof overseerEntity.getHealth === 'function') {
+          const health = overseerEntity.getHealth();
+          player.ui.sendData({
+            type: 'overseer-health-update',
+            health: health,
+            maxHealth: 100
+          });
+        }
+      }
+      
+      // Send game state info
       player.ui.sendData({
         type: 'game-active',
         startTime: this._gameStartTime,
         duration: GAME_DURATION_MS,
         elapsed: Date.now() - this._gameStartTime
+      });
+    } else {
+      // For players joining during IDLE state, explicitly hide UI elements
+      player.ui.sendData({
+        type: 'game-reset'
       });
     }
 

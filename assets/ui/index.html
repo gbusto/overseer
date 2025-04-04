@@ -206,10 +206,6 @@
   const messagePanel = document.getElementById('overseer-message-panel');
   const messageContent = document.getElementById('message-content');
   
-  // Initialize with default values
-  updateHealth(100, 100);
-  updateOverseerHealth(100, 100);
-  
   // Handle incoming data from the server
   hytopia.onData(data => {
     // Check if this is an overseer message
@@ -245,10 +241,14 @@
     switch (data.type) {
       case 'health-update':
         updateHealth(data.health, data.maxHealth);
+        // Only show health in active game state
+        document.getElementById('health-container').style.display = 'block';
         break;
       
       case 'overseer-health-update':
         updateOverseerHealth(data.health, data.maxHealth);
+        // Only show overseer health in active game state
+        document.getElementById('overseer-health-container').style.display = 'block';
         break;
       
       case 'timer-update':
@@ -261,6 +261,9 @@
       
       case 'game-start':
         startGame(data.startTime, data.duration);
+        // Show health bars when game starts
+        document.getElementById('health-container').style.display = 'block';
+        document.getElementById('overseer-health-container').style.display = 'block';
         break;
       
       case 'game-active':
@@ -268,6 +271,17 @@
         const remaining = data.duration - (Date.now() - data.startTime);
         updateTimer(remaining);
         showTimer(true);
+        // Show health bars in active game
+        document.getElementById('health-container').style.display = 'block';
+        document.getElementById('overseer-health-container').style.display = 'block';
+        break;
+      
+      case 'game-reset':
+        // Hide all game UI elements on reset
+        document.getElementById('health-container').style.display = 'none';
+        document.getElementById('overseer-health-container').style.display = 'none';
+        document.getElementById('timer-container').style.display = 'none';
+        document.getElementById('countdown-container').style.display = 'none';
         break;
       
       case 'fade-white':
@@ -354,4 +368,10 @@
     overlay.style.transition = `opacity ${duration/1000}s ease-in-out`;
     overlay.style.opacity = '0';
   }
+
+  // Initialize with default values but hide UI elements initially
+  updateHealth(100, 100);
+  updateOverseerHealth(100, 100);
+  document.getElementById('health-container').style.display = 'none';
+  document.getElementById('overseer-health-container').style.display = 'none';
 </script> 
