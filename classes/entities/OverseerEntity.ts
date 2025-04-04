@@ -19,6 +19,7 @@ import type {
 import { KOROBrain } from '../ai/KOROBrain';
 import { Logger } from '../../utils/logger';
 import GameManager from '../GameManager';
+import { GameState } from '../GameManager';
 
 // Configuration for TTS API
 const TTS_API_URL = process.env.TTS_API_URL || 'http://localhost:8000/tts';
@@ -416,7 +417,39 @@ export default class OverseerEntity extends Entity {
     }
     
     try {
+      // Only add match time information occasionally (1 in 5 chance)
+      // This prevents the overseer from being too fixated on the timer
+      if (GameManager.instance.gameState === GameState.ACTIVE && Math.random() < 0.2) {
+        // Get remaining time from game manager
+        const gameManager = GameManager.instance;
+        
+        // Get a user-friendly time remaining
+        let timeRemaining = "unknown";
+        if (gameManager.isGameActive) {
+          const elapsedTime = Date.now() - gameManager['_gameStartTime']; // Access using bracket notation
+          const totalDuration = 10 * 60 * 1000; // 10 minutes in ms
+          const remainingMs = Math.max(0, totalDuration - elapsedTime);
+          
+          // Format as MM:SS
+          const minutes = Math.floor(remainingMs / 60000);
+          const seconds = Math.floor((remainingMs % 60000) / 1000);
+          timeRemaining = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        // Add a very low-priority event about the remaining time
+        this._brain.addEventWithPriority(
+          'match_status',
+          `Match time: ${timeRemaining} remaining`,
+          'low',
+          { 
+            gameState: 'ACTIVE',
+            timeRemaining: timeRemaining
+          }
+        );
+      }
+      
       const response = await this._brain.generateUpdate();
+      
       if (!response) {
         this._logger.warn('No response generated');
         return;

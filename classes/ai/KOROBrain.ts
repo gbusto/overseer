@@ -244,6 +244,10 @@ ${responseHistory}
 
 Based on the current context and your recent responses, decide if you should respond at all.
 You should NOT respond to every event - sometimes silence is appropriate.
+You do not need to react to the time remaining, however your personality is free to shift based on time left + remaining health and perceived chances of winning or losing.
+If time is running out and you feel you might lose, you may want to become more desparate and erratic.
+If time is running out and you're doing well relative to the players, then you may want to taunt them.
+Those are just 2 examples.
 
 If you do respond, choose ONE of the following ways:
 1. Provide a brief message - Keep it very short, ideally under 10 words
