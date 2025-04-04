@@ -38,7 +38,6 @@ export default class OverseerEntity extends Entity {
   private _rotationSpeed: number = 0.0001;
   
   // Sound effects
-  private _ambientSound: Audio;
   private _ttsAudio: Audio | null = null;
   
   // AI Brain
@@ -92,15 +91,6 @@ export default class OverseerEntity extends Entity {
     this._brain.toggle(false);
     
     this._logger.info('Overseer entity created - brain disabled until game starts');
-
-    // Create ambient sound for the overseer
-    this._ambientSound = new Audio({
-      attachedToEntity: this,
-      uri: 'audio/sfx/entity/squid/squid-idle.mp3',
-      loop: true,
-      volume: 0.3,
-      referenceDistance: 30, // Can be heard from far away
-    });
 
     // Set up tick handler for animation
     this.on(EntityEvent.TICK, this._onTick);
@@ -318,11 +308,6 @@ export default class OverseerEntity extends Entity {
     // Keep track of world
     this._world = this.world || null;
     
-    // Start ambient sound
-    if (this._world) {
-      this._ambientSound.play(this._world);
-    }
-    
     this._logger.info('Spawned and initialized');
   }
 
@@ -330,8 +315,6 @@ export default class OverseerEntity extends Entity {
    * Called when the entity is despawned
    */
   private _onDespawned = (): void => {
-    // Stop ambient sound
-    this._ambientSound.pause();
     
     // Remove chat event listeners
     if (this._world) {
