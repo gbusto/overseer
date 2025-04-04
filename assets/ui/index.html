@@ -4,6 +4,28 @@
   <div id="overseer-message-panel" class="overseer-message-panel">
     <div id="message-content" class="message-content"></div>
   </div>
+  
+  <!-- Health bar for player -->
+  <div id="health-container" class="health-container">
+    <div id="health-bar" class="health-bar"></div>
+    <div id="health-text" class="health-text">100/100</div>
+  </div>
+  
+  <!-- Health bar for Overseer -->
+  <div id="overseer-health-container" class="overseer-health-container">
+    <div class="overseer-health-label">OVERSEER</div>
+    <div id="overseer-health-bar" class="overseer-health-bar"></div>
+    <div id="overseer-health-text" class="overseer-health-text">100/100</div>
+  </div>
+
+  <!-- Timer -->
+  <div id="timer-container" class="timer-container">10:00</div>
+
+  <!-- Countdown for game start -->
+  <div id="countdown-container" class="countdown-container">5</div>
+
+  <!-- Fade overlay for transitions -->
+  <div id="fade-overlay" class="fade-overlay"></div>
 </div>
 
 <style>
@@ -67,12 +89,126 @@
     box-shadow: 0 0 10px rgba(255, 69, 0, 0.5);
     text-shadow: 0 0 5px rgba(255, 69, 0, 0.7);
   }
+  
+  /* Health bar styles */
+  .health-container {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    width: 200px;
+    height: 20px;
+    background-color: rgba(0, 0, 0, 0.5);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+
+  .health-bar {
+    height: 100%;
+    width: 100%;
+    background-color: #ff3333;
+    transition: width 0.3s ease-in-out;
+  }
+
+  .health-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 12px;
+    font-weight: bold;
+    color: white;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+  }
+  
+  /* Overseer health bar styles */
+  .overseer-health-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 200px;
+    background-color: rgba(0, 0, 0, 0.5);
+    border-radius: 5px;
+    padding: 5px;
+    color: white;
+  }
+  
+  .overseer-health-label {
+    text-align: center;
+    font-weight: bold;
+    font-size: 12px;
+    margin-bottom: 5px;
+    color: #00CED1;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+  }
+  
+  .overseer-health-bar {
+    height: 15px;
+    width: 100%;
+    background-color: #00CED1;
+    border-radius: 3px;
+    transition: width 0.3s ease-in-out;
+  }
+  
+  .overseer-health-text {
+    text-align: center;
+    font-size: 12px;
+    margin-top: 3px;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+  }
+
+  /* Timer styles */
+  .timer-container {
+    position: fixed;
+    top: 75px; /* Below the overseer message panel */
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.5);
+    border-radius: 5px;
+    padding: 5px 15px;
+    font-size: 24px;
+    font-weight: bold;
+    color: white;
+    text-align: center;
+    display: none; /* Hidden by default */
+  }
+
+  /* Countdown styles */
+  .countdown-container {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 72px;
+    font-weight: bold;
+    color: white;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+    display: none; /* Hidden by default */
+  }
+
+  /* Fade overlay styles */
+  .fade-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: white;
+    opacity: 0;
+    transition: opacity 1s ease-in-out;
+    pointer-events: none;
+    z-index: 1000;
+  }
 </style>
 
 <script>
   // Get UI elements
   const messagePanel = document.getElementById('overseer-message-panel');
   const messageContent = document.getElementById('message-content');
+  
+  // Initialize with default values
+  updateHealth(100, 100);
+  updateOverseerHealth(100, 100);
   
   // Handle incoming data from the server
   hytopia.onData(data => {
@@ -104,5 +240,118 @@
         messagePanel.style.display = 'none';
       }
     }
+    
+    // Handle different game message types
+    switch (data.type) {
+      case 'health-update':
+        updateHealth(data.health, data.maxHealth);
+        break;
+      
+      case 'overseer-health-update':
+        updateOverseerHealth(data.health, data.maxHealth);
+        break;
+      
+      case 'timer-update':
+        updateTimer(data.remaining);
+        break;
+      
+      case 'game-countdown':
+        showCountdown(data.countdown);
+        break;
+      
+      case 'game-start':
+        startGame(data.startTime, data.duration);
+        break;
+      
+      case 'game-active':
+        // For players joining mid-game
+        const remaining = data.duration - (Date.now() - data.startTime);
+        updateTimer(remaining);
+        showTimer(true);
+        break;
+      
+      case 'fade-white':
+        fadeToWhite(data.duration);
+        break;
+      
+      case 'fade-from-white':
+        fadeFromWhite(data.duration);
+        break;
+    }
   });
+  
+  // Update health bar
+  function updateHealth(health, maxHealth) {
+    const percent = (health / maxHealth) * 100;
+    document.getElementById('health-bar').style.width = `${percent}%`;
+    document.getElementById('health-text').textContent = `${health}/${maxHealth}`;
+    
+    // Change color based on health
+    let color = '#ff3333'; // Red
+    if (percent > 60) {
+      color = '#33cc33'; // Green
+    } else if (percent > 30) {
+      color = '#ffcc00'; // Yellow
+    }
+    document.getElementById('health-bar').style.backgroundColor = color;
+  }
+  
+  // Update overseer health bar
+  function updateOverseerHealth(health, maxHealth) {
+    const percent = (health / maxHealth) * 100;
+    document.getElementById('overseer-health-bar').style.width = `${percent}%`;
+    document.getElementById('overseer-health-text').textContent = `${health}/${maxHealth}`;
+  }
+
+  // Update timer display
+  function updateTimer(milliseconds) {
+    const minutes = Math.floor(milliseconds / 60000);
+    const seconds = Math.floor((milliseconds % 60000) / 1000);
+    document.getElementById('timer-container').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  }
+
+  // Show/hide timer
+  function showTimer(visible) {
+    document.getElementById('timer-container').style.display = visible ? 'block' : 'none';
+  }
+
+  // Show countdown
+  function showCountdown(count) {
+    const countdownElement = document.getElementById('countdown-container');
+    countdownElement.textContent = count;
+    countdownElement.style.display = 'block';
+    
+    // Hide countdown when it reaches 0
+    if (count <= 0) {
+      setTimeout(() => {
+        countdownElement.style.display = 'none';
+      }, 1000);
+    }
+  }
+
+  // Start game
+  function startGame(startTime, duration) {
+    // Hide countdown
+    document.getElementById('countdown-container').style.display = 'none';
+    
+    // Show timer
+    showTimer(true);
+    
+    // Initialize timer
+    updateTimer(duration);
+  }
+
+  // Fade to white
+  function fadeToWhite(duration) {
+    const overlay = document.getElementById('fade-overlay');
+    overlay.style.transition = `opacity ${duration/1000}s ease-in-out`;
+    overlay.style.opacity = '1';
+  }
+
+  // Fade from white
+  function fadeFromWhite(duration) {
+    const overlay = document.getElementById('fade-overlay');
+    overlay.style.transition = `opacity ${duration/1000}s ease-in-out`;
+    overlay.style.opacity = '0';
+  }
 </script> 

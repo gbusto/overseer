@@ -38,6 +38,7 @@ import {
 } from 'hytopia';
 
 import OverseerEntity from './classes/entities/OverseerEntity';
+import GameManager from './classes/GameManager';
 import worldMap from './assets/overseer-terrain.json';
 import { Logger, LogLevel } from './utils/logger';
 
@@ -95,130 +96,17 @@ startServer(world => {
   overseer.spawn(world, { x: 0, y: 50, z: 0 });
   logger.info('Overseer entity spawned');
 
-  // Register admin commands for controlling KORO
-  world.chatManager.registerCommand('/koro-toggle', (player, args) => {
-    // Simply check args length and handle each case
-    if (args.length === 0 || !args[0]) {
-      world.chatManager.sendPlayerMessage(player, 'Usage: /koro-toggle [on|off]', 'FF0000');
-      return;
-    }
-    
-    // Convert to lowercase with null safety
-    const param = String(args[0]).toLowerCase();
-    
-    if (param === 'on' || param === 'true') {
-      overseer.toggleKOROUpdates(true);
-      world.chatManager.sendPlayerMessage(player, 'KORO automatic updates are now enabled.');
-    } else if (param === 'off' || param === 'false') {
-      overseer.toggleKOROUpdates(false);
-      world.chatManager.sendPlayerMessage(player, 'KORO automatic updates are now disabled.');
-    } else {
-      world.chatManager.sendPlayerMessage(player, 'Usage: /koro-toggle [on|off]', 'FF0000');
-    }
-  });
-
-  world.chatManager.registerCommand('/koro-events', (player, args) => {
-    const state = overseer.getKOROState();
-    let message = `KORO State:
-- Players: ${state.playerCount}
-- Events:`;
-    
-    state.recentEvents.forEach((event, i) => {
-      message += `\n  ${i+1}. ${event}`;
-    });
-    
-    world.chatManager.sendPlayerMessage(player, message);
-    logger.debug('KORO events requested', state);
-  });
-
-  world.chatManager.registerCommand('/koro-force', (player, args) => {
-    world.chatManager.sendPlayerMessage(player, 'Forcing KORO to generate a response...');
-    overseer.forceKOROUpdate();
-  });
-
   /**
-   * Handle player joining the game. The PlayerEvent.JOINED_WORLD
-   * event is emitted to the world when a new player connects to
-   * the game. From here, we create a basic player
-   * entity instance which automatically handles mapping
-   * their inputs to control their in-game entity and
-   * internally uses our player entity controller.
-   * 
-   * The HYTOPIA SDK is heavily driven by events, you
-   * can find documentation on how the event system works,
-   * here: https://dev.hytopia.com/sdk-guides/events
+   * Initialize the GameManager which will handle:
+   * - Player spawning and management
+   * - Game state and loop
+   * - Match timers and UI
+   * - Game start/end sequences
    */
-  world.on(PlayerEvent.JOINED_WORLD, ({ player }) => {
-    const playerEntity = new PlayerEntity({
-      player,
-      name: 'Player',
-      modelUri: 'models/players/player.gltf',
-      modelLoopedAnimations: [ 'idle' ],
-      modelScale: 0.5,
-    });
-  
-    playerEntity.spawn(world, { x: 0, y: 10, z: 0 });
-    logger.info(`Player joined: ${player.username || player.id}`);
+  GameManager.instance.initialize(world);
+  logger.info('GameManager initialized');
 
-    // Load our game UI for this player
-    player.ui.load('ui/index.html');
-
-    // Send a nice welcome message that only the player who joined will see ;)
-    world.chatManager.sendPlayerMessage(player, 'Welcome to the game!', '00FF00');
-    world.chatManager.sendPlayerMessage(player, 'Use WASD to move around.');
-    world.chatManager.sendPlayerMessage(player, 'Press space to jump.');
-    world.chatManager.sendPlayerMessage(player, 'Hold shift to sprint.');
-    world.chatManager.sendPlayerMessage(player, 'Press \\ to enter or exit debug view.');
-    world.chatManager.sendPlayerMessage(player, 'Try talking to KORO by typing a message that includes "KORO" or "overseer"!', '00FFFF');
-    world.chatManager.sendPlayerMessage(player, 'Admin commands:', 'FFA500');
-    world.chatManager.sendPlayerMessage(player, '/koro-toggle [on|off] - Toggle KORO automatic updates', 'FFA500');
-    world.chatManager.sendPlayerMessage(player, '/koro-events - View current events in KORO\'s memory', 'FFA500');
-    world.chatManager.sendPlayerMessage(player, '/koro-force - Force KORO to generate a response', 'FFA500');
-    world.chatManager.sendPlayerMessage(player, '/log-level [level] - Set logging level', 'FFA500');
-    world.chatManager.sendPlayerMessage(player, '/rocket - Launch yourself into the air', 'FFA500');
-  });
-
-  // Register admin commands for controlling KORO
-  world.chatManager.registerCommand('/koro-toggle', (player, args) => {
-    // Simply check args length and handle each case
-    if (args.length === 0 || !args[0]) {
-      world.chatManager.sendPlayerMessage(player, 'Usage: /koro-toggle [on|off]', 'FF0000');
-      return;
-    }
-    
-    // Convert to lowercase with null safety
-    const param = String(args[0]).toLowerCase();
-    
-    if (param === 'on' || param === 'true') {
-      overseer.toggleKOROUpdates(true);
-      world.chatManager.sendPlayerMessage(player, 'KORO automatic updates are now enabled.');
-    } else if (param === 'off' || param === 'false') {
-      overseer.toggleKOROUpdates(false);
-      world.chatManager.sendPlayerMessage(player, 'KORO automatic updates are now disabled.');
-    } else {
-      world.chatManager.sendPlayerMessage(player, 'Usage: /koro-toggle [on|off]', 'FF0000');
-    }
-  });
-
-  world.chatManager.registerCommand('/koro-events', (player, args) => {
-    const state = overseer.getKOROState();
-    let message = `KORO State:
-- Players: ${state.playerCount}
-- Events:`;
-    
-    state.recentEvents.forEach((event, i) => {
-      message += `\n  ${i+1}. ${event}`;
-    });
-    
-    world.chatManager.sendPlayerMessage(player, message);
-    logger.debug('KORO events requested', state);
-  });
-
-  world.chatManager.registerCommand('/koro-force', (player, args) => {
-    world.chatManager.sendPlayerMessage(player, 'Forcing KORO to generate a response...');
-    overseer.forceKOROUpdate();
-  });
-
+  // Register commands for the overseer entity
   world.chatManager.registerCommand('/oshealth', (player, args) => {
     // if no args provided, show the current health
     if (args.length === 0 || !args[0]) {
@@ -234,26 +122,6 @@ startServer(world => {
     
     overseer.setHealth(health);
     world.chatManager.sendPlayerMessage(player, `KORO's health set to ${health}/100`, 'FFFFFF');
-  });
-
-  /**
-   * Handle player leaving the game. The PlayerEvent.LEFT_WORLD
-   * event is emitted to the world when a player leaves the game.
-   * Because HYTOPIA is not opinionated on join and
-   * leave game logic, we are responsible for cleaning
-   * up the player and any entities associated with them
-   * after they leave. We can easily do this by 
-   * getting all the known PlayerEntity instances for
-   * the player who left by using our world's EntityManager
-   * instance.
-   * 
-   * The HYTOPIA SDK is heavily driven by events, you
-   * can find documentation on how the event system works,
-   * here: https://dev.hytopia.com/sdk-guides/events
-   */
-  world.on(PlayerEvent.LEFT_WORLD, ({ player }) => {
-    world.entityManager.getPlayerEntitiesByPlayer(player).forEach(entity => entity.despawn());
-    logger.info(`Player left: ${player.username || player.id}`);
   });
 
   /**

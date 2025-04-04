@@ -61,6 +61,7 @@ export default class OverseerEntity extends Entity {
     // Set up the entity with fixed physics to stay in place
     super({
       name: 'Overseer',
+      tag: 'overseer', // Set tag for easy lookup
       modelUri: 'models/npcs/squid.gltf',
       modelScale: 3, // Make it larger and more imposing
       modelLoopedAnimations: ['idle', 'swim'], // Use the squid's animations
@@ -87,7 +88,10 @@ export default class OverseerEntity extends Entity {
     // Initialize the KORO brain
     this._brain = new KOROBrain();
     
-    this._logger.info('Overseer entity created');
+    // Start with the brain disabled until game starts
+    this._brain.toggle(false);
+    
+    this._logger.info('Overseer entity created - brain disabled until game starts');
 
     // Create ambient sound for the overseer
     this._ambientSound = new Audio({
@@ -134,6 +138,9 @@ export default class OverseerEntity extends Entity {
     // Call the parent spawn method
     super.spawn(world, finalPosition, rotation);
     
+    // Store the world reference
+    this._world = world;
+    
     // Set up chat event listeners after spawn
     if (world) {
       this._setupEventListeners(world);
@@ -141,6 +148,9 @@ export default class OverseerEntity extends Entity {
       // Update player count
       const playerCount = world.entityManager.getAllPlayerEntities().length;
       this._brain.setPlayerCount(playerCount);
+      
+      // Send initial health to all players
+      this._updateAllPlayersWithHealth();
       
       this._logger.info('Registered event listeners');
     }
@@ -217,6 +227,18 @@ export default class OverseerEntity extends Entity {
   public setHealth(health: number): void {
     this._health = Math.max(0, Math.min(100, health));
     this._logger.info(`KORO health set to ${this._health}`);
+    
+    // Update all player UIs with the new health
+    if (this._world) {
+      const players = this._world.entityManager.getAllPlayerEntities().map(entity => entity.player);
+      players.forEach(player => {
+        player.ui.sendData({
+          type: 'overseer-health-update',
+          health: this._health,
+          maxHealth: 100
+        });
+      });
+    }
   }
   
   /**
@@ -543,5 +565,21 @@ export default class OverseerEntity extends Entity {
    */
   public isKOROEnabled(): boolean {
     return this._brain.isEnabled();
+  }
+
+  /**
+   * Update all connected players with current health
+   */
+  private _updateAllPlayersWithHealth(): void {
+    if (!this._world) return;
+    
+    const players = this._world.entityManager.getAllPlayerEntities().map(entity => entity.player);
+    players.forEach(player => {
+      player.ui.sendData({
+        type: 'overseer-health-update',
+        health: this._health,
+        maxHealth: 100
+      });
+    });
   }
 } 
