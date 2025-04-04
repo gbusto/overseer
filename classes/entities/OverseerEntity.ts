@@ -118,11 +118,7 @@ export default class OverseerEntity extends Entity {
     
     // Set up chat event listeners after spawn
     if (world) {
-      world.chatManager.on(ChatEvent.BROADCAST_MESSAGE, this._onChatMessage);
-      
-      // Set up player event listeners
-      world.on(PlayerEvent.JOINED_WORLD, this._onPlayerJoined);
-      world.on(PlayerEvent.LEFT_WORLD, this._onPlayerLeft);
+      this._setupEventListeners(world);
       
       // Update player count
       const playerCount = world.entityManager.getAllPlayerEntities().length;
@@ -130,6 +126,12 @@ export default class OverseerEntity extends Entity {
       
       this._logger.info('Registered event listeners');
     }
+  }
+
+  private _setupEventListeners(world: World): void {
+    world.chatManager.on(ChatEvent.BROADCAST_MESSAGE, this._onChatMessage);
+    world.on(PlayerEvent.JOINED_WORLD, this._onPlayerJoined);
+    world.on(PlayerEvent.LEFT_WORLD, this._onPlayerLeft);
   }
 
   /**
@@ -178,7 +180,7 @@ export default class OverseerEntity extends Entity {
    * Get the current state of KORO's world model
    * @returns Current world state (player count and recent events)
    */
-  public getKOROState(): {playerCount: number, recentEvents: string[]} {
+  public getKOROState(): {playerCount: number, recentEvents: any[]} {
     return this._brain.getWorldState();
   }
   
@@ -199,12 +201,25 @@ export default class OverseerEntity extends Entity {
     // Update player count
     const playerCount = this._world.entityManager.getAllPlayerEntities().length;
     this._brain.setPlayerCount(playerCount);
-    this._brain.addRecentEvent(`Player ${player.username || player.id} entered the facility`);
+    
+    // Add player joined event with high priority
+    const needsImmediateResponse = this._brain.addEventWithPriority(
+      'player_join',
+      `Player ${player.username || player.id} entered the facility`, 
+      'high',
+      { 
+        playerId: player.id,
+        playerName: player.username || player.id,
+        position: player.position
+      }
+    );
     
     this._logger.info(`Player joined: ${player.username || player.id}, new count: ${playerCount}`);
     
-    // Trigger an immediate response to the new player
-    this._generateBrainResponse();
+    // Only trigger immediate response if the event is high priority
+    if (needsImmediateResponse) {
+      this._generateBrainResponse();
+    }
   }
   
   /**
@@ -216,9 +231,28 @@ export default class OverseerEntity extends Entity {
     // Update player count - subtract 1 as the player is still counted at this point
     const playerCount = this._world.entityManager.getAllPlayerEntities().length - 1;
     this._brain.setPlayerCount(playerCount);
-    this._brain.addRecentEvent(`Player ${player.username || player.id} left the facility`);
+    
+    // Priority is high if it's the last player leaving
+    const priority = playerCount === 0 ? 'high' : 'medium';
+    
+    // Add player left event
+    const needsImmediateResponse = this._brain.addEventWithPriority(
+      'player_leave',
+      `Player ${player.username || player.id} left the facility`, 
+      priority,
+      { 
+        playerId: player.id,
+        playerName: player.username || player.id,
+        remainingPlayers: playerCount
+      }
+    );
     
     this._logger.info(`Player left: ${player.username || player.id}, new count: ${playerCount}`);
+    
+    // Only respond immediately if high priority
+    if (needsImmediateResponse) {
+      this._generateBrainResponse();
+    }
   }
 
   /**
@@ -233,7 +267,12 @@ export default class OverseerEntity extends Entity {
       this._ambientSound.play(this._world);
       
       // Add initial event
-      this._brain.addRecentEvent("Overseer systems online");
+      this._brain.addEventWithPriority(
+        'system',
+        "Overseer systems online", 
+        'high'
+      );
+      this._generateBrainResponse();
     }
   }
 
@@ -300,13 +339,13 @@ export default class OverseerEntity extends Entity {
   private _onChatMessage = ({ player, message }: { player?: any, message: string }): void => {
     if (!player || !message) return;
     
-    // Add the chat message to the brain's events
-    this._brain.addChatMessage(player.username || player.id, message);
+    // Add the chat message to the brain's events with priority check
+    const needsImmediateResponse = this._brain.addChatMessage(player.username || player.id, message);
     
     this._logger.debug(`Chat message from ${player.username || player.id}: ${message}`);
     
-    // If it's a direct mention of KORO, trigger an immediate response
-    if (message.toLowerCase().includes('koro') || message.toLowerCase().includes('overseer')) {
+    // If it's a direct mention or high priority event, trigger an immediate response
+    if (needsImmediateResponse) {
       this._logger.info(`KORO mentioned in chat by ${player.username || player.id}, triggering response`);
       this._generateBrainResponse();
     }
@@ -329,23 +368,41 @@ export default class OverseerEntity extends Entity {
     if (!this._world) return;
     
     const response = await this._brain.generateUpdate();
-
-    // Attempt to log each part of the response here
-    // Log the message
-    this._logger.debug(`KORO message: ${response?.message}`);
-    // Log the action
-    this._logger.debug(`KORO action: ${response?.action}`);
     
-    if (response) {
-      // Send the message
+    if (!response) {
+      this._logger.debug('No response generated (processing in progress)');
+      return;
+    }
+    
+    // Check if KORO chose to say or do anything
+    const hasMessage = !!response.message;
+    const hasAction = response.action !== 'none';
+    
+    if (!hasMessage && !hasAction) {
+      this._logger.info('KORO chose not to respond or act');
+      return;
+    }
+    
+    // Log the response parts
+    this._logger.debug(`KORO message: ${response?.message || '<no message>'}`);
+    this._logger.debug(`KORO action: ${response?.action || '<no action>'}`);
+    
+    // Only send broadcast message if there's a message to send
+    if (hasMessage) {
       const messageColor = this._brain.getMessageColor(response.action);
       this._world.chatManager.sendBroadcastMessage(`KORO: ${response.message}`, messageColor);
-      
-      // Handle actions
+    }
+    
+    // Handle actions
+    if (hasAction) {
       switch (response.action) {
         case 'warn':
         case 'threaten':
           // TODO: Implement action
+          this._logger.debug(`Action triggered: ${response.action}`);
+        break;
+        case 'observe':
+          // TODO: Implement observation behavior
           this._logger.debug(`Action triggered: ${response.action}`);
         break;
       }
