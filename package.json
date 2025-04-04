@@ -10,7 +10,10 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@ai-sdk/google": "^1.2.5",
     "@hytopia.com/assets": "^0.2.8",
-    "hytopia": "^0.3.28"
+    "ai": "^4.2.11",
+    "hytopia": "^0.3.28",
+    "zod": "^3.24.2"
   }
 }
