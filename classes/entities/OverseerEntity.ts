@@ -19,6 +19,10 @@ import type {
 import { KOROBrain } from '../ai/KOROBrain';
 import { Logger } from '../../utils/logger';
 
+// Configuration for TTS API
+const TTS_API_URL = process.env.TTS_API_URL || 'http://localhost:8000/tts';
+const TTS_API_TOKEN = process.env.TTS_API_TOKEN;
+
 /**
  * OverseerEntity class represents the floating antagonist in the game
  * It extends the base Entity class with custom behavior
@@ -35,6 +39,7 @@ export default class OverseerEntity extends Entity {
   
   // Sound effects
   private _ambientSound: Audio;
+  private _ttsAudio: Audio | null = null;
   
   // AI Brain
   private _brain: KOROBrain;
@@ -42,6 +47,9 @@ export default class OverseerEntity extends Entity {
   // Next update check
   private _nextUpdateCheck: number = 0;
   private _updateCheckInterval: number = 5000; // Check every 5 seconds
+  
+  // Health - will affect TTS voice
+  private _health: number = 100;
   
   // Logger
   private _logger: Logger;
@@ -95,6 +103,13 @@ export default class OverseerEntity extends Entity {
     
     // Set up despawn handler for cleanup
     this.on(EntityEvent.DESPAWN, this._onDespawned);
+    
+    // Check if TTS is configured
+    if (!TTS_API_TOKEN) {
+      this._logger.warn('TTS_API_TOKEN not set - speech functionality will be disabled');
+    } else {
+      this._logger.info('TTS configured - speech functionality enabled');
+    }
   }
 
   /**
@@ -190,6 +205,22 @@ export default class OverseerEntity extends Entity {
   public forceKOROUpdate(): void {
     this._logger.info('Forcing immediate KORO update');
     this._generateBrainResponse();
+  }
+
+  /**
+   * Set KORO's health level - affects voice
+   * @param health Value from 0-100
+   */
+  public setHealth(health: number): void {
+    this._health = Math.max(0, Math.min(100, health));
+    this._logger.info(`KORO health set to ${this._health}`);
+  }
+  
+  /**
+   * Get KORO's current health level
+   */
+  public getHealth(): number {
+    return this._health;
   }
 
   /**
@@ -391,6 +422,11 @@ export default class OverseerEntity extends Entity {
     if (hasMessage) {
       const messageColor = this._brain.getMessageColor(response.action);
       this._world.chatManager.sendBroadcastMessage(`KORO: ${response.message}`, messageColor);
+      
+      // Generate TTS if configured
+      if (TTS_API_TOKEN && response.message) {
+        this._generateTTS(response.message);
+      }
     }
     
     // Handle actions
@@ -406,6 +442,70 @@ export default class OverseerEntity extends Entity {
           this._logger.debug(`Action triggered: ${response.action}`);
         break;
       }
+    }
+  }
+  
+  /**
+   * Generate TTS for a message and play it
+   */
+  private async _generateTTS(message: string): Promise<void> {
+    if (!this._world || !TTS_API_TOKEN) return;
+    
+    try {
+      this._logger.debug(`Generating TTS for message: "${message}"`);
+      
+      // Make API request to generate TTS
+      const response = await fetch(TTS_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': TTS_API_TOKEN
+        },
+        body: JSON.stringify({
+          text: message,
+          health: this._health
+        })
+      });
+      
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`TTS API error: ${error}`);
+      }
+      
+      // Define the expected response type
+      interface TTSResponse {
+        success: boolean;
+        filepath: string;
+        message: string;
+      }
+      
+      const data = await response.json() as TTSResponse;
+      
+      if (!data.success || !data.filepath) {
+        throw new Error(`TTS API returned invalid response: ${JSON.stringify(data)}`);
+      }
+      
+      this._logger.debug(`TTS generated successfully: ${data.filepath}`);
+      
+      // Stop any previous TTS audio
+      if (this._ttsAudio) {
+        this._ttsAudio.pause();
+        this._ttsAudio = null;
+      }
+      
+      // Create and play the new TTS audio
+      this._ttsAudio = new Audio({
+        attachedToEntity: this,
+        uri: data.filepath, // Now points to a .wav file
+        loop: false,
+        volume: 0.8,
+        referenceDistance: 30
+      });
+      
+      this._ttsAudio.play(this._world);
+      
+    } catch (error) {
+      this._logger.error('Error generating TTS', error);
     }
   }
 

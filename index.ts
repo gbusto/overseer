@@ -62,6 +62,18 @@ const logger = new Logger('Main');
 
 startServer(world => {
   logger.info('Starting Overseer server');
+
+  // test loading remote audio uri
+  // play it 5 seconds after the server starts
+  setTimeout(() => {
+    console.log("PLAYING AUDIO!!!");
+    const audio = new Audio({
+      uri: 'storage/fe2465184067ef97996fb41/2017/11/file_example_MP3_700KB.mp3',
+      loop: true,
+      volume: 0.5,
+    });
+    audio.play(world);
+  }, 5000);
   
   /**
    * Enable debug rendering of the physics simulation.

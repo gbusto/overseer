@@ -35,3 +35,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # Custom
 assets_original/
+server_api/output/
+
+.env
+.venv/
