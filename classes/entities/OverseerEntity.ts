@@ -424,8 +424,11 @@ export default class OverseerEntity extends Entity {
       this._world.chatManager.sendBroadcastMessage(`KORO: ${response.message}`, messageColor);
       
       // Generate TTS if configured
-      if (TTS_API_TOKEN && response.message) {
+      if (TTS_API_TOKEN && response.message && process.env.NODE_ENV === 'production') {
         this._generateTTS(response.message);
+      }
+      else {
+        this._logger.debug('Skipping TTS; in dev mode, or not properly configured, or no message to speak');
       }
     }
     

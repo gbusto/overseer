@@ -62,18 +62,6 @@ const logger = new Logger('Main');
 
 startServer(world => {
   logger.info('Starting Overseer server');
-
-  // test loading remote audio uri
-  // play it 5 seconds after the server starts
-  setTimeout(() => {
-    console.log("PLAYING AUDIO!!!");
-    const audio = new Audio({
-      uri: 'storage/fe2465184067ef97996fb41/2017/11/file_example_MP3_700KB.mp3',
-      loop: true,
-      volume: 0.5,
-    });
-    audio.play(world);
-  }, 5000);
   
   /**
    * Enable debug rendering of the physics simulation.
@@ -188,6 +176,64 @@ startServer(world => {
     world.chatManager.sendPlayerMessage(player, '/koro-force - Force KORO to generate a response', 'FFA500');
     world.chatManager.sendPlayerMessage(player, '/log-level [level] - Set logging level', 'FFA500');
     world.chatManager.sendPlayerMessage(player, '/rocket - Launch yourself into the air', 'FFA500');
+  });
+
+  // Register admin commands for controlling KORO
+  world.chatManager.registerCommand('/koro-toggle', (player, args) => {
+    // Simply check args length and handle each case
+    if (args.length === 0 || !args[0]) {
+      world.chatManager.sendPlayerMessage(player, 'Usage: /koro-toggle [on|off]', 'FF0000');
+      return;
+    }
+    
+    // Convert to lowercase with null safety
+    const param = String(args[0]).toLowerCase();
+    
+    if (param === 'on' || param === 'true') {
+      overseer.toggleKOROUpdates(true);
+      world.chatManager.sendPlayerMessage(player, 'KORO automatic updates are now enabled.');
+    } else if (param === 'off' || param === 'false') {
+      overseer.toggleKOROUpdates(false);
+      world.chatManager.sendPlayerMessage(player, 'KORO automatic updates are now disabled.');
+    } else {
+      world.chatManager.sendPlayerMessage(player, 'Usage: /koro-toggle [on|off]', 'FF0000');
+    }
+  });
+
+  world.chatManager.registerCommand('/koro-events', (player, args) => {
+    const state = overseer.getKOROState();
+    let message = `KORO State:
+- Players: ${state.playerCount}
+- Events:`;
+    
+    state.recentEvents.forEach((event, i) => {
+      message += `\n  ${i+1}. ${event}`;
+    });
+    
+    world.chatManager.sendPlayerMessage(player, message);
+    logger.debug('KORO events requested', state);
+  });
+
+  world.chatManager.registerCommand('/koro-force', (player, args) => {
+    world.chatManager.sendPlayerMessage(player, 'Forcing KORO to generate a response...');
+    overseer.forceKOROUpdate();
+  });
+
+  world.chatManager.registerCommand('/oshealth', (player, args) => {
+    // if no args provided, show the current health
+    if (args.length === 0 || !args[0]) {
+      world.chatManager.sendPlayerMessage(player, `KORO's current health is ${overseer.getHealth()}/100`, 'FFFFFF');
+      return;
+    } 
+    
+    const health = parseInt(args[0]);
+    if (isNaN(health) || health < 0 || health > 100) {
+      world.chatManager.sendPlayerMessage(player, 'Usage: /oshealth [0-100]', 'FF0000');
+      return;
+    } 
+    
+    overseer.setHealth(health);
+    world.chatManager.sendPlayerMessage(player, `KORO's health set to ${health}/100`, 'FFFFFF');
   });
 
   /**
