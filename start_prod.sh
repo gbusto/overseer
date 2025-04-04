@@ -19,4 +19,4 @@ if ! command -v bun &> /dev/null; then
     exit 1
 fi
 
-NODE_ENV=production bun index.ts --port 8180
+NODE_ENV=production PORT=8180 bun index.ts
