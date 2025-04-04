@@ -54,6 +54,9 @@ export default class OverseerEntity extends Entity {
   // Logger
   private _logger: Logger;
 
+  private _messageDisplayTimeoutId: NodeJS.Timeout | null = null;
+  private _messageDisplayDuration: number = 8000; // Display messages for 8 seconds
+
   constructor(options: Partial<EntityOptions> = {}) {
     // Set up the entity with fixed physics to stay in place
     super({
@@ -290,21 +293,15 @@ export default class OverseerEntity extends Entity {
    * Called when the entity is spawned
    */
   private _onSpawned = (): void => {
+    // Keep track of world
     this._world = this.world || null;
-    this._logger.info('Overseer has awakened');
     
     // Start ambient sound
     if (this._world) {
       this._ambientSound.play(this._world);
-      
-      // Add initial event
-      this._brain.addEventWithPriority(
-        'system',
-        "Overseer systems online", 
-        'high'
-      );
-      this._generateBrainResponse();
     }
+    
+    this._logger.info('Spawned and initialized');
   }
 
   /**
@@ -321,6 +318,12 @@ export default class OverseerEntity extends Entity {
       this._world.off(PlayerEvent.LEFT_WORLD, this._onPlayerLeft);
       
       this._logger.info('Unregistered event listeners');
+    }
+    
+    // Clear message timeout if it exists
+    if (this._messageDisplayTimeoutId) {
+      clearTimeout(this._messageDisplayTimeoutId);
+      this._messageDisplayTimeoutId = null;
     }
     
     this._world = null;
@@ -396,56 +399,78 @@ export default class OverseerEntity extends Entity {
    * Generate and handle an AI response
    */
   private async _generateBrainResponse(): Promise<void> {
+    if (!this._brain.isEnabled()) {
+      this._logger.info('KORO is disabled - skipping update');
+      return;
+    }
+    
+    if (!this._world) {
+      this._logger.error('No world - cannot generate response');
+      return;
+    }
+    
+    try {
+      const response = await this._brain.generateUpdate();
+      if (!response) {
+        this._logger.warn('No response generated');
+        return;
+      }
+      
+      this._logger.info(`KORO response generated: ${response.message || '(no message)'}, action: ${response.action}`);
+      
+      // Don't display anything if no message and action is none
+      if (!response.message && response.action === 'none') {
+        this._broadcastOverseerMessage('', 'none');
+        return;
+      }
+      
+      // Broadcast the message to all players' UIs
+      this._broadcastOverseerMessage(response.message || '', response.action);
+      
+      // Only generate audio if there's a message
+      if (response.message && process.env.NODE_ENV === 'production') {
+        await this._generateTTS(response.message);
+      }
+      
+      // Clear any existing timeout
+      if (this._messageDisplayTimeoutId) {
+        clearTimeout(this._messageDisplayTimeoutId);
+        this._messageDisplayTimeoutId = null;
+      }
+      
+      // Set a timeout to clear the message after the display duration
+      this._messageDisplayTimeoutId = setTimeout(() => {
+        // Clear the message
+        this._broadcastOverseerMessage('', 'none');
+        this._messageDisplayTimeoutId = null;
+      }, this._messageDisplayDuration);
+      
+    } catch (error) {
+      this._logger.error('Error generating brain response', error);
+    }
+  }
+  
+  /**
+   * Broadcast a message to all player UIs
+   * @param message The message to broadcast
+   * @param action The action type (none, observe, warn, threaten)
+   */
+  private _broadcastOverseerMessage(message: string, action: string): void {
     if (!this._world) return;
     
-    const response = await this._brain.generateUpdate();
+    // Get all players in the world
+    const players = this._world.entityManager.getAllPlayerEntities().map(entity => entity.player);
     
-    if (!response) {
-      this._logger.debug('No response generated (processing in progress)');
-      return;
-    }
+    // Send message to each player's UI
+    players.forEach(player => {
+      player.ui.sendData({
+        type: 'overseer-message',
+        message,
+        action
+      });
+    });
     
-    // Check if KORO chose to say or do anything
-    const hasMessage = !!response.message;
-    const hasAction = response.action !== 'none';
-    
-    if (!hasMessage && !hasAction) {
-      this._logger.info('KORO chose not to respond or act');
-      return;
-    }
-    
-    // Log the response parts
-    this._logger.debug(`KORO message: ${response?.message || '<no message>'}`);
-    this._logger.debug(`KORO action: ${response?.action || '<no action>'}`);
-    
-    // Only send broadcast message if there's a message to send
-    if (hasMessage) {
-      const messageColor = this._brain.getMessageColor(response.action);
-      this._world.chatManager.sendBroadcastMessage(`KORO: ${response.message}`, messageColor);
-      
-      // Generate TTS if configured
-      if (TTS_API_TOKEN && response.message && process.env.NODE_ENV === 'production') {
-        this._generateTTS(response.message);
-      }
-      else {
-        this._logger.debug('Skipping TTS; in dev mode, or not properly configured, or no message to speak');
-      }
-    }
-    
-    // Handle actions
-    if (hasAction) {
-      switch (response.action) {
-        case 'warn':
-        case 'threaten':
-          // TODO: Implement action
-          this._logger.debug(`Action triggered: ${response.action}`);
-        break;
-        case 'observe':
-          // TODO: Implement observation behavior
-          this._logger.debug(`Action triggered: ${response.action}`);
-        break;
-      }
-    }
+    this._logger.debug(`Sent overseer message to ${players.length} players: "${message}" (${action})`);
   }
   
   /**

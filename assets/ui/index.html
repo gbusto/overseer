@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<div class="game-ui">
+  <!-- Overseer message panel that's always visible at the top of the screen -->
+  <div id="overseer-message-panel" class="overseer-message-panel">
+    <div id="message-content" class="message-content"></div>
+  </div>
+</div>
+
+<style>
+  /* Base styles */
+  body {
+    font-family: 'Arial', sans-serif;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  /* Overseer message panel styles */
+  .overseer-message-panel {
+    position: fixed;
+    top: 20px; /* Add some padding from the top edge */
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.7);
+    color: #00CED1; /* Default color - dark turquoise */
+    padding: 12px 20px;
+    border-radius: 4px;
+    border: 1px solid #00CED1;
+    box-shadow: 0 0 10px rgba(0, 206, 209, 0.5);
+    text-align: center;
+    font-size: 18px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    max-width: 80%;
+    margin: 0 auto;
+    text-shadow: 0 0 5px rgba(0, 206, 209, 0.7);
+    animation: pulse 2s infinite;
+    transform-origin: center;
+    min-width: 200px;
+    z-index: 1000;
+    display: none; /* Hidden by default */
+  }
+
+  .message-content {
+    margin: 0;
+  }
+
+  /* Animation for the message panel */
+  @keyframes pulse {
+    0% { opacity: 0.8; transform: translateX(-50%) scale(1); }
+    50% { opacity: 1; transform: translateX(-50%) scale(1.03); }
+    100% { opacity: 0.8; transform: translateX(-50%) scale(1); }
+  }
+
+  /* Color variants for different message types */
+  .overseer-message-panel.warn {
+    color: #FFD700; /* Gold */
+    border-color: #FFD700;
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+    text-shadow: 0 0 5px rgba(255, 215, 0, 0.7);
+  }
+
+  .overseer-message-panel.threaten {
+    color: #FF4500; /* Red-Orange */
+    border-color: #FF4500;
+    box-shadow: 0 0 10px rgba(255, 69, 0, 0.5);
+    text-shadow: 0 0 5px rgba(255, 69, 0, 0.7);
+  }
+</style>
+
+<script>
+  // Get UI elements
+  const messagePanel = document.getElementById('overseer-message-panel');
+  const messageContent = document.getElementById('message-content');
+  
+  // Handle incoming data from the server
+  hytopia.onData(data => {
+    // Check if this is an overseer message
+    if (data.type === 'overseer-message') {
+      // Update message text
+      if (data.message) {
+        messageContent.textContent = data.message;
+        messagePanel.style.display = 'block';
+        
+        // Update message type/color
+        messagePanel.classList.remove('warn', 'threaten');
+        if (data.action === 'warn') {
+          messagePanel.classList.add('warn');
+        } else if (data.action === 'threaten') {
+          messagePanel.classList.add('threaten');
+        }
+        
+        // Auto hide after the display duration
+        if (window.messageTimeout) {
+          clearTimeout(window.messageTimeout);
+        }
+        
+        window.messageTimeout = setTimeout(() => {
+          messagePanel.style.display = 'none';
+        }, 8000); // Display for 8 seconds
+      } else {
+        // Hide the panel if no message
+        messagePanel.style.display = 'none';
+      }
+    }
+  });
+</script> 
