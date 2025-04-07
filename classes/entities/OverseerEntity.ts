@@ -52,6 +52,10 @@ export default class OverseerEntity extends Entity {
   // Health - will affect TTS voice
   private _health: number = 100;
   
+  // Shield entity
+  private _shield: Entity | null = null;
+  private _shieldActive: boolean = false;
+  
   // Logger
   private _logger: Logger;
 
@@ -64,7 +68,7 @@ export default class OverseerEntity extends Entity {
       name: 'Overseer',
       tag: 'overseer', // Set tag for easy lookup
       modelUri: 'models/npcs/squid.gltf',
-      modelScale: 3, // Make it larger and more imposing
+      modelScale: 2, // Make it larger and more imposing
       modelLoopedAnimations: ['idle', 'swim'], // Use the squid's animations
       // Physics options to keep it suspended in the air
       rigidBodyOptions: {
@@ -133,6 +137,9 @@ export default class OverseerEntity extends Entity {
     // Store the world reference
     this._world = world;
     
+    // Create and spawn shield
+    this._createShield(world);
+    
     // Set up chat event listeners after spawn
     if (world) {
       this._setupEventListeners(world);
@@ -146,6 +153,66 @@ export default class OverseerEntity extends Entity {
       
       this._logger.info('Registered event listeners');
     }
+  }
+
+  /**
+   * Create and initialize the shield entity
+   */
+  private _createShield(world: World): void {
+    // Create shield entity
+    this._shield = new Entity({
+      name: 'OverseerShield',
+      modelUri: 'models/overseer/overseer-shield.glb',
+      modelScale: 6, // Make it a bit larger than Koro
+      parent: this, // Set as child of Koro
+      rigidBodyOptions: {
+        type: RigidBodyType.KINEMATIC_POSITION,
+        colliders: [
+          {
+            shape: ColliderShape.BALL,
+            radius: 3, // Large enough to enclose Koro
+            isSensor: true, // Won't physically block but will detect collisions
+          }
+        ]
+      },
+    });
+    
+    // Spawn it at the same position as Koro
+    this._shield.spawn(world, { x: 0, y: 0, z: 0 });
+    
+    // Make it translucent
+    this._shield.setOpacity(0.4);
+    
+    // Activate shield by default
+    this._shieldActive = true;
+    
+    this._logger.info('Created and spawned shield entity');
+  }
+
+  /**
+   * Toggle the shield on/off
+   */
+  public toggleShield(active: boolean): boolean {
+    this._shieldActive = active;
+    
+    if (this._shield) {
+      if (active) {
+        this._shield.setOpacity(0.6); // Show shield
+        this._logger.info('Shield activated');
+      } else {
+        this._shield.setOpacity(0); // Hide shield
+        this._logger.info('Shield deactivated');
+      }
+    }
+    
+    return this._shieldActive;
+  }
+
+  /**
+   * Check if shield is active
+   */
+  public isShieldActive(): boolean {
+    return this._shieldActive;
   }
 
   private _setupEventListeners(world: World): void {

@@ -35,6 +35,9 @@ import {
   Audio,
   PlayerEntity,
   PlayerEvent,
+  RigidBodyType,
+  ColliderShape,
+  Entity,
 } from 'hytopia';
 
 import OverseerEntity from './classes/entities/OverseerEntity';
@@ -124,15 +127,29 @@ startServer(world => {
     world.chatManager.sendPlayerMessage(player, `KORO's health set to ${health}/100`, 'FFFFFF');
   });
 
-  /**
-   * A silly little easter egg command. When a player types
-   * "/rocket" in the game, they'll get launched into the air!
-   */
-  world.chatManager.registerCommand('/rocket', player => {
-    world.entityManager.getPlayerEntitiesByPlayer(player).forEach(entity => {
-      entity.applyImpulse({ x: 0, y: 20, z: 0 });
-      logger.debug(`Player ${player.username || player.id} launched into the air`);
+  world.chatManager.registerCommand('/shield [on|off]', (player, args) => {
+    overseer.toggleShield(args[0] === 'on');
+    world.chatManager.sendPlayerMessage(player, 'Shield activated', '00FF00');
+  });
+
+  world.chatManager.registerCommand('/orb', (player, args) => {
+    const orb = new Entity({
+      name: 'orb',
+      modelUri: 'models/overseers/overseer-shield.glb',
+      modelScale: 1,
+      rigidBodyOptions: {
+        type: RigidBodyType.KINEMATIC_POSITION,
+        colliders: [
+          {
+            shape: ColliderShape.BALL,
+            radius: 3, // Large enough to enclose Koro
+            isSensor: true, // Won't physically block but will detect collisions
+          }
+        ]
+      },
     });
+
+    orb.spawn(world, { x: 0, y: 10, z: 0 });
   });
 
   /**
