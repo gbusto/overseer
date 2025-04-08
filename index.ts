@@ -42,7 +42,7 @@ import {
 
 import OverseerEntity from './classes/entities/OverseerEntity';
 import GameManager from './classes/GameManager';
-import worldMap from './assets/overseer-terrain.json';
+import worldMap from './assets/hytopia_map.json';
 import { Logger, LogLevel } from './utils/logger';
 
 // Initialize logger
@@ -96,7 +96,7 @@ startServer(world => {
   const overseer = new OverseerEntity();
 
   // Spawn the overseer at the center of the map
-  overseer.spawn(world, { x: 0, y: 50, z: 0 });
+  overseer.spawn(world, { x: 0, y: 25, z: 0 });
   logger.info('Overseer entity spawned');
 
   /**

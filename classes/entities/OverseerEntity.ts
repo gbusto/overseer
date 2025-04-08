@@ -160,33 +160,33 @@ export default class OverseerEntity extends Entity {
    */
   private _createShield(world: World): void {
     // Create shield entity
-    this._shield = new Entity({
-      name: 'OverseerShield',
-      modelUri: 'models/overseer/overseer-shield.glb',
-      modelScale: 6, // Make it a bit larger than Koro
-      parent: this, // Set as child of Koro
-      rigidBodyOptions: {
-        type: RigidBodyType.KINEMATIC_POSITION,
-        colliders: [
-          {
-            shape: ColliderShape.BALL,
-            radius: 3, // Large enough to enclose Koro
-            isSensor: true, // Won't physically block but will detect collisions
-          }
-        ]
-      },
-    });
+    // this._shield = new Entity({
+    //   name: 'OverseerShield',
+    //   modelUri: 'models/overseer/overseer-shield.glb',
+    //   modelScale: 6, // Make it a bit larger than Koro
+    //   parent: this, // Set as child of Koro
+    //   rigidBodyOptions: {
+    //     type: RigidBodyType.KINEMATIC_POSITION,
+    //     colliders: [
+    //       {
+    //         shape: ColliderShape.BALL,
+    //         radius: 3, // Large enough to enclose Koro
+    //         isSensor: true, // Won't physically block but will detect collisions
+    //       }
+    //     ]
+    //   },
+    // });
     
-    // Spawn it at the same position as Koro
-    this._shield.spawn(world, { x: 0, y: 0, z: 0 });
+    // // Spawn it at the same position as Koro
+    // this._shield.spawn(world, { x: 0, y: 0, z: 0 });
     
-    // Make it translucent
-    this._shield.setOpacity(0.4);
+    // // Make it translucent
+    // this._shield.setOpacity(0.4);
     
-    // Activate shield by default
-    this._shieldActive = true;
+    // // Activate shield by default
+    // this._shieldActive = true;
     
-    this._logger.info('Created and spawned shield entity');
+    // this._logger.info('Created and spawned shield entity');
   }
 
   /**
