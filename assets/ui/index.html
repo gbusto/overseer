@@ -24,6 +24,31 @@
   <!-- Countdown for game start -->
   <div id="countdown-container" class="countdown-container">5</div>
 
+  <!-- Inventory UI -->
+  <div id="inventory-container" class="inventory-container">
+    <!-- Hand slot (currently held item) -->
+    <div id="hand-slot" class="inventory-slot hand-slot">
+      <div class="slot-key">HAND</div>
+      <div class="slot-content"></div>
+    </div>
+    
+    <!-- Backpack slots -->
+    <div id="backpack-slots" class="backpack-slots">
+      <div id="slot-0" class="inventory-slot backpack-slot">
+        <div class="slot-key">1</div>
+        <div class="slot-content"></div>
+      </div>
+      <div id="slot-1" class="inventory-slot backpack-slot">
+        <div class="slot-key">2</div>
+        <div class="slot-content"></div>
+      </div>
+      <div id="slot-2" class="inventory-slot backpack-slot">
+        <div class="slot-key">3</div>
+        <div class="slot-content"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Fade overlay for transitions -->
   <div id="fade-overlay" class="fade-overlay"></div>
 </div>
@@ -186,6 +211,73 @@
     display: none; /* Hidden by default */
   }
 
+  /* Inventory styles */
+  .inventory-container {
+    position: fixed;
+    bottom: 60px;
+    left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .inventory-slot {
+    width: 60px;
+    height: 60px;
+    background-color: rgba(0, 0, 0, 0.5);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 5px;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.2s ease;
+  }
+
+  .inventory-slot.active {
+    border-color: #ffcc00;
+    box-shadow: 0 0 10px rgba(255, 204, 0, 0.5);
+  }
+
+  .hand-slot {
+    width: 70px;
+    height: 70px;
+    background-color: rgba(0, 0, 0, 0.6);
+    border-color: rgba(255, 255, 255, 0.5);
+    align-self: center;
+  }
+
+  .backpack-slots {
+    display: flex;
+    gap: 10px;
+  }
+
+  .slot-key {
+    position: absolute;
+    top: -8px;
+    left: -8px;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+  }
+
+  .slot-content {
+    width: 80%;
+    height: 80%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-size: 12px;
+    text-align: center;
+    text-shadow: 1px 1px 2px black;
+    overflow: hidden;
+  }
+
   /* Fade overlay styles */
   .fade-overlay {
     position: fixed;
@@ -205,6 +297,14 @@
   // Get UI elements
   const messagePanel = document.getElementById('overseer-message-panel');
   const messageContent = document.getElementById('message-content');
+  
+  // Inventory elements
+  const handSlot = document.getElementById('hand-slot');
+  const backpackSlots = [
+    document.getElementById('slot-0'),
+    document.getElementById('slot-1'),
+    document.getElementById('slot-2')
+  ];
   
   // Handle incoming data from the server
   hytopia.onData(data => {
@@ -291,6 +391,10 @@
       case 'fade-from-white':
         fadeFromWhite(data.duration);
         break;
+        
+      case 'inventory-update':
+        updateInventory(data.handItem, data.backpack);
+        break;
     }
   });
   
@@ -367,6 +471,36 @@
     const overlay = document.getElementById('fade-overlay');
     overlay.style.transition = `opacity ${duration/1000}s ease-in-out`;
     overlay.style.opacity = '0';
+  }
+  
+  // Update inventory display
+  function updateInventory(handItem, backpackItems) {
+    // Update hand slot
+    updateSlot(handSlot.querySelector('.slot-content'), handItem);
+    
+    // Update backpack slots
+    for (let i = 0; i < backpackSlots.length; i++) {
+      updateSlot(backpackSlots[i].querySelector('.slot-content'), backpackItems[i]);
+    }
+  }
+  
+  // Update a single inventory slot
+  function updateSlot(slotElement, item) {
+    if (item) {
+      // If there's an item, display its name/icon
+      const itemName = item.name || 'Item';
+      slotElement.textContent = itemName;
+      
+      // Apply specific styles based on item type (can be expanded)
+      slotElement.className = 'slot-content';
+      if (item.type) {
+        slotElement.classList.add(`item-${item.type}`);
+      }
+    } else {
+      // If no item, clear the slot
+      slotElement.textContent = '';
+      slotElement.className = 'slot-content';
+    }
   }
 
   // Initialize with default values but hide UI elements initially

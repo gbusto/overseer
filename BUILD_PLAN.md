@@ -18,26 +18,25 @@ This plan follows a user-centric approach, building core interactions first and 
     *   [x] Add command `/koro closeshield` for testing.
 *   **Outcome Goal:** KORO is visible, its shield can be visually opened/closed via commands. Player health is manageable for testing.
 
-## Phase 2: Player Suit Integrity & Inventory System
+## Phase 2: Player Inventory System
 
 *   **Focus:** `classes/entities/GamePlayerEntity.ts`, `classes/managers/UIManager.ts`, `assets/ui/index.html`.
 *   **Tasks:**
-    *   [ ] Add a suit integrity property (`_suitIntegrity`) to `GamePlayerEntity` (with max value of 100).
     *   [ ] Add inventory system to `GamePlayerEntity`:
         *   [ ] Implement backpack array with 3 slots (`_backpackInventory`)
         *   [ ] Implement hand item slot (`_handItem`)
         *   [ ] Add methods to manage this 3+1 inventory (add, remove, swap between backpack and hand)
     *   [ ] Create basic UI elements in `index.html` for:
-        *   [ ] Suit integrity display
+        *   [ ] Health display (using existing player health)
         *   [ ] 3 backpack inventory slots
         *   [ ] 1 hand inventory slot (visually distinct)
     *   [ ] Create `UIManager` class.
-    *   [ ] Implement `UIManager.updateSuitIntegrity(player, integrityValue)` to send data to client UI.
+    *   [ ] Implement `UIManager.updateHealthUI(player, healthValue)` to send health data to client UI.
     *   [ ] Implement `UIManager.updateInventoryUI(player, inventoryData)` to send full inventory state.
-    *   [ ] Add client-side JS in `index.html` to receive and display suit integrity and inventory.
+    *   [ ] Add client-side JS in `index.html` to receive and display health and inventory.
     *   [ ] Add methods to highlight active/selected inventory slot.
     *   [ ] Call update methods from `GamePlayerEntity` whenever values change.
-*   **Outcome Goal:** Players have a suit integrity meter and 3+1 inventory system visible on their screen, with clear display of which items are in backpack vs. held in hand.
+*   **Outcome Goal:** Players have health display and 3+1 inventory system visible on their screen, with clear display of which items are in backpack vs. held in hand.
 
 ## Phase 3: Item Spawning & Management
 
@@ -45,20 +44,20 @@ This plan follows a user-centric approach, building core interactions first and 
 *   **Tasks:**
     *   [ ] Create `ItemManager` class.
     *   [ ] Define item spawn locations (can be hardcoded list initially).
-    *   [ ] Implement `ItemManager` logic to spawn specific items (Repair Kit, Control Panel Cards, Weapons, Flashlight) based on rules.
+    *   [ ] Implement `ItemManager` logic to spawn specific items (Health Pack, Control Panel Cards, Weapons, Flashlight) based on rules.
     *   [ ] Implement random location selection from the defined list for spawns.
     *   [ ] Implement spawn cooldown logic for control panel cards (only one of each type at a time).
     *   [ ] Implement despawn timers for items spawned in the world (except weapons and flashlight).
     *   [ ] Create `BaseItem` entity class.
     *   [ ] Create specific item subclasses:
-        *   [ ] `SuitRepairKitItem` - Restores suit integrity
+        *   [ ] `HealthPackItem` - Restores player health
         *   [ ] `HeatPanelCardItem` - Used for heat redirection
         *   [ ] `CoolPanelCardItem` - Used for cooling redirection
         *   [ ] `MaintenanceCardItem` - Used to force shield open
         *   [ ] `WeaponItem` - Energy weapon (non-despawning)
         *   [ ] `FlashlightItem` - Light source (non-despawning)
     *   [ ] Add command `/spawnitem <itemId>` for testing specific item spawns.
-*   **Outcome Goal:** Items appear in the world according to rules. Control cards and repair kits despawn after time, weapons and flashlight never despawn.
+*   **Outcome Goal:** Items appear in the world according to rules. Control cards and health packs despawn after time, weapons and flashlight never despawn.
 
 ## Phase 4: Core Item Interactions (Pickup, Drop, Share)
 
@@ -79,7 +78,7 @@ This plan follows a user-centric approach, building core interactions first and 
         *   [ ] Remove item from that slot
         *   [ ] Update UI
         *   [ ] Spawn item in world with physics
-    *   [ ] Implement `SuitRepairKitItem.consume()` method: increase player's suit integrity when used.
+    *   [ ] Implement `HealthPackItem.consume()` method: increase player's health when used.
     *   [ ] Implement Item Sharing:
         *   [ ] Extend interaction ('E' key) raycast to check if target is another `GamePlayerEntity` within range
         *   [ ] If player hit, check which item is currently selected (hand or backpack slot)
@@ -106,10 +105,9 @@ This plan follows a user-centric approach, building core interactions first and 
         *   [ ] Add `EffectsManager.applyHeatTint()` method (screen color change).
         *   [ ] Add `AudioManager.playHeatWarningSound()`, `playDamageSound()` methods.
     *   **Player Effects & Damage:**
-        *   [ ] Implement environmental damage calculation based on suit integrity:
-            *   [ ] Add method to calculate damage multiplier based on suit integrity.
+        *   [ ] Implement direct environmental damage:
             *   [ ] Add `takeEnvironmentalDamage(amount)` method to `GamePlayerEntity`.
-            *   [ ] In `SuperheatAttack`'s tick logic, call `takeEnvironmentalDamage` with damage scaled by integrity.
+            *   [ ] In `SuperheatAttack`'s tick logic, call `takeEnvironmentalDamage` with fixed damage amount.
     *   **UI:**
         *   [ ] Add temperature display element to `index.html`.
         *   [ ] Add client-side JS to update temperature display.
@@ -120,18 +118,18 @@ This plan follows a user-centric approach, building core interactions first and 
             *   [ ] Check if `SuperheatAttack` is active (via `AttackManager`).
             *   [ ] Check if interacting player has `HeatPanelCardItem` in selected inventory slot.
             *   [ ] If checks pass: consume card, call `KoroEntity.applyBurnDamage(duration)`, call `KoroEntity.openShield(duration)`.
-*   **Outcome Goal:** Superheat attack works end-to-end: triggers, affects environment/UI/audio, damages players (more at lower suit integrity), can be redirected to hurt KORO using a card from inventory.
+*   **Outcome Goal:** Superheat attack works end-to-end: triggers, affects environment/UI/audio, damages players, can be redirected to hurt KORO using a card from inventory.
 
 ## Phase 6: Implement Other Attacks
 
 *   **Focus:** New Attack classes, related Panel entities, Items. Leverage existing Managers.
 *   **Tasks:**
-    *   [ ] Create `SupercoolAttack` class: Implement logic, effects (blue tint), audio, UI updates, damage (scaled by suit integrity).
+    *   [ ] Create `SupercoolAttack` class: Implement logic, effects (blue tint), audio, UI updates, direct damage.
     *   [ ] Create `CryoPanelEntity` and `CoolPanelCardItem`. Implement redirection logic in panel to stun KORO.
-    *   [ ] Create `UvAttack` class: Implement logic, effects (purple tint), audio, UI updates, damage (scaled by suit integrity).
+    *   [ ] Create `UvAttack` class: Implement logic, effects (purple tint), audio, UI updates, direct damage.
     *   [ ] Create `DarknessAttack` class: Implement logic (set global light to 0), audio/announcer.
     *   [ ] Implement `FlashlightItem` logic (toggle a light source component when equipped/active in hand slot).
-*   **Outcome Goal:** All environmental attacks are functional with respective effects and damage scaling based on suit integrity. Strategic inventory management becomes important for surviving different attacks.
+*   **Outcome Goal:** All environmental attacks are functional with respective effects and dealing direct damage to players. Strategic inventory management becomes important for surviving different attacks.
 
 ## Phase 7: Implement Remaining Interactions & Core Damage
 
@@ -174,6 +172,6 @@ This plan follows a user-centric approach, building core interactions first and 
         *   [ ] Add specific visual effects for shield opening/closing, panel activation, KORO taking damage.
     *   **UI Polish:**
         *   [ ] Finalize UI layout for clarity and mobile compatibility.
-        *   [ ] Ensure all necessary information (suit integrity, timers, cooldowns, health, status) is clearly displayed.
+        *   [ ] Ensure all necessary information (health, timers, cooldowns, status) is clearly displayed.
         *   [ ] Polish inventory UI with clearer slot indicators and selection highlighting.
 *   **Outcome Goal:** KORO dynamically chooses attacks and speaks via LLM. TTS and voice degradation are implemented. Visuals and audio are polished. The game loop feels complete and driven by KORO's AI.

@@ -17,7 +17,7 @@
 
 **III. Core Gameplay Loop & Player Actions**
 
-1.  **Survive Environmental Hazards:** Players have a **Protective Suit** with an **Integrity Meter**. As suit integrity drops, environmental attacks do increasing damage. Players must find and use **Suit Repair Kits** to maintain their suit's integrity.
+1.  **Survive Environmental Hazards:** Players take damage from KORO's environmental attacks. They must find and use **Health Packs** to restore their health and survive.
 
 2.  **Damage/Debuff via Attack Redirection (Requires Coordination during Attack):**
     * **During Superheat Attack:** Players must find and activate the designated **"Thermal Exhaust Reroute" Panel** using a **Heat Vent Control Panel Card**. *Successful Activation:* Redirects intense heat onto KORO, causing direct **burn damage** over time.
@@ -29,7 +29,7 @@
 
 4.  **Deal Gun Damage:** During the windows created by the **Maintenance Override (Card Use or Self-Initiated)**, or potentially during the brief **Freeze Stun**, players use their **Energy-Based Weapons** to shoot KORO's exposed core/components. This is the primary way to deplete its main health bar.
 
-5.  **Resource Management:** Find **Suit Repair Kits** to maintain suit integrity, collect control panel cards, and strategically use guns.
+5.  **Resource Management:** Find **Health Packs** to restore health, collect control panel cards, and strategically use guns.
 
 6.  **Repeat:** Cycle through surviving KORO's attacks, executing redirection or override strategies, and dealing damage until KORO is defeated.
 
@@ -44,10 +44,9 @@
     * **Heat Vent Control Panel Cards:** Used to redirect heat attacks
     * **Cooling Vent Control Panel Cards:** Used to redirect cooling attacks
     * **Maintenance Control Panel Cards:** Used to force KORO to expose itself
-    * **Suit Repair Kits:** Restore suit integrity
+    * **Health Packs:** Restore player health
     * **Energy-Based Weapons:** 3 weapons that never despawn, used for dealing direct health damage
     * **Flashlight:** Single item that never despawn, helps navigate during blackout attacks
-* **Player Protection:** Suit integrity system - as integrity drops, environmental attacks do more damage
 * **Inventory System:** Each player has a **3+1 inventory** (3 backpack slots plus one item held in hand), creating important strategic decisions about what to carry
 
 **V. Other Mechanics**
@@ -62,7 +61,7 @@
 * **TTS:** Replicate API using the "kokoro" model.
 
 ### Items (Simplified)
-- Suit repair kit (restores suit integrity); spawns randomly
+- Health packs (restore player health); spawns randomly
 - Heat vent control panel card; spawns randomly; no more than one at a time
 - Cooling vent control panel card; spawns randomly; no more than one at a time
 - Maintenance control panel card; spawns randomly; no more than one at a time
@@ -73,7 +72,7 @@
 - Players have 3 backpack inventory slots plus one item they can hold in hand (4 total)
 - Strategic decisions must be made about what to carry:
   - Carrying multiple control cards means being ready for different attacks
-  - Carrying repair kits means maintaining suit integrity
+  - Carrying health packs means being able to heal when damaged
   - Carrying weapons means being ready to damage KORO when exposed
   - Carrying the flashlight helps during darkness attacks
 - Players can share items with nearby teammates by transferring directly to their inventory
@@ -82,16 +81,16 @@
 ### Attacks from KORO
 - Superheating
     - UI: show biodome temperature; increases rapidly; ambient lighting turns red to indicate heat
-    - Audio: announcer announces super heating enabled; damage sounds if suit integrity low
-    - Player: takes damage based on suit integrity level
+    - Audio: announcer announces super heating enabled; damage sounds if player is taking damage
+    - Player: takes direct damage from the heat attack
 - Supercooling
     - UI: show biodome temperature; decreases rapidly; ambient lighting turns icy blue to indicate cooling
-    - Audio: announcer mentions supercooling enabled; damage sounds if suit integrity low
-    - Player: takes damage based on suit integrity level
+    - Audio: announcer mentions supercooling enabled; damage sounds if player is taking damage
+    - Player: takes direct damage from the cold attack
 - High UV
     - UI: show biodome radiation level; ambient lighting turns bright purple to indicate UV
-    - Audio: announcer announces this; radiation sounds if suit integrity low
-    - Player: takes damage based on suit integrity level
+    - Audio: announcer announces this; radiation sounds if player is taking damage
+    - Player: takes direct damage from the UV attack
 - Total Darkness
     - UI: basically set all lighting to ZERO
     - Audio: announcer mentions darkness
@@ -112,8 +111,8 @@
 - When damaged, its voice becomes crazier and more broken
 
 ### Player actions / game mechanics
-- Players have a suit with integrity level that affects how much damage they take from attacks
-- Players can repair suits with repair kits
+- Players have health that decreases when taking damage from attacks
+- Players can heal with health packs
 - Players must manage their limited inventory (3+1 slots) to carry the right items for the situation
 - Players can share items directly with teammates
 - There will be 3 panels in the game:

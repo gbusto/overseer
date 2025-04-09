@@ -13,6 +13,7 @@ import GameManager, { GameState } from '../GameManager';
 // Constants
 const MAX_HEALTH = 100;
 const BASE_HEALTH = 100;
+const BACKPACK_SIZE = 3; // Number of backpack inventory slots
 
 export default class GamePlayerEntity extends PlayerEntity {
   private _health: number = BASE_HEALTH;
@@ -20,19 +21,14 @@ export default class GamePlayerEntity extends PlayerEntity {
   private _damageAudio: Audio;
   private _logger = new Logger('GamePlayerEntity');
   
+  // Inventory system
+  private _backpackInventory: (any | null)[] = [null, null, null]; // 3 backpack slots
+  private _handItem: any | null = null; // Item held in hand
+  
   // Player entities always have a PlayerController
   public get playerController(): PlayerEntityController {
     return this.controller as PlayerEntityController;
   }
-  
-  // Health getters and setters
-  public get health(): number { return this._health; }
-  public set health(value: number) {
-    this._health = Math.max(0, Math.min(value, this._maxHealth));
-    this._updateHealthUI();
-  }
-  
-  public get maxHealth(): number { return this._maxHealth; }
   
   constructor(player: Player) {
     super({
@@ -83,6 +79,9 @@ export default class GamePlayerEntity extends PlayerEntity {
     this.world.chatManager.sendPlayerMessage(this.player, 'Use WASD to move around.');
     this.world.chatManager.sendPlayerMessage(this.player, 'Press space to jump.');
     this.world.chatManager.sendPlayerMessage(this.player, 'Hold shift to sprint.');
+    this.world.chatManager.sendPlayerMessage(this.player, 'Press E to interact with objects or pick up items.');
+    this.world.chatManager.sendPlayerMessage(this.player, 'Press 1-3 to swap items between hand and backpack.');
+    this.world.chatManager.sendPlayerMessage(this.player, 'Press Q to drop the item in your hand.');
     this.world.chatManager.sendPlayerMessage(this.player, 'Press \\ to enter or exit debug view.');
     this.world.chatManager.sendPlayerMessage(this.player, 'Type /start to begin a game!', '00FFFF');
     this.world.chatManager.sendPlayerMessage(this.player, 'Admin commands:', 'FFA500');
@@ -150,10 +149,32 @@ export default class GamePlayerEntity extends PlayerEntity {
     // Handle input processing here
     const { input } = payload;
     
-    // Example: handling a specific key press (for future use)
+    // Handle healing with 'h' key
     if (input.h) {
       this.heal(10); // Heal on 'h' key press
       input.h = false; // Reset the input to avoid continuous healing
+    }
+    
+    // Handle dropping hand item with 'q' key
+    if (input.q) {
+      this.dropHandItem();
+      input.q = false; // Reset the input to avoid continuous dropping
+    }
+    
+    // Handle inventory slot swapping with number keys
+    if (input.one) {
+      this.swapHandWithBackpack(0);
+      input.one = false;
+    }
+    
+    if (input.two) {
+      this.swapHandWithBackpack(1);
+      input.two = false;
+    }
+    
+    if (input.three) {
+      this.swapHandWithBackpack(2);
+      input.three = false;
     }
   };
   
@@ -176,6 +197,157 @@ export default class GamePlayerEntity extends PlayerEntity {
     // Update health
     this._updateHealthUI();
     
-    // Add other UI updates as needed
+    // Update inventory UI
+    this._updateInventoryUI();
+  }
+  
+  /**
+   * Update inventory UI elements
+   */
+  private _updateInventoryUI(): void {
+    // Update player's UI with inventory data
+    this.player.ui.sendData({
+      type: 'inventory-update',
+      handItem: this._handItem,
+      backpack: this._backpackInventory
+    });
+  }
+  
+  /**
+   * Check if player has item in hand
+   */
+  public hasItemInHand(): boolean {
+    return this._handItem !== null;
+  }
+  
+  /**
+   * Check if player has item in specific backpack slot
+   * @param index Backpack slot index (0-2)
+   */
+  public hasItemInBackpack(index: number): boolean {
+    if (index < 0 || index >= BACKPACK_SIZE) return false;
+    return this._backpackInventory[index] !== null;
+  }
+  
+  /**
+   * Check if player has space in backpack
+   */
+  public hasSpaceInBackpack(): boolean {
+    return this._backpackInventory.some(item => item === null);
+  }
+  
+  /**
+   * Find first empty backpack slot
+   * @returns Index of first empty slot, or -1 if backpack is full
+   */
+  public findFirstEmptyBackpackSlot(): number {
+    return this._backpackInventory.findIndex(item => item === null);
+  }
+  
+  /**
+   * Get item in hand
+   */
+  public getHandItem(): any | null {
+    return this._handItem;
+  }
+  
+  /**
+   * Get item in backpack slot
+   * @param index Backpack slot index (0-2)
+   */
+  public getBackpackItem(index: number): any | null {
+    if (index < 0 || index >= BACKPACK_SIZE) return null;
+    return this._backpackInventory[index];
+  }
+  
+  /**
+   * Pick up an item
+   * @param item The item to pick up
+   * @returns Whether the pickup was successful
+   */
+  public pickupItem(item: any): boolean {
+    if (!item) return false;
+    
+    // If hand is empty, put item in hand
+    if (!this.hasItemInHand()) {
+      this._handItem = item;
+      this._logger.debug(`Picked up item to hand: ${item.name || 'unknown item'}`);
+      this._updateInventoryUI();
+      return true;
+    }
+    
+    // If hand is full but backpack has space, put item in backpack
+    const emptySlot = this.findFirstEmptyBackpackSlot();
+    if (emptySlot !== -1) {
+      this._backpackInventory[emptySlot] = item;
+      this._logger.debug(`Picked up item to backpack slot ${emptySlot}: ${item.name || 'unknown item'}`);
+      this._updateInventoryUI();
+      return true;
+    }
+    
+    // No space available
+    this._logger.debug('Cannot pick up item: inventory full');
+    return false;
+  }
+  
+  /**
+   * Drop the item in hand
+   * @returns The dropped item, or null if hand was empty
+   */
+  public dropHandItem(): any | null {
+    if (!this.hasItemInHand()) return null;
+    
+    const droppedItem = this._handItem;
+    this._handItem = null;
+    this._logger.debug(`Dropped hand item: ${droppedItem.name || 'unknown item'}`);
+    this._updateInventoryUI();
+    
+    return droppedItem;
+  }
+  
+  /**
+   * Drop an item from backpack
+   * @param index Backpack slot index (0-2)
+   * @returns The dropped item, or null if slot was empty
+   */
+  public dropBackpackItem(index: number): any | null {
+    if (index < 0 || index >= BACKPACK_SIZE) return null;
+    if (!this.hasItemInBackpack(index)) return null;
+    
+    const droppedItem = this._backpackInventory[index];
+    this._backpackInventory[index] = null;
+    this._logger.debug(`Dropped backpack item from slot ${index}: ${droppedItem.name || 'unknown item'}`);
+    this._updateInventoryUI();
+    
+    return droppedItem;
+  }
+  
+  /**
+   * Swap item between hand and backpack slot
+   * @param backpackIndex Backpack slot index (0-2)
+   * @returns Whether the swap was successful
+   */
+  public swapHandWithBackpack(backpackIndex: number): boolean {
+    if (backpackIndex < 0 || backpackIndex >= BACKPACK_SIZE) return false;
+    
+    // Swap the items
+    const backpackItem = this._backpackInventory[backpackIndex];
+    this._backpackInventory[backpackIndex] = this._handItem;
+    this._handItem = backpackItem;
+    
+    this._logger.debug(`Swapped hand item with backpack slot ${backpackIndex}`);
+    this._updateInventoryUI();
+    
+    return true;
+  }
+  
+  // Getter/setter for health
+  get health(): number {
+    return this._health;
+  }
+  
+  set health(value: number) {
+    this._health = Math.max(0, Math.min(value, this._maxHealth));
+    this._updateHealthUI();
   }
 } 
