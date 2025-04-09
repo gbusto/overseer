@@ -18,13 +18,9 @@ export enum GameState {
   ENDING = 'ENDING'
 }
 
-const DEV_MATCH_DURATION = 1 * 60 * 1000; // 1 minute
-const PROD_MATCH_DURATION = 10 * 60 * 1000; // 10 minutes
-
 // Game constants
-const GAME_DURATION_MS = DEV_MATCH_DURATION ? DEV_MATCH_DURATION : PROD_MATCH_DURATION;
+const GAME_DURATION_MS = 10 * 60 * 1000; // 10 minutes
 const COUNTDOWN_DURATION_MS = 5 * 1000; // 5 seconds countdown
-const FADE_DURATION_MS = 1000; // 1 second fade transition
 
 export default class GameManager {
   // Singleton pattern
@@ -39,9 +35,7 @@ export default class GameManager {
   // Properties
   private _world?: World;
   private _gameState: GameState = GameState.IDLE;
-  private _gameTimer?: NodeJS.Timeout;
   private _gameStartTime: number = 0;
-  private _countdownTimer?: NodeJS.Timeout;
   private _logger = new Logger('GameManager');
 
   // Getters
@@ -65,7 +59,7 @@ export default class GameManager {
     world.chatManager.registerCommand('/start', (player) => {
       if (this._gameState === GameState.IDLE) {
         world.chatManager.sendBroadcastMessage(`${player.username || player.id} started a new game!`, '00FF00');
-        this.startGameCountdown();
+        this.startGame();
       } else {
         world.chatManager.sendPlayerMessage(player, 'A game is already in progress.', 'FF0000');
       }
@@ -81,46 +75,6 @@ export default class GameManager {
       // Clean up player entities when they leave
       world.entityManager.getPlayerEntitiesByPlayer(player).forEach(entity => entity.despawn());
     });
-  }
-
-  /**
-   * Start the game countdown
-   */
-  public startGameCountdown(): void {
-    if (!this._world || this._gameState !== GameState.IDLE) return;
-
-    this._gameState = GameState.STARTING;
-    this._logger.info('Game countdown started');
-    
-    // Broadcast to all players
-    this._world.chatManager.sendBroadcastMessage('Game starting in 5 seconds!', '00FF00');
-    
-    // Send UI data to all players
-    this._world.entityManager.getAllPlayerEntities().forEach(entity => {
-      entity.player.ui.sendData({
-        type: 'game-countdown',
-        countdown: 5
-      });
-    });
-
-    // Start countdown
-    let countdown = 5;
-    this._countdownTimer = setInterval(() => {
-      countdown--;
-      
-      if (countdown <= 0) {
-        clearInterval(this._countdownTimer);
-        this.startGame();
-      } else {
-        // Update countdown UI
-        this._world?.entityManager.getAllPlayerEntities().forEach(entity => {
-          entity.player.ui.sendData({
-            type: 'game-countdown',
-            countdown
-          });
-        });
-      }
-    }, 1000);
   }
 
   /**
@@ -144,24 +98,7 @@ export default class GameManager {
     }
 
     // Broadcast to all players
-    this._world.chatManager.sendBroadcastMessage('Game started! 10 minutes remaining.', '00FF00');
-    
-    // Update all player UIs
-    this._world.entityManager.getAllPlayerEntities().forEach(entity => {
-      entity.player.ui.sendData({
-        type: 'game-start',
-        startTime: this._gameStartTime,
-        duration: GAME_DURATION_MS
-      });
-    });
-
-    // Set the timer to end the game
-    this._gameTimer = setTimeout(() => {
-      this.endGame();
-    }, GAME_DURATION_MS);
-
-    // Start sending timer updates to clients
-    this._startTimerUpdates();
+    this._world.chatManager.sendBroadcastMessage('Game started!', '00FF00');
   }
 
   /**
@@ -183,27 +120,11 @@ export default class GameManager {
       }
     }
 
-    // Clear the game timer
-    if (this._gameTimer) {
-      clearTimeout(this._gameTimer);
-      this._gameTimer = undefined;
-    }
-
     // Broadcast to all players
     this._world.chatManager.sendBroadcastMessage('Game over!', 'FF0000');
     
-    // Send fade to white effect to all players
-    this._world.entityManager.getAllPlayerEntities().forEach(entity => {
-      entity.player.ui.sendData({
-        type: 'fade-white',
-        duration: FADE_DURATION_MS
-      });
-    });
-
-    // Reset game after fade transition
-    setTimeout(() => {
-      this._resetGame();
-    }, FADE_DURATION_MS);
+    // Reset game
+    this._resetGame();
   }
 
   /**
@@ -224,21 +145,6 @@ export default class GameManager {
     this._gameState = GameState.IDLE;
     this._logger.info('Game reset to idle state');
 
-    // Hide game UI elements for all players
-    this._world.entityManager.getAllPlayerEntities().forEach(entity => {
-      entity.player.ui.sendData({
-        type: 'game-reset'
-      });
-    });
-
-    // Send fade from white effect to all players
-    this._world.entityManager.getAllPlayerEntities().forEach(entity => {
-      entity.player.ui.sendData({
-        type: 'fade-from-white',
-        duration: FADE_DURATION_MS
-      });
-    });
-
     // Broadcast to all players
     this._world.chatManager.sendBroadcastMessage('Ready for a new game! Type /start to begin.', '00FF00');
   }
@@ -253,61 +159,6 @@ export default class GameManager {
     const playerEntity = new GamePlayerEntity(player);
     playerEntity.spawn(this._world, { x: 0, y: 10, z: 0 });
     
-    // Only send health updates if the game is active
-    if (this._gameState === GameState.ACTIVE) {
-      // Get the overseer health to update the player UI
-      const overseer = this._world.entityManager.getEntitiesByTag('overseer')[0];
-      if (overseer) {
-        const overseerEntity = overseer as any; // Using 'any' to access the method
-        if (typeof overseerEntity.getHealth === 'function') {
-          const health = overseerEntity.getHealth();
-          player.ui.sendData({
-            type: 'overseer-health-update',
-            health: health,
-            maxHealth: 100
-          });
-        }
-      }
-      
-      // Send game state info
-      player.ui.sendData({
-        type: 'game-active',
-        startTime: this._gameStartTime,
-        duration: GAME_DURATION_MS,
-        elapsed: Date.now() - this._gameStartTime
-      });
-    } else {
-      // For players joining during IDLE state, explicitly hide UI elements
-      player.ui.sendData({
-        type: 'game-reset'
-      });
-    }
-
     this._logger.info(`Player spawned: ${player.username || player.id}`);
-  }
-
-  /**
-   * Send regular timer updates to all players
-   */
-  private _startTimerUpdates(): void {
-    if (!this._world || this._gameState !== GameState.ACTIVE) return;
-
-    // Update timer every second
-    const timerInterval = setInterval(() => {
-      if (this._gameState !== GameState.ACTIVE) {
-        clearInterval(timerInterval);
-        return;
-      }
-
-      const elapsed = Date.now() - this._gameStartTime;
-      const remaining = Math.max(0, GAME_DURATION_MS - elapsed);
-      
-      this._world?.entityManager.getAllPlayerEntities().forEach(entity => {
-        entity.player.ui.sendData({
-          type: 'timer-update',
-          remaining
-        });
-      });
-    }, 1000);
   }
 } 

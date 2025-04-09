@@ -34,7 +34,7 @@ export default class OverseerEntity extends Entity {
   private _world: World | null = null;
   
   // Entity properties
-  private _floatHeight: number = 50;
+  private _floatHeight: number = 30;
   private _bobAmplitude: number = 0.5;
   private _bobSpeed: number = 0.0005;
   private _rotationSpeed: number = 0.0001;
@@ -52,9 +52,26 @@ export default class OverseerEntity extends Entity {
   // Health - will affect TTS voice
   private _health: number = 100;
   
-  // Shield entity
-  private _shield: Entity | null = null;
+  // Shield entities
+  private _shieldTop: Entity | null = null;
+  private _shieldBottom: Entity | null = null;
   private _shieldActive: boolean = false;
+  
+  // Shield positioning
+  private _shieldOffsets = {
+    top: { x: 0, y: 1.8, z: 0 },
+    bottom: { x: 0, y: -1.8, z: 0 }
+  };
+
+  private _shieldOpenOffsets = {
+    top: { x: 0, y: 7, z: 0 },
+    bottom: { x: 0, y: -7, z: 0 }
+  };
+
+  // Shield animation
+  private _shieldAnimationSpeed = 0.05; // Units per tick
+  private _isAnimating: boolean = false;
+  private _shieldAnimationTimer: NodeJS.Timeout | null = null;
   
   // Logger
   private _logger: Logger;
@@ -67,10 +84,10 @@ export default class OverseerEntity extends Entity {
     super({
       name: 'Overseer',
       tag: 'overseer', // Set tag for easy lookup
-      modelUri: 'models/npcs/squid.gltf',
-      modelScale: 2, // Make it larger and more imposing
-      modelLoopedAnimations: ['idle', 'swim'], // Use the squid's animations
+      modelUri: 'models/overseer/koro.glb',
+      modelScale: 4, // Make it larger and more imposing
       // Physics options to keep it suspended in the air
+      opacity: 0.99,
       rigidBodyOptions: {
         // KINEMATIC_POSITION allows us to control the position directly
         // and it won't be affected by gravity or other forces
@@ -156,63 +173,293 @@ export default class OverseerEntity extends Entity {
   }
 
   /**
-   * Create and initialize the shield entity
+   * Create and initialize the shield entities
    */
   private _createShield(world: World): void {
-    // Create shield entity
-    // this._shield = new Entity({
-    //   name: 'OverseerShield',
-    //   modelUri: 'models/overseer/overseer-shield.glb',
-    //   modelScale: 6, // Make it a bit larger than Koro
-    //   parent: this, // Set as child of Koro
-    //   rigidBodyOptions: {
-    //     type: RigidBodyType.KINEMATIC_POSITION,
-    //     colliders: [
-    //       {
-    //         shape: ColliderShape.BALL,
-    //         radius: 3, // Large enough to enclose Koro
-    //         isSensor: true, // Won't physically block but will detect collisions
-    //       }
-    //     ]
-    //   },
-    // });
+    // Create top shield half
+    this._shieldTop = new Entity({
+      name: 'OverseerShieldTop',
+      modelUri: 'models/overseer/shield-half.glb', // Use cube primitive which should definitely work
+      modelScale: 6.5,
+      opacity: 0.99,
+      rigidBodyOptions: {
+        type: RigidBodyType.KINEMATIC_POSITION,
+        colliders: [
+          {
+            shape: ColliderShape.BALL,
+            radius: 3,
+            isSensor: true,
+          }
+        ]
+      },
+    });
+
+    // Create bottom shield half
+    this._shieldBottom = new Entity({
+      name: 'OverseerShieldBottom',
+      modelUri: 'models/overseer/shield-half.glb', // Use sphere primitive which should definitely work
+      modelScale: 6.5,
+      opacity: 0.99,
+      rigidBodyOptions: {
+        type: RigidBodyType.KINEMATIC_POSITION,
+        colliders: [
+          {
+            shape: ColliderShape.BALL,
+            radius: 3,
+            isSensor: true,
+          }
+        ]
+      },
+    });
     
-    // // Spawn it at the same position as Koro
-    // this._shield.spawn(world, { x: 0, y: 0, z: 0 });
+    // Calculate initial positions based on overseer position
+    const topPosition = {
+      x: this.position.x + this._shieldOffsets.top.x,
+      y: this.position.y + this._shieldOffsets.top.y,
+      z: this.position.z + this._shieldOffsets.top.z,
+    };
     
-    // // Make it translucent
-    // this._shield.setOpacity(0.4);
+    const bottomPosition = {
+      x: this.position.x + this._shieldOffsets.bottom.x,
+      y: this.position.y + this._shieldOffsets.bottom.y,
+      z: this.position.z + this._shieldOffsets.bottom.z,
+    };
     
-    // // Activate shield by default
-    // this._shieldActive = true;
+    // Spawn shields at calculated positions
+    this._shieldTop.spawn(world, topPosition);
+    this._shieldBottom.spawn(world, bottomPosition);
     
-    // this._logger.info('Created and spawned shield entity');
+    // Rotate bottom shield 180 degrees around X axis to face upward
+    this._shieldBottom.setRotation({ x: 1, y: 0, z: 0, w: 0 });
+    
+    // Make sure the shield is closed/inactive by default
+    this._shieldActive = false;
+    
+    this._logger.info('Created and spawned shield entities');
   }
 
   /**
-   * Toggle the shield on/off
+   * Calculate the current shield positions based on overseer position and active state
    */
-  public toggleShield(active: boolean): boolean {
-    this._shieldActive = active;
+  private _calculateShieldPositions(): { top: Vector3Like, bottom: Vector3Like } {
+    const offsets = this._shieldActive ? this._shieldOpenOffsets : this._shieldOffsets;
     
-    if (this._shield) {
-      if (active) {
-        this._shield.setOpacity(0.6); // Show shield
-        this._logger.info('Shield activated');
-      } else {
-        this._shield.setOpacity(0); // Hide shield
-        this._logger.info('Shield deactivated');
+    return {
+      top: {
+        x: this.position.x + offsets.top.x,
+        y: this.position.y + offsets.top.y,
+        z: this.position.z + offsets.top.z,
+      },
+      bottom: {
+        x: this.position.x + offsets.bottom.x,
+        y: this.position.y + offsets.bottom.y,
+        z: this.position.z + offsets.bottom.z,
       }
+    };
+  }
+
+  /**
+   * Set shield half offsets for testing
+   */
+  public setShieldPositions(topPos: Vector3Like, bottomPos: Vector3Like): void {
+    if (this._shieldTop && this._shieldBottom) {
+      this._shieldTop.setPosition(topPos);
+      this._shieldBottom.setPosition(bottomPos);
+      
+      // Calculate and store offsets from current overseer position
+      this._shieldOffsets = {
+        top: {
+          x: topPos.x - this.position.x,
+          y: topPos.y - this.position.y,
+          z: topPos.z - this.position.z
+        },
+        bottom: {
+          x: bottomPos.x - this.position.x,
+          y: bottomPos.y - this.position.y,
+          z: bottomPos.z - this.position.z
+        }
+      };
+      
+      // Update open offsets based on closed offsets
+      this._shieldOpenOffsets = {
+        top: {
+          x: this._shieldOffsets.top.x,
+          y: this._shieldOffsets.top.y + 2, // Move up 2 units when open
+          z: this._shieldOffsets.top.z
+        },
+        bottom: {
+          x: this._shieldOffsets.bottom.x,
+          y: this._shieldOffsets.bottom.y - 2, // Move down 2 units when open
+          z: this._shieldOffsets.bottom.z
+        }
+      };
+      
+      // Log the new offsets
+      this._logger.info(`Shield offsets updated - Top: (${this._shieldOffsets.top.x}, ${this._shieldOffsets.top.y}, ${this._shieldOffsets.top.z}), Bottom: (${this._shieldOffsets.bottom.x}, ${this._shieldOffsets.bottom.y}, ${this._shieldOffsets.bottom.z})`);
+    }
+  }
+
+  /**
+   * Open the shield
+   */
+  public openShield(duration?: number): boolean {
+    // Stop any ongoing animation
+    if (this._shieldAnimationTimer) {
+      clearInterval(this._shieldAnimationTimer);
+      this._shieldAnimationTimer = null;
+    }
+    
+    this._shieldActive = true;
+    
+    if (this._shieldTop && this._shieldBottom) {
+      // Start animation to open shield
+      this._animateShield(true);
+    }
+    
+    // If duration provided, close shield after duration
+    if (duration) {
+      setTimeout(() => {
+        this.closeShield();
+      }, duration);
+    }
+    
+    return this._shieldActive;
+  }
+  
+  /**
+   * Close the shield
+   */
+  public closeShield(): boolean {
+    // Stop any ongoing animation
+    if (this._shieldAnimationTimer) {
+      clearInterval(this._shieldAnimationTimer);
+      this._shieldAnimationTimer = null;
+    }
+    
+    this._shieldActive = false;
+    
+    if (this._shieldTop && this._shieldBottom) {
+      // Start animation to close shield
+      this._animateShield(false);
     }
     
     return this._shieldActive;
   }
 
   /**
-   * Check if shield is active
+   * Animate shield opening/closing using setTimeout
    */
-  public isShieldActive(): boolean {
-    return this._shieldActive;
+  private _animateShield(opening: boolean): void {
+    if (!this._shieldTop || !this._shieldBottom) return;
+    
+    const targetOffsets = opening ? this._shieldOpenOffsets : this._shieldOffsets;
+    const animationStepMs = 16; // ~60fps
+    const animationSpeed = 0.1; // Units per step
+    
+    // Animation function using setInterval
+    this._shieldAnimationTimer = setInterval(() => {
+      let animationComplete = true;
+      
+      // Get current positions
+      const topPos = this._shieldTop?.position;
+      const bottomPos = this._shieldBottom?.position;
+      
+      if (!topPos || !bottomPos) return;
+      
+      // Calculate target positions based on overseer position
+      const targetTop = {
+        x: this.position.x + targetOffsets.top.x,
+        y: this.position.y + targetOffsets.top.y,
+        z: this.position.z + targetOffsets.top.z
+      };
+      
+      const targetBottom = {
+        x: this.position.x + targetOffsets.bottom.x,
+        y: this.position.y + targetOffsets.bottom.y,
+        z: this.position.z + targetOffsets.bottom.z
+      };
+
+      // Move top shield
+      const topDiff = {
+        y: targetTop.y - topPos.y
+      };
+
+      if (Math.abs(topDiff.y) > 0.01) {
+        const topNewY = topPos.y + Math.sign(topDiff.y) * Math.min(Math.abs(topDiff.y), animationSpeed);
+        this._shieldTop?.setPosition({ x: targetTop.x, y: topNewY, z: targetTop.z });
+        animationComplete = false;
+      } else {
+        // Make sure X and Z coordinates match current overseer position
+        this._shieldTop?.setPosition({ x: targetTop.x, y: topPos.y, z: targetTop.z });
+      }
+
+      // Move bottom shield
+      const bottomDiff = {
+        y: targetBottom.y - bottomPos.y
+      };
+
+      if (Math.abs(bottomDiff.y) > 0.01) {
+        const bottomNewY = bottomPos.y + Math.sign(bottomDiff.y) * Math.min(Math.abs(bottomDiff.y), animationSpeed);
+        this._shieldBottom?.setPosition({ x: targetBottom.x, y: bottomNewY, z: targetBottom.z });
+        animationComplete = false;
+      } else {
+        // Make sure X and Z coordinates match current overseer position
+        this._shieldBottom?.setPosition({ x: targetBottom.x, y: bottomPos.y, z: targetBottom.z });
+      }
+      
+      // If animation is complete, clear the interval
+      if (animationComplete) {
+        if (this._shieldAnimationTimer) {
+          clearInterval(this._shieldAnimationTimer);
+          this._shieldAnimationTimer = null;
+        }
+      }
+    }, animationStepMs);
+  }
+
+  /**
+   * Handle tick updates for animation and movement
+   */
+  private _onTick = ({ entity, tickDeltaMs }: { entity: Entity; tickDeltaMs: number }): void => {
+    if (!this.isSpawned || !this._world) return;
+    
+    // Create a subtle floating animation
+    const time = Date.now();
+    
+    // Calculate bobbing motion
+    const newY = this._floatHeight + Math.sin(time * this._bobSpeed) * this._bobAmplitude;
+    
+    // Calculate rotation
+    const currentRotation = this.rotation;
+    const rotationAmount = tickDeltaMs * this._rotationSpeed;
+    
+    // Update position to create floating effect
+    this.setPosition({
+      x: this.position.x,
+      y: newY,
+      z: this.position.z
+    });
+    
+    // Slowly rotate for an ominous effect
+    this.setRotation({
+      x: currentRotation.x,
+      y: currentRotation.y + rotationAmount,
+      z: currentRotation.z,
+      w: currentRotation.w
+    });
+    
+    // Update shield positions if not animating
+    if (!this._shieldAnimationTimer && this._shieldTop && this._shieldBottom) {
+      const positions = this._calculateShieldPositions();
+      this._shieldTop.setPosition(positions.top);
+      this._shieldBottom.setPosition(positions.bottom);
+    }
+    
+    // Check for AI updates periodically to avoid checking every tick
+    if (time > this._nextUpdateCheck) {
+      this._nextUpdateCheck = time + this._updateCheckInterval;
+      this._checkForBrainUpdate();
+    }
   }
 
   private _setupEventListeners(world: World): void {
@@ -401,44 +648,6 @@ export default class OverseerEntity extends Entity {
     }
     
     this._world = null;
-  }
-
-  /**
-   * Handle tick updates for animation and movement
-   */
-  private _onTick = ({ entity, tickDeltaMs }: { entity: Entity; tickDeltaMs: number }): void => {
-    if (!this.isSpawned || !this._world) return;
-    
-    // Create a subtle floating animation
-    const time = Date.now();
-    
-    // Calculate bobbing motion
-    const newY = this._floatHeight + Math.sin(time * this._bobSpeed) * this._bobAmplitude;
-    
-    // Calculate rotation
-    const currentRotation = this.rotation;
-    const rotationAmount = tickDeltaMs * this._rotationSpeed;
-    
-    // Update position to create floating effect
-    this.setPosition({
-      x: this.position.x,
-      y: newY,
-      z: this.position.z
-    });
-    
-    // Slowly rotate for an ominous effect
-    this.setRotation({
-      x: currentRotation.x,
-      y: currentRotation.y + rotationAmount,
-      z: currentRotation.z,
-      w: currentRotation.w
-    });
-    
-    // Check for AI updates periodically to avoid checking every tick
-    if (time > this._nextUpdateCheck) {
-      this._nextUpdateCheck = time + this._updateCheckInterval;
-      this._checkForBrainUpdate();
-    }
   }
   
   /**

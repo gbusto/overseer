@@ -44,6 +44,7 @@ import OverseerEntity from './classes/entities/OverseerEntity';
 import GameManager from './classes/GameManager';
 import worldMap from './assets/hytopia_map.json';
 import { Logger, LogLevel } from './utils/logger';
+import GamePlayerEntity from './classes/entities/GamePlayerEntity';
 
 // Initialize logger
 // If ENVIRONMENT is development, set the log level to DEBUG
@@ -127,15 +128,119 @@ startServer(world => {
     world.chatManager.sendPlayerMessage(player, `KORO's health set to ${health}/100`, 'FFFFFF');
   });
 
-  world.chatManager.registerCommand('/shield [on|off]', (player, args) => {
-    overseer.toggleShield(args[0] === 'on');
-    world.chatManager.sendPlayerMessage(player, 'Shield activated', '00FF00');
+  // Register sethealth command for testing player health
+  world.chatManager.registerCommand('/sethealth', (player, args) => {
+    if (args.length < 2 || !args[0] || !args[1]) {
+      world.chatManager.sendPlayerMessage(player, 'Usage: /sethealth <player> <amount>', 'FF0000');
+      return;
+    }
+    
+    // Find the target player
+    const targetPlayerName = args[0];
+    const targetPlayers = world.entityManager.getAllPlayerEntities().filter(entity => 
+      entity.player.username.toLowerCase() === targetPlayerName.toLowerCase()
+    );
+    
+    if (targetPlayers.length === 0) {
+      world.chatManager.sendPlayerMessage(player, `Player "${targetPlayerName}" not found`, 'FF0000');
+      return;
+    }
+    
+    // Parse health amount
+    const health = parseInt(args[1]);
+    if (isNaN(health) || health < 0) {
+      world.chatManager.sendPlayerMessage(player, 'Health amount must be a non-negative number', 'FF0000');
+      return;
+    }
+    
+    // Set health for the target player
+    const targetPlayer = targetPlayers[0] as GamePlayerEntity;
+    targetPlayer.health = health;
+    
+    world.chatManager.sendPlayerMessage(player, `Set ${targetPlayerName}'s health to ${health}`, '00FF00');
+    world.chatManager.sendPlayerMessage(targetPlayer.player, `Your health was set to ${health} by ${player.username}`, 'FFFFFF');
+  });
+
+  world.chatManager.registerCommand('/shield', (player, args) => {
+    if (!args[0]) {
+      world.chatManager.sendPlayerMessage(player, 'Usage: /shield <on|off|setpos>', 'FF0000');
+      return;
+    }
+
+    const overseer = world.entityManager.getEntitiesByTag('overseer')[0] as OverseerEntity;
+    if (!overseer) {
+      world.chatManager.sendPlayerMessage(player, 'Overseer not found', 'FF0000');
+      return;
+    }
+
+    switch (args[0].toLowerCase()) {
+      case 'on':
+        overseer.openShield();
+        world.chatManager.sendPlayerMessage(player, 'Shield opened', '00FF00');
+        break;
+      case 'off':
+        overseer.closeShield();
+        world.chatManager.sendPlayerMessage(player, 'Shield closed', '00FF00');
+        break;
+      case 'setpos':
+        if (args.length < 7) {
+          world.chatManager.sendPlayerMessage(player, 'Usage: /shield setpos <topX> <topY> <topZ> <bottomX> <bottomY> <bottomZ>', 'FF0000');
+          return;
+        }
+        
+        const [, topX, topY, topZ, bottomX, bottomY, bottomZ] = args;
+        
+        const topPos = {
+          x: parseFloat(topX || '0'),
+          y: parseFloat(topY || '0'),
+          z: parseFloat(topZ || '0')
+        };
+        
+        const bottomPos = {
+          x: parseFloat(bottomX || '0'),
+          y: parseFloat(bottomY || '0'),
+          z: parseFloat(bottomZ || '0')
+        };
+        
+        if (Object.values(topPos).some(isNaN) || Object.values(bottomPos).some(isNaN)) {
+          world.chatManager.sendPlayerMessage(player, 'Invalid position values', 'FF0000');
+          return;
+        }
+        
+        overseer.setShieldPositions(topPos, bottomPos);
+        world.chatManager.sendPlayerMessage(player, 'Shield positions updated', '00FF00');
+        break;
+      default:
+        world.chatManager.sendPlayerMessage(player, 'Unknown shield command', 'FF0000');
+    }
+  });
+
+  // Command for opening the shield
+  world.chatManager.registerCommand('/koro', (player, args) => {
+    if (!args[0]) {
+      world.chatManager.sendPlayerMessage(player, 'Usage: /koro <action>', 'FF0000');
+      return;
+    }
+
+    switch (args[0].toLowerCase()) {
+      case 'openshield':
+        overseer.openShield();
+        world.chatManager.sendPlayerMessage(player, 'KORO shield opened', '00FF00');
+        break;
+      case 'closeshield':
+        overseer.closeShield();
+        world.chatManager.sendPlayerMessage(player, 'KORO shield closed', '00FF00');
+        break;
+      default:
+        world.chatManager.sendPlayerMessage(player, `Unknown KORO command: ${args[0]}`, 'FF0000');
+        world.chatManager.sendPlayerMessage(player, 'Available commands: openshield, closeshield', 'FF0000');
+    }
   });
 
   world.chatManager.registerCommand('/orb', (player, args) => {
     const orb = new Entity({
       name: 'orb',
-      modelUri: 'models/overseers/overseer-shield.glb',
+      modelUri: 'models/overseer/overseer-shield.glb',
       modelScale: 1,
       rigidBodyOptions: {
         type: RigidBodyType.KINEMATIC_POSITION,
