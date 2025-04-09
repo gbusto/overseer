@@ -1,8 +1,4 @@
-## NEW PLAN FROM GEMINI
-
-Okay, decision made! Let's lock in this direction, bringing back attack redirection alongside the forced maintenance override. It definitely adds unique interaction layers back into the mix.
-
-Here is the updated summary reflecting this specific plan:
+## NEW PLAN FROM GEMINI - SIMPLIFIED VERSION
 
 **I. Core Concept & Lore: "Genesis Protocol Failure"**
 
@@ -17,19 +13,24 @@ Here is the updated summary reflecting this specific plan:
 * **AI Driver:** Gemini 2.0 Flash LLM.
 * **Communication:** Instant on-screen text; delayed TTS voice (Replicate API "kokoro" model) justified by lore; degrading voice with damage; instant SFX for critical hits/events.
 * **Defense:** Protected by a **Retractable Metal Barrier/Armor**.
-* **Attacks (Timed Hazards):** Uses environmental systems for timed attacks (~15s duration) that players must survive using items. Includes: Superheat, Deep Freeze, Blackout, Intense UV Light Purge, (possibly Oxygen Depletion).
+* **Attacks (Timed Hazards):** Uses environmental systems for timed attacks (~15s duration) that players must survive. Includes: Superheat, Deep Freeze, Blackout, Intense UV Light Purge.
 
 **III. Core Gameplay Loop & Player Actions**
 
-1.  **Survive Environmental Hazards:** Use appropriate **Consumable Protective Items** (Cooling Gel, Thermal Coat, Goggles/Sunscreen, O2 Mask etc.) to withstand KORO's timed environmental attacks.
+1.  **Survive Environmental Hazards:** Players have a **Protective Suit** with an **Integrity Meter**. As suit integrity drops, environmental attacks do increasing damage. Players must find and use **Suit Repair Kits** to maintain their suit's integrity.
+
 2.  **Damage/Debuff via Attack Redirection (Requires Coordination during Attack):**
-    * **During Superheat Attack:** Players must find and activate the designated **"Thermal Exhaust Reroute" Panel**. *Successful Activation:* Redirects intense heat onto KORO, causing direct **burn damage** over time.
-    * **During Deep Freeze Attack:** Players must find and activate the designated **"Cryo-Coolant Injector" Panel**. *Successful Activation:* Overloads KORO with cold, causing it to **temporarily freeze/stun**, becoming immobile and unable to attack for a few seconds (creating a brief vulnerability window).
-3.  **Damage via Forced Maintenance (Proactive & Reactive):**
-    * **Proactive:** Players find consumable **"Override Cards"** spawned in the Biodome. They take a card to the **"Maintenance Override Port"** and use it. *Successful Activation:* KORO's **Metal Barrier fully retracts for a significant duration (e.g., 15 seconds)**.
-    * **Reactive:** KORO *may* occasionally retract its barrier for its own self-initiated maintenance cycle.
+    * **During Superheat Attack:** Players must find and activate the designated **"Thermal Exhaust Reroute" Panel** using a **Heat Vent Control Panel Card**. *Successful Activation:* Redirects intense heat onto KORO, causing direct **burn damage** over time.
+    * **During Deep Freeze Attack:** Players must find and activate the designated **"Cryo-Coolant Injector" Panel** using a **Cooling Vent Control Panel Card**. *Successful Activation:* Overloads KORO with cold, causing it to **temporarily freeze/stun**, becoming immobile and unable to attack for a few seconds (creating a brief vulnerability window).
+
+3.  **Damage via Forced Maintenance (Proactive):**
+    * Players find consumable **"Maintenance Control Panel Cards"** spawned in the Biodome. They take a card to the **"Maintenance Override Port"** and use it. *Successful Activation:* KORO's **Metal Barrier fully retracts for a significant duration (e.g., 15 seconds)**.
+    * KORO *may* occasionally retract its barrier for its own self-initiated maintenance cycle.
+
 4.  **Deal Gun Damage:** During the windows created by the **Maintenance Override (Card Use or Self-Initiated)**, or potentially during the brief **Freeze Stun**, players use their **Energy-Based Weapons** to shoot KORO's exposed core/components. This is the primary way to deplete its main health bar.
-5.  **Resource Management:** Gather **Energy** (powers weapons), find **Protective Consumables**, and locate **Override Cards**.
+
+5.  **Resource Management:** Find **Suit Repair Kits** to maintain suit integrity, collect control panel cards, and strategically use guns.
+
 6.  **Repeat:** Cycle through surviving KORO's attacks, executing redirection or override strategies, and dealing damage until KORO is defeated.
 
 **IV. Key Systems & Items**
@@ -38,16 +39,21 @@ Here is the updated summary reflecting this specific plan:
 * **Player Offensive Interactions (3 Distinct Panels/Ports):**
     1.  **Thermal Exhaust Reroute Panel:** Active during Heat; redirects heat for burn damage.
     2.  **Cryo-Coolant Injector Panel:** Active during Freeze; redirects cold for freeze/stun effect.
-    3.  **Maintenance Override Port:** Active anytime with card; accepts Override Card to force barrier open for gun damage.
-* **Key Items:**
-    * **Override Cards:** Consumables found in the world, used to trigger maintenance window.
-    * **Protective Consumables:** Items (Coat, Gel, Goggles, Mask) needed to survive environmental attacks.
-    * **Energy-Based Weapons:** Player's primary tool for dealing direct health damage during vulnerability windows (lore: salvaged/ravager tech).
-* **Resource:** Energy (powers weapons).
+    3.  **Maintenance Override Port:** Active anytime with card; accepts Maintenance Card to force barrier open for gun damage.
+* **Key Items (Simplified):**
+    * **Heat Vent Control Panel Cards:** Used to redirect heat attacks
+    * **Cooling Vent Control Panel Cards:** Used to redirect cooling attacks
+    * **Maintenance Control Panel Cards:** Used to force KORO to expose itself
+    * **Suit Repair Kits:** Restore suit integrity
+    * **Energy-Based Weapons:** 3 weapons that never despawn, used for dealing direct health damage
+    * **Flashlight:** Single item that never despawn, helps navigate during blackout attacks
+* **Player Protection:** Suit integrity system - as integrity drops, environmental attacks do more damage
+* **Inventory System:** Each player has a **3+1 inventory** (3 backpack slots plus one item held in hand), creating important strategic decisions about what to carry
 
 **V. Other Mechanics**
 
-* **Traitor Mechanic:** Details on hold, but hoarding Override Cards / Protective Items and sabotaging panel activations are key potential actions.
+* **Traitor Mechanic:** Details on hold, but hoarding control panel cards and sabotaging panel activations are key potential actions.
+* **Item Sharing:** Players can directly transfer items to nearby players, enabling cooperation and coordination.
 * **LLM Trickery (Chat):** Possible future addition, not core loop.
 
 **VI. Key Technical Aspects**
@@ -55,45 +61,41 @@ Here is the updated summary reflecting this specific plan:
 * **LLM:** Gemini 2.0 Flash.
 * **TTS:** Replicate API using the "kokoro" model.
 
-This structure brings back the interactive attack redirection, providing distinct ways (Heat Damage, Freeze Stun, Override Open-Window) for players to engage offensively, requiring them to learn and utilize three different core interaction panels. It's more complex but offers richer strategic choices. Let's do it!
+### Items (Simplified)
+- Suit repair kit (restores suit integrity); spawns randomly
+- Heat vent control panel card; spawns randomly; no more than one at a time
+- Cooling vent control panel card; spawns randomly; no more than one at a time
+- Maintenance control panel card; spawns randomly; no more than one at a time
+- 3 Energy weapons (scattered around the map; never despawn, just regenerate energy)
+- 1 Flashlight (helps during darkness attacks; never despawns)
 
-### Items
-- Cooling gel (protects against head); spawns randomly; no more than a few at a time
-- Coat (protects against cold); spawns randomly; no more than a few at a time
-- Sunscreen (protects again UV); spawns randomly; no more than a few at a time
-- Flashlights? (helps when dark); only 1 in the game
-- Maintenance card; spawns randomly; no more than one at a time
-    - Use of maintenance cards must be protected by a cooldown so the team can't horde them and use them back to back to back
-        - Unless we maybe only spawn one at a time until it's used?
-- Energy weapons (perhaps 3 scattered around the map; no ammo, they just need to time to regenerate energy)
-- Heating panel card; spawns randomly; no more than one item at a time
-- Cooling panel card; spawns randomly; no more than one item at a time
+### Inventory Management
+- Players have 3 backpack inventory slots plus one item they can hold in hand (4 total)
+- Strategic decisions must be made about what to carry:
+  - Carrying multiple control cards means being ready for different attacks
+  - Carrying repair kits means maintaining suit integrity
+  - Carrying weapons means being ready to damage KORO when exposed
+  - Carrying the flashlight helps during darkness attacks
+- Players can share items with nearby teammates by transferring directly to their inventory
+- Team coordination around who carries what items is critical for success
 
 ### Attacks from KORO
 - Superheating
     - UI: show biodome temperature; increases rapidly; ambient lighting turns red to indicate heat
-    - Audio: announcer announces super heating enabled and to stay cool; if player doesn't have cooling gel, they start to hear a burning sound; make an "ahhhh" relief sound when applying cooling gel
-    - Player: starts taking damage once heat is over a certain amount unless they activated the cooling gel
-        - Show cooling gel timeout for how long it lasts
+    - Audio: announcer announces super heating enabled; damage sounds if suit integrity low
+    - Player: takes damage based on suit integrity level
 - Supercooling
     - UI: show biodome temperature; decreases rapidly; ambient lighting turns icy blue to indicate cooling
-    - Audio: announcer mentions supercooling enabled and to stay warm; if player doesn't have coat, they start to shiver
-    - Player: starts taking damage once temperature drops below a certain amount unless they activated the coat
-        - Show coat timeout for how it lasts
-        - If player didn't have coat, they freeze for 20 seconds after temperature drops below a certain point
-        - Notify them via UI that they're frozen
+    - Audio: announcer mentions supercooling enabled; damage sounds if suit integrity low
+    - Player: takes damage based on suit integrity level
 - High UV
     - UI: show biodome radiation level; ambient lighting turns bright purple to indicate UV
-    - Audio: announcer announces this; make like a microwave or radiation noise while attack is ongoing if player isn't protected
-    - Player: starts taking damage once UV radiation hits a certain point unless they activated sunscreen (sunscreen spray sound when consuming)
-        - Show sunscreen timeout
+    - Audio: announcer announces this; radiation sounds if suit integrity low
+    - Player: takes damage based on suit integrity level
 - Total Darkness
     - UI: basically set all lighting to ZERO
     - Audio: announcer mentions darkness
-    - Player: a single player can carry a flashlight; useful if they have a control card and need to navigate to find their way to expose KORO
-        - Using keycard/maintenance card will restore lighting and expose KORO
-        - Need to make sure players can share items (players also need inventory to hold 3-4 items each in it; plus hold one weapon in their hands)
-        - We will only allow one flashlight to spawn because spotlights are unoptimized in hytopia still and too many might overwhelm the game
+    - Player: a single flashlight helps navigate to control panels
 
 ### KORO
 - Has a shield that protects it; looks like a steel ball but is made up of 2 semispheres
@@ -103,36 +105,24 @@ This structure brings back the interactive attack redirection, providing distinc
 - When KORO returns to normal, the shield should close again
 - Shield protects against all projectile attacks
     - Shield opens up when:
-        - Maintenance card is used (described later)
-        - Supercooling is redirected to KORO by players (described later)
-        - Superheating is redirected to KORO by players (described later)
+        - Maintenance card is used
+        - Supercooling is redirected to KORO by players
+        - Superheating is redirected to KORO by players
         - KORO may occasionally malfunction and expose itself unintentionally
 - When damaged, its voice becomes crazier and more broken
-    - I should add a script that can generate disturbing electronic audio like a machine screaming for when it gets hit or hurt
-- Is controlled by AI; we'll need to eventually work out all the data it should be gathering from the game to make its decisions
 
 ### Player actions / game mechanics
+- Players have a suit with integrity level that affects how much damage they take from attacks
+- Players can repair suits with repair kits
+- Players must manage their limited inventory (3+1 slots) to carry the right items for the situation
+- Players can share items directly with teammates
 - There will be 3 panels in the game:
-    1. A panel that opens up heat vents that go directly to KORO (part of the lore is that these can be used by KORO to heat itself if its temp gets too low)
-    2. A panel that somehow opens up cooling vents to pull the cold air out of there and redirect to KORO (similar to heating; used to help cool KORO if temps get too high; part of its regulation)
-    3. A maintenance panel that forces KORO to expose itself and open its shield
-- When a superheating attack is going on, users should be notified on screen that they can stop the attack and hurt KORO if they open the heat vents; which can be done by going to the heat vents panel and interacting with it
-    - Users must use the heating panel card to activate this
-    - This attack redirection has a chance of exposing KORO by removing its shield, at which point players can attack KORO with their energy weapons
-- When a supercooling attack is going on, users should be notified on screen that they can stop the attack and hurt KORO if they open the cooling vents (or whatever makes sense; not sure if cooling vents make sense for this lol); which can be done by going to the cooling vents panel and interacting with it
-    - Users myst use the cooling panel card to activate this
-    - This attack redirection has a chance of exposing KORO by removing its shield, at which point players can attack KORO with their energy weapons
-- When a player gets a maintenance card, they can run over the maintenance panel and use it to expose KORO for a limited amount of time, at which point they can fire their energy weapons to hurt KORO
+    1. A panel that opens up heat vents that go directly to KORO (must use heat vent control panel card)
+    2. A panel that opens up cooling vents to redirect to KORO (must use cooling vent control panel card)
+    3. A maintenance panel that forces KORO to expose itself (must use maintenance control panel card)
+- When a superheating attack is going on, users should be notified on screen that they can stop the attack and hurt KORO
+- When a supercooling attack is going on, users should be notified on screen that they can redirect the cold to KORO
 - Whenever KORO gets exposed, we should pop up some kind of alert on screen
-
-### Thoughts
-- There are lots of alerts and text to show on screen... we need a really solid UI that makes sense and doesn't look cluttered, and that will work even on mobile
-- We need an audio manager / announcer system
-    - KORO's speech is different from this. The announcer system is essentially part of the biodome system overall and will have a different voice
-- KORO can already talk, but this only works when testing in production because audio URIs need to be accessible from Hytopia's servers, and localhost obviously isn't reachable by an external computer
-- We'll have attacks with special effects that need to trigger global audio, UI changes, and player effects
-- We'll have panels and actions that players can take the also have an impact on the game
-- We also need an item spawner that can follow our rules
 
 ### Loose game loop
 A loose game loop might look something like this:
@@ -141,8 +131,6 @@ A loose game loop might look something like this:
 - Update game for the action KORO is taking
 - Items spawn
 - Analyze player actions to see if they have an impact on KORO
-
-... something like that maybe.
 
 ## Proposed Development Plan (User-Centric Approach)
 

@@ -1,4 +1,4 @@
-# Development Plan Checklist: Genesis Protocol Failure
+# Development Plan Checklist: Genesis Protocol Failure (Simplified)
 
 This plan follows a user-centric approach, building core interactions first and integrating supporting systems in vertical slices.
 
@@ -18,17 +18,26 @@ This plan follows a user-centric approach, building core interactions first and 
     *   [x] Add command `/koro closeshield` for testing.
 *   **Outcome Goal:** KORO is visible, its shield can be visually opened/closed via commands. Player health is manageable for testing.
 
-## Phase 2: Player Inventory & Basic UI
+## Phase 2: Player Suit Integrity & Inventory System
 
 *   **Focus:** `classes/entities/GamePlayerEntity.ts`, `classes/managers/UIManager.ts`, `assets/ui/index.html`.
 *   **Tasks:**
-    *   [ ] Add an inventory array (`_inventory`) to `GamePlayerEntity` (define max size).
-    *   [ ] Create basic UI elements in `index.html` for inventory slots (placeholders).
+    *   [ ] Add a suit integrity property (`_suitIntegrity`) to `GamePlayerEntity` (with max value of 100).
+    *   [ ] Add inventory system to `GamePlayerEntity`:
+        *   [ ] Implement backpack array with 3 slots (`_backpackInventory`)
+        *   [ ] Implement hand item slot (`_handItem`)
+        *   [ ] Add methods to manage this 3+1 inventory (add, remove, swap between backpack and hand)
+    *   [ ] Create basic UI elements in `index.html` for:
+        *   [ ] Suit integrity display
+        *   [ ] 3 backpack inventory slots
+        *   [ ] 1 hand inventory slot (visually distinct)
     *   [ ] Create `UIManager` class.
-    *   [ ] Implement `UIManager.updateInventoryUI(player, inventoryData)` to send data to the client UI.
-    *   [ ] Add client-side JS in `index.html` to receive inventory data and update slot display.
-    *   [ ] Call `updateInventoryUI` from `GamePlayerEntity` whenever its inventory changes.
-*   **Outcome Goal:** Players have an inventory array, and its basic state (items/empty slots) is visible on their screen.
+    *   [ ] Implement `UIManager.updateSuitIntegrity(player, integrityValue)` to send data to client UI.
+    *   [ ] Implement `UIManager.updateInventoryUI(player, inventoryData)` to send full inventory state.
+    *   [ ] Add client-side JS in `index.html` to receive and display suit integrity and inventory.
+    *   [ ] Add methods to highlight active/selected inventory slot.
+    *   [ ] Call update methods from `GamePlayerEntity` whenever values change.
+*   **Outcome Goal:** Players have a suit integrity meter and 3+1 inventory system visible on their screen, with clear display of which items are in backpack vs. held in hand.
 
 ## Phase 3: Item Spawning & Management
 
@@ -36,75 +45,93 @@ This plan follows a user-centric approach, building core interactions first and 
 *   **Tasks:**
     *   [ ] Create `ItemManager` class.
     *   [ ] Define item spawn locations (can be hardcoded list initially).
-    *   [ ] Implement `ItemManager` logic to spawn specific items (Gel, Coat, Cards, etc.) based on rules (max count, e.g., only 1 maintenance card).
+    *   [ ] Implement `ItemManager` logic to spawn specific items (Repair Kit, Control Panel Cards, Weapons, Flashlight) based on rules.
     *   [ ] Implement random location selection from the defined list for spawns.
-    *   [ ] Implement spawn cooldown logic for specific items (e.g., maintenance card).
-    *   [ ] Implement despawn timers for items spawned in the world.
+    *   [ ] Implement spawn cooldown logic for control panel cards (only one of each type at a time).
+    *   [ ] Implement despawn timers for items spawned in the world (except weapons and flashlight).
     *   [ ] Create `BaseItem` entity class.
-    *   [ ] Create specific item subclasses inheriting from `BaseItem` (e.g., `CoolingGelItem`, `MaintenanceCardItem`, `WeaponItem`, `FlashlightItem`).
+    *   [ ] Create specific item subclasses:
+        *   [ ] `SuitRepairKitItem` - Restores suit integrity
+        *   [ ] `HeatPanelCardItem` - Used for heat redirection
+        *   [ ] `CoolPanelCardItem` - Used for cooling redirection
+        *   [ ] `MaintenanceCardItem` - Used to force shield open
+        *   [ ] `WeaponItem` - Energy weapon (non-despawning)
+        *   [ ] `FlashlightItem` - Light source (non-despawning)
     *   [ ] Add command `/spawnitem <itemId>` for testing specific item spawns.
-*   **Outcome Goal:** Items (Gel, Coat, Cards, Weapon, Flashlight) appear in the world according to basic rules and disappear after a set time.
+*   **Outcome Goal:** Items appear in the world according to rules. Control cards and repair kits despawn after time, weapons and flashlight never despawn.
 
 ## Phase 4: Core Item Interactions (Pickup, Drop, Share)
 
 *   **Focus:** `classes/entities/GamePlayerEntity.ts`, `classes/items/BaseItem.ts`.
 *   **Tasks:**
     *   [ ] Implement interaction raycasting triggered by the 'E' key in `GamePlayerEntity`.
-    *   [ ] Implement `GamePlayerEntity.pickup(item)` logic: check inventory space, add `ItemEntity` reference to inventory array, update UI, despawn world entity.
-    *   [ ] Implement `GamePlayerEntity.dropActiveItem()` logic: get selected item from inventory, remove reference, update UI, spawn corresponding `ItemEntity` in the world with physics velocity.
+    *   [ ] Implement `GamePlayerEntity.pickup(item)` logic:
+        *   [ ] Check if hand is empty - if yes, add item to hand
+        *   [ ] If hand is full, check backpack space and add to first empty slot
+        *   [ ] Update UI
+        *   [ ] Despawn entity (if not weapon/flashlight)
+    *   [ ] Implement item cycling/selection between inventory slots:
+        *   [ ] Add method to cycle through backpack slots and hand slot
+        *   [ ] Add method to directly select a specific slot
+        *   [ ] Update UI to highlight currently selected slot
+    *   [ ] Implement `GamePlayerEntity.dropSelectedItem()` logic:
+        *   [ ] Check which slot is selected (hand or backpack)
+        *   [ ] Remove item from that slot
+        *   [ ] Update UI
+        *   [ ] Spawn item in world with physics
+    *   [ ] Implement `SuitRepairKitItem.consume()` method: increase player's suit integrity when used.
     *   [ ] Implement Item Sharing:
-        *   [ ] Extend interaction ('E' key) raycast to check if target is another `GamePlayerEntity` within range.
-        *   [ ] If player hit, get activating player's *currently selected* item.
-        *   [ ] Check if target player has inventory space.
-        *   [ ] If space exists, remove item from activator's inventory, add to target's inventory.
-        *   [ ] Update UI for both players.
-*   **Outcome Goal:** Players can pick up items into their inventory, drop their selected item, and give their selected item to another player nearby.
+        *   [ ] Extend interaction ('E' key) raycast to check if target is another `GamePlayerEntity` within range
+        *   [ ] If player hit, check which item is currently selected (hand or backpack slot)
+        *   [ ] Check if target player has inventory space (backpack or hand)
+        *   [ ] Transfer selected item between players
+        *   [ ] Update UI for both players
+        *   [ ] Add visual/audio feedback for successful item transfer
+    *   [ ] Add optional notification system for successful pickup, drop, and share actions.
+*   **Outcome Goal:** Players can pick up items into hand or backpack, cycle/select between inventory slots, drop selected items, and share items with nearby players. The 3+1 inventory creates strategic decisions about what to carry.
 
 ## Phase 5: Implement ONE Full Attack Slice (e.g., Superheat)
 
-*   **Focus:** Multiple Managers (`AttackManager`, `UIManager`, `AudioManager`, `EffectsManager`, `AnnouncerManager`), Attack (`SuperheatAttack`), Entities (`GamePlayerEntity`, `KoroEntity`, `ThermalPanelEntity`), Items (`CoolingGelItem`, `HeatingPanelCardItem`).
+*   **Focus:** Multiple Managers, Attack, Entities, Items.
 *   **Tasks:**
     *   **Attack Management:**
         *   [ ] Create `AttackManager` class.
         *   [ ] Create `BaseEnvironmentalAttack` abstract class.
-        *   [ ] Create `SuperheatAttack` class inheriting from `BaseEnvironmentalAttack`, including duration logic.
+        *   [ ] Create `SuperheatAttack` class, including duration logic.
         *   [ ] Add command `/triggerattack superheat`.
     *   **Supporting Managers:**
-        *   [ ] Create `AudioManager` class.
-        *   [ ] Create `EffectsManager` class.
-        *   [ ] Create `AnnouncerManager` class.
+        *   [ ] Create `AudioManager`, `EffectsManager`, `AnnouncerManager` classes.
         *   [ ] Add `UIManager.updateTemperature(temp)` method.
-        *   [ ] Add `AnnouncerManager.broadcast("Superheating...")` method (sends chat message initially).
-        *   [ ] Add `EffectsManager.applyHeatTint()` method (basic screen color change).
-        *   [ ] Add `AudioManager.playHeatWarningSound()`, `playBurnSound()` methods (placeholder sounds ok).
-    *   **Player Effects & Protection:**
-        *   [ ] Add `_isHeatProtected` boolean flag to `GamePlayerEntity`.
-        *   [ ] Add `takeEnvironmentalDamage(amount)` method to `GamePlayerEntity`.
-        *   [ ] Implement `CoolingGelItem.consume()`: Set `_isHeatProtected = true` on player, set timeout to revert flag.
-        *   [ ] In `AttackManager` or `SuperheatAttack`'s tick logic, check `_isHeatProtected` before calling `takeEnvironmentalDamage`.
+        *   [ ] Add `AnnouncerManager.broadcast("Superheating...")` method.
+        *   [ ] Add `EffectsManager.applyHeatTint()` method (screen color change).
+        *   [ ] Add `AudioManager.playHeatWarningSound()`, `playDamageSound()` methods.
+    *   **Player Effects & Damage:**
+        *   [ ] Implement environmental damage calculation based on suit integrity:
+            *   [ ] Add method to calculate damage multiplier based on suit integrity.
+            *   [ ] Add `takeEnvironmentalDamage(amount)` method to `GamePlayerEntity`.
+            *   [ ] In `SuperheatAttack`'s tick logic, call `takeEnvironmentalDamage` with damage scaled by integrity.
     *   **UI:**
         *   [ ] Add temperature display element to `index.html`.
-        *   [ ] Add client-side JS to update temperature display via `UIManager`.
+        *   [ ] Add client-side JS to update temperature display.
     *   **Interaction & Redirection:**
         *   [ ] Create `ThermalPanelEntity` and place it in the world.
-        *   [ ] Create `HeatingPanelCardItem`.
+        *   [ ] Create `HeatPanelCardItem`.
         *   [ ] Implement `ThermalPanelEntity.interact()`:
             *   [ ] Check if `SuperheatAttack` is active (via `AttackManager`).
-            *   [ ] Check if interacting player has `HeatingPanelCardItem` in inventory.
-            *   [ ] If checks pass: consume card, call `KoroEntity.applyBurnDamage(duration)` (add this method to Koro), potentially call `KoroEntity.openShield(duration)`.
-*   **Outcome Goal:** The Superheat attack sequence works end-to-end: triggers, affects environment/UI/audio, damages unprotected players, Gel protects, Panel + Card redirects (applies burn to KORO, might open shield). Supporting managers are established.
+            *   [ ] Check if interacting player has `HeatPanelCardItem` in selected inventory slot.
+            *   [ ] If checks pass: consume card, call `KoroEntity.applyBurnDamage(duration)`, call `KoroEntity.openShield(duration)`.
+*   **Outcome Goal:** Superheat attack works end-to-end: triggers, affects environment/UI/audio, damages players (more at lower suit integrity), can be redirected to hurt KORO using a card from inventory.
 
 ## Phase 6: Implement Other Attacks
 
-*   **Focus:** New Attack classes (`SupercoolAttack`, `UvAttack`, `DarknessAttack`), related Panel entities (`CryoPanelEntity`), Items (`CoatItem`, `SunscreenItem`, `CoolingPanelCardItem`, `FlashlightItem`). Leverage existing Managers.
+*   **Focus:** New Attack classes, related Panel entities, Items. Leverage existing Managers.
 *   **Tasks:**
-    *   [ ] Create `SupercoolAttack` class: Implement logic, effects (blue tint via `EffectsManager`), audio (`AudioManager`), UI (`UIManager.updateTemperature`), damage (`GamePlayerEntity.takeEnvironmentalDamage`), protection (`CoatItem` consumption sets `_isColdProtected` flag).
-    *   [ ] Create `CryoPanelEntity` and `CoolingPanelCardItem`. Implement redirection logic in panel (`check attack active`, `check card`, `consume`, `KoroEntity.applyFreezeStun(duration)` (add method), `KoroEntity.openShield(duration)`).
-    *   [ ] Create `UvAttack` class: Implement logic, effects (purple tint?), audio, UI (`UIManager.updateRadiationLevel`), damage, protection (`SunscreenItem` consumption sets `_isUvProtected` flag). (No panel redirection for this one based on plan).
-    *   [ ] Create `DarknessAttack` class: Implement logic (`EffectsManager.setGlobalLight(0)`), audio/announcer.
-    *   [ ] Implement `FlashlightItem` logic (toggle a light source component when equipped/active).
-    *   [ ] (Optional/Clarify): Implement interaction for using a card during Darkness to restore light (maybe via Maintenance Panel?).
-*   **Outcome Goal:** All environmental attacks (Heat, Cold, UV, Darkness) are functional with their respective effects, damage, player protections, and panel interactions (for Heat/Cold).
+    *   [ ] Create `SupercoolAttack` class: Implement logic, effects (blue tint), audio, UI updates, damage (scaled by suit integrity).
+    *   [ ] Create `CryoPanelEntity` and `CoolPanelCardItem`. Implement redirection logic in panel to stun KORO.
+    *   [ ] Create `UvAttack` class: Implement logic, effects (purple tint), audio, UI updates, damage (scaled by suit integrity).
+    *   [ ] Create `DarknessAttack` class: Implement logic (set global light to 0), audio/announcer.
+    *   [ ] Implement `FlashlightItem` logic (toggle a light source component when equipped/active in hand slot).
+*   **Outcome Goal:** All environmental attacks are functional with respective effects and damage scaling based on suit integrity. Strategic inventory management becomes important for surviving different attacks.
 
 ## Phase 7: Implement Remaining Interactions & Core Damage
 
@@ -112,18 +139,19 @@ This plan follows a user-centric approach, building core interactions first and 
 *   **Tasks:**
     *   [ ] Create `MaintenancePanelEntity` and place it in the world.
     *   [ ] Implement `MaintenancePanelEntity.interact()`:
-        *   [ ] Check if player has `MaintenanceCardItem`.
-        *   [ ] Implement cooldown mechanism (e.g., timestamp on panel, or limit card spawns).
+        *   [ ] Check if player has `MaintenanceCardItem` in selected inventory slot.
+        *   [ ] Implement cooldown mechanism.
         *   [ ] If checks pass & cooldown ready: consume card, call `KoroEntity.openShield(duration)`, set cooldown.
     *   [ ] Implement `KoroEntity.takeHealthDamage(amount)` method.
     *   [ ] Add health property to `KoroEntity`.
     *   [ ] Implement `WeaponItem` firing logic:
+        *   [ ] Check if weapon is in hand slot (not backpack)
         *   [ ] Perform raycast.
         *   [ ] If hit target is `KoroEntity`, check `KoroEntity.isShieldOpen()`.
         *   [ ] If shield open, call `KoroEntity.takeHealthDamage()`.
     *   [ ] Implement KORO's random malfunction: Add a timer/chance in `KoroEntity`'s tick to occasionally call `openShield()` itself.
-    *   [ ] Implement "KORO EXPOSED" alert: Call `UIManager.showGlobalAlert("KORO EXPOSED!")` whenever `KoroEntity.openShield()` is successfully called. Add necessary UI element and client-side JS.
-*   **Outcome Goal:** The primary damage loop is complete. Players can force KORO's shield open via the Maintenance Panel & Card, or benefit from redirects/malfunctions, and then deal health damage with weapons.
+    *   [ ] Implement "KORO EXPOSED" alert: Call `UIManager.showGlobalAlert("KORO EXPOSED!")` whenever shield opens.
+*   **Outcome Goal:** The primary damage loop is complete. Players can force KORO's shield open using maintenance cards from inventory and deal health damage with weapons when held in hand.
 
 ## Phase 8: AI Integration & Polish
 
@@ -131,23 +159,21 @@ This plan follows a user-centric approach, building core interactions first and 
 *   **Tasks:**
     *   **AI Core:**
         *   [ ] Create `KoroAiManager` class.
-        *   [ ] Define data structure for game state snapshot (player info, KORO state, item locations, panel states, active attack).
-        *   [ ] Implement function(s) to gather this snapshot data.
+        *   [ ] Define data structure for game state snapshot.
+        *   [ ] Implement function(s) to gather snapshot data.
         *   [ ] Set up Gemini API connection in `KoroAiManager`.
         *   [ ] Implement the main AI loop: Get snapshot -> Format prompt -> Send to LLM -> Parse response.
-        *   [ ] Implement response parsing to trigger actions:
-            *   `AttackManager.startAttack(attackId)`
-            *   `AudioManager.speakKoro(text)` (placeholder for TTS initially)
-            *   `KoroEntity.openShield()` (for self-maintenance/malfunction decisions)
+        *   [ ] Implement response parsing to trigger actions.
     *   **Audio Polish:**
         *   [ ] Integrate Replicate API for "kokoro" TTS via `AudioManager.speakKoro()`.
         *   [ ] Add configurable delay for TTS playback.
-        *   [ ] Implement voice degradation based on `KoroEntity` health (modify TTS parameters or apply post-processing).
+        *   [ ] Implement voice degradation based on `KoroEntity` health.
         *   [ ] Replace placeholder SFX with final audio assets.
     *   **Visual Polish:**
-        *   [ ] Refine screen tints and add particle effects via `EffectsManager`.
+        *   [ ] Refine screen tints and add particle effects.
         *   [ ] Add specific visual effects for shield opening/closing, panel activation, KORO taking damage.
     *   **UI Polish:**
         *   [ ] Finalize UI layout for clarity and mobile compatibility.
-        *   [ ] Ensure all necessary information (timers, cooldowns, health, status) is clearly displayed.
+        *   [ ] Ensure all necessary information (suit integrity, timers, cooldowns, health, status) is clearly displayed.
+        *   [ ] Polish inventory UI with clearer slot indicators and selection highlighting.
 *   **Outcome Goal:** KORO dynamically chooses attacks and speaks via LLM. TTS and voice degradation are implemented. Visuals and audio are polished. The game loop feels complete and driven by KORO's AI.
