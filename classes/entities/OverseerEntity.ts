@@ -880,4 +880,12 @@ export default class OverseerEntity extends Entity {
       });
     });
   }
+
+  /**
+   * Check if the shield is currently open
+   * @returns True if the shield is open, false if it's closed
+   */
+  public isShieldOpen(): boolean {
+    return this._shieldActive;
+  }
 }

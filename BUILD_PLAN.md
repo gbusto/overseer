@@ -6,16 +6,16 @@ This plan follows a user-centric approach, building core interactions first and 
 
 *   **Focus:** `classes/entities/GamePlayerEntity.ts`, `classes/entities/KoroEntity.ts`.
 *   **Tasks:**
-    *   [ ] Verify `GamePlayerEntity` spawns correctly.
-    *   [ ] Verify `GamePlayerEntity` has health and `takeDamage` works.
-    *   [ ] Add command `/sethealth <player> <amount>` for testing player health.
-    *   [ ] Implement `KoroEntity` class.
-    *   [ ] Add shield model (e.g., two hemispheres) to `KoroEntity`.
-    *   [ ] Implement `KoroEntity.openShield()` method (toggles shield visibility/model).
-    *   [ ] Implement `KoroEntity.closeShield()` method.
-    *   [ ] Implement `KoroEntity.isShieldOpen()` method.
-    *   [ ] Add command `/koro openshield` for testing.
-    *   [ ] Add command `/koro closeshield` for testing.
+    *   [x] Verify `GamePlayerEntity` spawns correctly.
+    *   [x] Verify `GamePlayerEntity` has health and `takeDamage` works.
+    *   [x] Add command `/sethealth <player> <amount>` for testing player health.
+    *   [x] Implement `KoroEntity` class.
+    *   [x] Add shield model (e.g., two hemispheres) to `KoroEntity`.
+    *   [x] Implement `KoroEntity.openShield()` method (toggles shield visibility/model).
+    *   [x] Implement `KoroEntity.closeShield()` method.
+    *   [x] Implement `KoroEntity.isShieldOpen()` method.
+    *   [x] Add command `/koro openshield` for testing.
+    *   [x] Add command `/koro closeshield` for testing.
 *   **Outcome Goal:** KORO is visible, its shield can be visually opened/closed via commands. Player health is manageable for testing.
 
 ## Phase 2: Player Inventory & Basic UI

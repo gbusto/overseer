@@ -161,12 +161,14 @@ startServer(world => {
     world.chatManager.sendPlayerMessage(targetPlayer.player, `Your health was set to ${health} by ${player.username}`, 'FFFFFF');
   });
 
-  world.chatManager.registerCommand('/shield', (player, args) => {
+  // Register command for testing KORO's shield
+  world.chatManager.registerCommand('/koro', (player, args) => {
     if (!args[0]) {
-      world.chatManager.sendPlayerMessage(player, 'Usage: /shield <on|off|setpos>', 'FF0000');
+      world.chatManager.sendPlayerMessage(player, 'Usage: /koro <openshield|closeshield|setpos>', 'FF0000');
       return;
     }
 
+    // Find the overseer entity
     const overseer = world.entityManager.getEntitiesByTag('overseer')[0] as OverseerEntity;
     if (!overseer) {
       world.chatManager.sendPlayerMessage(player, 'Overseer not found', 'FF0000');
@@ -174,17 +176,17 @@ startServer(world => {
     }
 
     switch (args[0].toLowerCase()) {
-      case 'on':
+      case 'openshield':
         overseer.openShield();
         world.chatManager.sendPlayerMessage(player, 'Shield opened', '00FF00');
         break;
-      case 'off':
+      case 'closeshield':
         overseer.closeShield();
         world.chatManager.sendPlayerMessage(player, 'Shield closed', '00FF00');
         break;
       case 'setpos':
         if (args.length < 7) {
-          world.chatManager.sendPlayerMessage(player, 'Usage: /shield setpos <topX> <topY> <topZ> <bottomX> <bottomY> <bottomZ>', 'FF0000');
+          world.chatManager.sendPlayerMessage(player, 'Usage: /koro setpos <topX> <topY> <topZ> <bottomX> <bottomY> <bottomZ>', 'FF0000');
           return;
         }
         
@@ -211,29 +213,7 @@ startServer(world => {
         world.chatManager.sendPlayerMessage(player, 'Shield positions updated', '00FF00');
         break;
       default:
-        world.chatManager.sendPlayerMessage(player, 'Unknown shield command', 'FF0000');
-    }
-  });
-
-  // Command for opening the shield
-  world.chatManager.registerCommand('/koro', (player, args) => {
-    if (!args[0]) {
-      world.chatManager.sendPlayerMessage(player, 'Usage: /koro <action>', 'FF0000');
-      return;
-    }
-
-    switch (args[0].toLowerCase()) {
-      case 'openshield':
-        overseer.openShield();
-        world.chatManager.sendPlayerMessage(player, 'KORO shield opened', '00FF00');
-        break;
-      case 'closeshield':
-        overseer.closeShield();
-        world.chatManager.sendPlayerMessage(player, 'KORO shield closed', '00FF00');
-        break;
-      default:
-        world.chatManager.sendPlayerMessage(player, `Unknown KORO command: ${args[0]}`, 'FF0000');
-        world.chatManager.sendPlayerMessage(player, 'Available commands: openshield, closeshield', 'FF0000');
+        world.chatManager.sendPlayerMessage(player, 'Unknown koro command', 'FF0000');
     }
   });
 
