@@ -24,6 +24,15 @@ export enum GameState {
 const GAME_DURATION_MS = 10 * 60 * 1000; // 10 minutes
 const COUNTDOWN_DURATION_MS = 5 * 1000; // 5 seconds countdown
 
+// Map boundary constants for random spawning
+const MAP_MIN_X = -47;
+const MAP_MAX_X = 47;
+const MAP_MIN_Z = -47;
+const MAP_MAX_Z = 47;
+const MAP_RADIUS = 47;
+const SPAWN_Y = 4; // Base height for item spawns
+const NUM_HEALTH_PACKS_TO_SPAWN = 5;
+
 export default class GameManager {
   // Singleton pattern
   private static _instance: GameManager;
@@ -102,6 +111,9 @@ export default class GameManager {
       }
     }
 
+    // Spawn initial health packs
+    this.spawnTestHealthPacks(); // Renaming this later might be good
+
     // Broadcast to all players
     this._world.chatManager.sendBroadcastMessage('Game started!', '00FF00');
   }
@@ -124,6 +136,9 @@ export default class GameManager {
         this._logger.info('Overseer brain disabled');
       }
     }
+    
+    // Despawn any remaining health packs?
+    // this._despawnAllHealthPacks(); // Consider adding this
 
     // Broadcast to all players
     this._world.chatManager.sendBroadcastMessage('Game over!', 'FF0000');
@@ -168,32 +183,54 @@ export default class GameManager {
   }
 
   /**
-   * Spawn some test health packs for players to use
+   * Spawns a specified number of health packs randomly within the map circle.
    */
   public spawnTestHealthPacks(): void {
     if (!this._world) return;
     
-    // Create and spawn 5 health packs around the map
-    const spawnPositions = [
-      { x: 10, y: 4, z: 10 },
-      { x: -10, y: 4, z: -10 },
-      { x: 15, y: 4, z: -15 },
-      { x: -15, y: 4, z: 15 },
-      { x: 0, y: 4, z: 20 }
-    ];
-    
-    spawnPositions.forEach((position, index) => {
-      // Create a health pack with default settings (will use default heal amount)
-      const healthPack = new HealthPackItem({}); // Removed healAmount override
-      
-      healthPack.spawn(this._world!, position);
-      this._logger.info(`Spawned test health pack at (${position.x}, ${position.y}, ${position.z})`);
-    });
+    this._logger.info(`Attempting to spawn ${NUM_HEALTH_PACKS_TO_SPAWN} health packs...`);
+    let spawnedCount = 0;
+    for (let i = 0; i < NUM_HEALTH_PACKS_TO_SPAWN; i++) {
+      const position = this._getRandomSpawnPositionInCircle();
+      if (position) {
+        // Create a health pack with default settings (uses default heal amount)
+        const healthPack = new HealthPackItem({}); 
+        healthPack.spawn(this._world, position);
+        this._logger.debug(`Spawned health pack #${i + 1} at (${position.x.toFixed(1)}, ${position.y.toFixed(1)}, ${position.z.toFixed(1)})`);
+        spawnedCount++;
+      } else {
+        // This should ideally not happen often if the radius/bounds are correct
+        this._logger.warn(`Could not find a valid spawn position for health pack #${i + 1} after retries.`);
+      }
+    }
     
     // Announce to all players
-    if (this._world.chatManager) {
-      this._world.chatManager.sendBroadcastMessage('Health packs have been spawned around the map!', '00FF00');
+    if (spawnedCount > 0 && this._world.chatManager) {
+      this._world.chatManager.sendBroadcastMessage(`${spawnedCount} Health packs have been spawned around the map!`, '00FF00');
     }
+  }
+
+  /**
+   * Generates a random spawn position within the defined circular map area.
+   * Retries a few times if the first attempt is outside the circle.
+   * @returns A valid Vector3Like position or null if unable to find one after retries.
+   */
+  private _getRandomSpawnPositionInCircle(maxRetries = 10): Vector3Like | null {
+    for (let i = 0; i < maxRetries; i++) {
+      const randomX = Math.random() * (MAP_MAX_X - MAP_MIN_X) + MAP_MIN_X;
+      const randomZ = Math.random() * (MAP_MAX_Z - MAP_MIN_Z) + MAP_MIN_Z;
+
+      // Calculate distance from center (0,0)
+      const distanceSq = randomX * randomX + randomZ * randomZ;
+      const radiusSq = MAP_RADIUS * MAP_RADIUS;
+
+      // Check if the point is within the circle
+      if (distanceSq <= radiusSq) {
+        return { x: randomX, y: SPAWN_Y, z: randomZ };
+      }
+    }
+    // If we exhausted retries, return null
+    return null;
   }
 
   /**
@@ -219,16 +256,7 @@ export default class GameManager {
   private _registerCommands(): void {
     if (!this._world) return;
     
-    // Start game command
-    this._world.chatManager.registerCommand('/start', (player) => {
-      if (this._gameState !== GameState.IDLE) {
-        this._world?.chatManager.sendPlayerMessage(player, 'Game already in progress!', 'FF0000');
-        return;
-      }
-      
-      this.startGame();
-      this._world?.chatManager.sendBroadcastMessage('Game started!', '00FF00');
-    });
+    // Start game command is registered in initialize()
     
     // Stop game command
     this._world.chatManager.registerCommand('/stop', (player) => {
@@ -251,35 +279,18 @@ export default class GameManager {
       }
     });
     
-    // Set overseer health command
-    this._world.chatManager.registerCommand('/oshealth', (player, args) => {
-      if (!args || args.length < 1) {
-        this._world?.chatManager.sendPlayerMessage(player, 'Usage: /oshealth [0-100]', 'FF0000');
-        return;
-      }
-      
-      const health = parseInt(args[0] || '0');
-      if (isNaN(health) || health < 0 || health > 100) {
-        this._world?.chatManager.sendPlayerMessage(player, 'Health must be between 0 and 100', 'FF0000');
-        return;
-      }
-      
-      const overseerEntity = this.getOverseerEntity();
-      if (overseerEntity) {
-        overseerEntity.setHealth(health);
-        this._world?.chatManager.sendPlayerMessage(player, `Set overseer health to ${health}`, '00FF00');
-      } else {
-        this._world?.chatManager.sendPlayerMessage(player, 'Overseer not found', 'FF0000');
-      }
-    });
+    // Set overseer health command (registered in index.ts? Check and remove duplication if needed)
+    // This seems duplicated from index.ts, might need consolidation later.
+    // this._world.chatManager.registerCommand('/oshealth', (player, args) => { ... });
     
-    // Spawn health packs command
+    // Spawn health packs command (calls the random spawner)
     this._world.chatManager.registerCommand('/healthpacks', (player) => {
-      this.spawnTestHealthPacks();
-      this._world?.chatManager.sendPlayerMessage(player, 'Spawned health packs around the map', '00FF00');
+      this.spawnTestHealthPacks(); // This now spawns randomly
+      // Message is now sent from within spawnTestHealthPacks
+      // this._world?.chatManager.sendPlayerMessage(player, 'Spawned health packs around the map', '00FF00');
     });
-    
-    // Spawn a single health pack at player's position
+
+    // Spawn a single health pack at player's position (Still useful for targeted testing)
     this._world.chatManager.registerCommand('/healthpack', (player) => {
       if (!this._world) return;
       
@@ -290,7 +301,7 @@ export default class GameManager {
       }
       
       // Create a health pack with default healing
-      const healthPack = new HealthPackItem({}); // Removed healAmount override
+      const healthPack = new HealthPackItem({}); 
       
       // Spawn slightly in front of the player
       const position = playerEntity.position;

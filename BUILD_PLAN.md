@@ -36,9 +36,9 @@ This plan follows a user-centric approach, building core interactions first and 
 
 *   **Focus:** `classes/GameManager.ts`, `classes/items/HealthPackItem.ts`, `classes/entities/GamePlayerEntity.ts`, `assets/ui/index.html`.
 *   **Tasks:**
-    *   [ ] Define safe zone boundaries for random Health Pack spawning.
-    *   [x] Implement logic in `GameManager` to spawn Health Packs (initial test commands done, needs update for random spawning).
-    *   [ ] Remove despawn timer logic from Health Packs (or `BaseItem` if applicable). Consider event-based spawning (e.g., post-attack, based on player count).
+    *   [x] Define safe zone boundaries for random Health Pack spawning. (Done via constants)
+    *   [x] Implement logic in `GameManager` to spawn Health Packs (initial test commands done, needs update for random spawning). (Random spawning logic added, testable via `/healthpacks`. Integration into game loop/events deferred).
+    *   [x] Remove despawn timer logic from Health Packs (or `BaseItem` if applicable). Consider event-based spawning (e.g., post-attack, based on player count). (Done: Made despawn configurable, HP default to false)
     *   [x] Update `HealthPackItem`:
         *   [x] Healing amount should be configurable.
         *   [x] Ensure it *doesn't* require an inventory slot.
@@ -48,14 +48,14 @@ This plan follows a user-centric approach, building core interactions first and 
             *   [x] Call `player.heal(healthPack.healAmount)`. **Instantly consume.**
             *   [x] Despawn the `HealthPackItem` entity.
             *   [x] Provide feedback (sound/message).
-        *   [ ] Verify removal of logic related to adding items to hand/backpack slots within `_handleInteract`.
-    *   [ ] Remove obsolete player inventory code from `GamePlayerEntity`:
-        *   [ ] Properties: `_backpackInventory`, `_handItem`.
-        *   [ ] Methods: `dropHandItem`, `dropBackpackItem`, `swapHandWithBackpack`, `useHandItem` (and associated 'F' key binding), `getHandItem`, `getBackpackItem`, `hasItemInHand`, `hasItemInBackpack`, `hasSpaceInBackpack`, `findFirstEmptyBackpackSlot`, `_updateInventoryUI`.
-        *   [ ] Associated key bindings (Q for drop, F for use, 1-3 for swap in `_onTickWithPlayerInput`).
-    *   [ ] Remove inventory UI elements & related JS from `index.html`.
+        *   [x] Verify removal of logic related to adding items to hand/backpack slots within `_handleInteract`. (Verified)
+    *   [x] Remove obsolete player inventory code from `GamePlayerEntity`:
+        *   [x] Properties: `_backpackInventory`, `_handItem`.
+        *   [x] Methods: `dropHandItem`, `dropBackpackItem`, `swapHandWithBackpack`, `useHandItem` (and associated 'F' key binding), `getHandItem`, `getBackpackItem`, `hasItemInHand`, `hasItemInBackpack`, `hasSpaceInBackpack`, `findFirstEmptyBackpackSlot`, `_updateInventoryUI`.
+        *   [x] Associated key bindings (Q for drop, F for use, 1-3 for swap in `_onTickWithPlayerInput`).
+    *   [x] Remove inventory UI elements & related JS from `index.html`.
     *   [x] Remove `/testhealthpack` command (pickup logic changed).
-    *   [ ] Update `/healthpack` and `/healthpacks` commands for new spawning logic.
+    *   [ ] Update `/healthpack` and `/healthpacks` commands for new spawning logic. (Partially done: `/healthpacks` uses random logic, `/healthpack` still spawns directly)
 *   **Outcome Goal:** Health Packs spawn randomly in the world (potentially based on game events) and instantly heal the player upon interaction ('E' key), then disappear. Player inventory system and related UI/methods/bindings are fully removed.
 
 ## Phase 4: Environmental Attacks & Direct Damage
