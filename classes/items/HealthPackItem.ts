@@ -4,12 +4,12 @@ import type { BaseItemOptions } from './BaseItem';
 import GamePlayerEntity from '../entities/GamePlayerEntity';
 
 // Constants
-const HEALTH_PACK_HEAL_AMOUNT = 25; // Amount of health to restore
+const HEALTH_PACK_HEAL_AMOUNT = 15; // Amount of health to restore
 
 /**
  * HealthPackItem options interface
  */
-export interface HealthPackItemOptions extends Partial<Omit<BaseItemOptions, 'modelUri' | 'iconUri'>> {
+export interface HealthPackItemOptions extends Partial<Omit<BaseItemOptions, 'modelUri' | 'iconUri' | 'despawns'>> {
   healAmount?: number;
 }
 
@@ -24,7 +24,8 @@ export default class HealthPackItem extends BaseItem {
     super({
       name: options.name || 'Health Pack',
       description: options.description || 'Restores health when used',
-      consumable: true,
+      consumable: true, // Health packs are always consumable
+      despawns: false, // Health packs should not despawn by default
       // Fixed paths for health pack resources
       modelUri: 'models/items/health-pack.glb',
       modelScale: options.modelScale || 0.5,
@@ -36,17 +37,19 @@ export default class HealthPackItem extends BaseItem {
   
   /**
    * Consume the health pack to restore player health
+   * This is called by the interaction logic in GamePlayerEntity, not directly by player input.
    * @param player The player entity consuming the health pack
    * @returns True if the health pack was consumed successfully
    */
   public override consume(player?: GamePlayerEntity): boolean {
     if (!player) {
-      console.log('Cannot consume health pack: no player provided');
+      // Use the protected logger from BaseItem
+      this._logger.warn('Cannot consume health pack: no player provided');
       return false;
     }
     
     // Call base consume method first to check if consumable
-    if (!super.consume()) return false;
+    if (!super.consume()) return false; // Should always be true for health packs
     
     // Apply healing effect to player
     const currentHealth = player.health;
@@ -80,12 +83,12 @@ export default class HealthPackItem extends BaseItem {
       // Send feedback message
       player.world.chatManager.sendPlayerMessage(
         player.player,
-        `You used a Health Pack and restored ${this._healAmount} health.`,
+        `Used a Health Pack and restored ${this._healAmount} health.`,
         '00FF00'
       );
     }
     
-    console.log(`Health pack consumed by player ${player.player.username || player.player.id}, healing ${this._healAmount} HP`);
+    this._logger.debug(`Health pack consumed by player ${player.player.username || player.player.id}, healing ${this._healAmount} HP`);
     return true;
   }
   

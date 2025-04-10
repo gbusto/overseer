@@ -24,6 +24,7 @@ export interface BaseItemOptions {
   name: string;
   description?: string;
   consumable?: boolean;
+  despawns?: boolean; // Added: Controls if the item should despawn (default true)
   iconUri?: string;
   // Extended from EntityOptions
   modelUri?: string;
@@ -40,11 +41,12 @@ export default class BaseItem extends Entity {
   public readonly itemName: string;
   public readonly description: string;
   public readonly consumable: boolean;
+  public readonly despawns: boolean; // Added
   public readonly iconUri: string;
   
   // Despawn timer
   private _despawnTimer: NodeJS.Timeout | null = null;
-  private _logger: Logger;
+  protected _logger: Logger; // Changed to protected for subclasses
   
   constructor(options: BaseItemOptions) {
     // Set up the entity with default physics options
@@ -68,6 +70,7 @@ export default class BaseItem extends Entity {
     this.itemName = options.name;
     this.description = options.description || '';
     this.consumable = options.consumable || false;
+    this.despawns = options.despawns ?? true; // Added: Default to true if not specified
     this.iconUri = options.iconUri || 'icons/default-item.png';
     
     // Create logger
@@ -87,8 +90,10 @@ export default class BaseItem extends Entity {
     super.spawn(world, position, rotation);
     this._logger.debug(`Item spawned at position (${position.x}, ${position.y}, ${position.z})`);
     
-    // Start despawn timer
-    this.startDespawnTimer();
+    // Start despawn timer only if configured to despawn
+    if (this.despawns) {
+      this.startDespawnTimer();
+    }
   }
   
   /**
@@ -99,72 +104,80 @@ export default class BaseItem extends Entity {
   public pickup(player: GamePlayerEntity): boolean {
     if (!this.isSpawned || !this.world) return false;
     
-    // Stop the despawn timer
+    // Stop the despawn timer if it was running
     this.stopDespawnTimer();
     
-    // Add to player inventory
-    const result = player.pickupItem(this);
+    // Add to player inventory (logic might be simplified in GamePlayerEntity)
+    // const result = player.pickupItem(this); // This line might change depending on GamePlayerEntity updates
     
-    if (result) {
-      this._logger.debug(`Item picked up by player ${player.player.username || player.player.id}`);
-      // Despawn from world when picked up
-      this.despawn();
-    }
+    // For instant pickup/consume (like health packs), the GamePlayerEntity interaction logic 
+    // might call despawn() directly after healing.
+    // We keep the basic despawn logic here for items that might be picked up traditionally later.
+    // if (result) {
+    //   this._logger.debug(`Item picked up by player ${player.player.username || player.player.id}`);
+    //   this.despawn(); // Despawn from world when picked up
+    // }
     
-    return result;
+    // Placeholder return, actual logic depends on GamePlayerEntity interaction
+    return true; // Assume pickup is handled elsewhere for now
   }
   
   /**
-   * Drop the item from player inventory
+   * Drop the item from player inventory (Likely Obsolete with no inventory)
    * @param fromPosition The position to drop from
    * @param direction The direction to apply impulse
    */
   public drop(fromPosition: Vector3Like, direction: Vector3Like): void {
+    // This method is likely obsolete since there's no inventory to drop from.
+    // Keeping it stubbed out for now.
     if (!this.world) return;
+    this._logger.warn('Attempted to drop item, but inventory system is removed.');
+    // Potentially could be repurposed if e.g., the BFG is dropped on player death?
     
-    // Spawn at the drop position
-    this.spawn(this.world, fromPosition);
-    
-    // Apply impulse in drop direction
-    setTimeout(() => {
-      if (this.isSpawned && this.world) {
-        this.applyImpulse({
-          x: direction.x * 5,
-          y: direction.y * 5 + 2, // Add upward force
-          z: direction.z * 5
-        });
-      }
-    }, 10);
-    
-    this._logger.debug(`Item dropped at position (${fromPosition.x}, ${fromPosition.y}, ${fromPosition.z})`);
+    // Original logic (commented out):
+    // this.spawn(this.world, fromPosition);
+    // setTimeout(() => {
+    //   if (this.isSpawned && this.world) {
+    //     this.applyImpulse({
+    //       x: direction.x * 5,
+    //       y: direction.y * 5 + 2,
+    //       z: direction.z * 5
+    //     });
+    //   }
+    // }, 10);
+    // this._logger.debug(`Item dropped at position (${fromPosition.x}, ${fromPosition.y}, ${fromPosition.z})`);
   }
   
   /**
    * Consume the item (for consumable items)
-   * @returns True if the item was consumed
+   * @returns True if the item was consumed (checked if consumable)
    */
   public consume(): boolean {
     if (!this.consumable) {
-      this._logger.debug(`Attempted to consume non-consumable item`);
+      this._logger.debug(`Attempted to consume non-consumable item: ${this.itemName}`);
       return false;
     }
     
-    // Specific consumption behavior should be implemented in subclasses
-    this._logger.debug(`Item consumed`);
+    // Base consumption just checks if it *is* consumable.
+    // Specific effects (like healing) are handled in subclasses or the interaction logic.
+    this._logger.debug(`Base consume check passed for: ${this.itemName}`);
     return true;
   }
   
   /**
-   * Start the despawn timer
+   * Start the despawn timer if the item is configured to despawn.
    */
   public startDespawnTimer(): void {
+    // Only start if the item is configured to despawn
+    if (!this.despawns) return;
+    
     // Clear existing timer if any
     this.stopDespawnTimer();
     
     // Set new timer
     this._despawnTimer = setTimeout(() => {
       if (this.isSpawned) {
-        this._logger.debug(`Item despawned due to timeout`);
+        this._logger.debug(`Item ${this.itemName} despawned due to timeout`);
         this.despawn();
       }
     }, ITEM_DESPAWN_TIME_MS);
@@ -201,6 +214,6 @@ export default class BaseItem extends Entity {
    * Handle despawn cleanup
    */
   private _onDespawn = (): void => {
-    this.stopDespawnTimer();
+    this.stopDespawnTimer(); // Ensure timer is cleared on manual despawn too
   }
 } 

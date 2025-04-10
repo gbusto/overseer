@@ -183,10 +183,8 @@ export default class GameManager {
     ];
     
     spawnPositions.forEach((position, index) => {
-      // Create a health pack with default settings
-      const healthPack = new HealthPackItem({
-        healAmount: 25
-      });
+      // Create a health pack with default settings (will use default heal amount)
+      const healthPack = new HealthPackItem({}); // Removed healAmount override
       
       healthPack.spawn(this._world!, position);
       this._logger.info(`Spawned test health pack at (${position.x}, ${position.y}, ${position.z})`);
@@ -291,10 +289,8 @@ export default class GameManager {
         return;
       }
       
-      // Create a health pack with increased healing
-      const healthPack = new HealthPackItem({
-        healAmount: 50
-      });
+      // Create a health pack with default healing
+      const healthPack = new HealthPackItem({}); // Removed healAmount override
       
       // Spawn slightly in front of the player
       const position = playerEntity.position;

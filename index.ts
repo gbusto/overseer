@@ -195,6 +195,18 @@ startServer(world => {
     world.chatManager.sendPlayerMessage(player, 'Your health has been set to 50 for testing', '00FF00');
   });
 
+  // Command to get player's current position
+  world.chatManager.registerCommand('/getpos', (player) => {
+    const playerEntity = world.entityManager.getPlayerEntitiesByPlayer(player)[0];
+    if (playerEntity) {
+      const pos = playerEntity.position;
+      const message = `Your position: X=${pos.x.toFixed(2)}, Y=${pos.y.toFixed(2)}, Z=${pos.z.toFixed(2)}`;
+      world.chatManager.sendPlayerMessage(player, message, 'FFFFFF');
+    } else {
+      world.chatManager.sendPlayerMessage(player, 'Could not find your player entity.', 'FF0000');
+    }
+  });
+
   // Register command for testing KORO's shield
   world.chatManager.registerCommand('/koro', (player, args) => {
     if (!args[0]) {
