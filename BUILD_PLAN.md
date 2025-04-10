@@ -1,177 +1,132 @@
-# Development Plan Checklist: Genesis Protocol Failure (Simplified)
+# Development Plan Checklist: Genesis Protocol Failure (Simplified - v2)
 
-This plan follows a user-centric approach, building core interactions first and integrating supporting systems in vertical slices.
+This plan follows a user-centric approach, building core interactions first and integrating supporting systems in vertical slices. Focuses on survival, direct damage, instant health pickups, and vulnerability windows.
 
 ## Phase 1: Core Entities Setup (Player & KORO)
 
-*   **Focus:** `classes/entities/GamePlayerEntity.ts`, `classes/entities/KoroEntity.ts`.
+*   **Focus:** `classes/entities/GamePlayerEntity.ts`, `classes/entities/OverseerEntity.ts`.
 *   **Tasks:**
     *   [x] Verify `GamePlayerEntity` spawns correctly.
     *   [x] Verify `GamePlayerEntity` has health and `takeDamage` works.
     *   [x] Add command `/sethealth <player> <amount>` for testing player health.
-    *   [x] Implement `KoroEntity` class.
-    *   [x] Add shield model (e.g., two hemispheres) to `KoroEntity`.
-    *   [x] Implement `KoroEntity.openShield()` method (toggles shield visibility/model).
-    *   [x] Implement `KoroEntity.closeShield()` method.
-    *   [x] Implement `KoroEntity.isShieldOpen()` method.
-    *   [x] Add command `/koro openshield` for testing.
-    *   [x] Add command `/koro closeshield` for testing.
-*   **Outcome Goal:** KORO is visible, its shield can be visually opened/closed via commands. Player health is manageable for testing.
+    *   [x] Implement `OverseerEntity` class (formerly KORO).
+    *   [x] Add retractable barrier/casing model/logic to `OverseerEntity`.
+    *   [x] Implement `OverseerEntity.openBarrier()` method (adjusts model/state).
+    *   [x] Implement `OverseerEntity.closeBarrier()` method.
+    *   [x] Implement `OverseerEntity.isBarrierOpen()` method.
+    *   [x] Add command `/koro openbarrier` for testing (adjust existing `/koro openshield`).
+    *   [x] Add command `/koro closebarrier` for testing (adjust existing `/koro closeshield`).
+*   **Outcome Goal:** KORO is visible, its barrier can be visually opened/closed via commands. Player health is manageable for testing.
 
-## Phase 2: Player Inventory System
+## Phase 2: Core UI & Player Setup
 
-*   **Focus:** `classes/entities/GamePlayerEntity.ts`, `classes/managers/UIManager.ts`, `assets/ui/index.html`.
+*   **Focus:** `classes/entities/GamePlayerEntity.ts`, `assets/ui/index.html`.
 *   **Tasks:**
-    *   [ ] Add inventory system to `GamePlayerEntity`:
-        *   [ ] Implement backpack array with 3 slots (`_backpackInventory`)
-        *   [ ] Implement hand item slot (`_handItem`)
-        *   [ ] Add methods to manage this 3+1 inventory (add, remove, swap between backpack and hand)
-    *   [ ] Create basic UI elements in `index.html` for:
-        *   [ ] Health display (using existing player health)
-        *   [ ] 3 backpack inventory slots
-        *   [ ] 1 hand inventory slot (visually distinct)
-    *   [ ] Create `UIManager` class.
-    *   [ ] Implement `UIManager.updateHealthUI(player, healthValue)` to send health data to client UI.
-    *   [ ] Implement `UIManager.updateInventoryUI(player, inventoryData)` to send full inventory state.
-    *   [ ] Add client-side JS in `index.html` to receive and display health and inventory.
-    *   [ ] Add methods to highlight active/selected inventory slot.
-    *   [ ] Call update methods from `GamePlayerEntity` whenever values change.
-*   **Outcome Goal:** Players have health display and 3+1 inventory system visible on their screen, with clear display of which items are in backpack vs. held in hand.
+    *   [x] Implement Health display in `index.html`.
+    *   [ ] Implement Overseer Health display in `index.html`.
+    *   [ ] Implement Weapon display/status (Active Weapon, Ammo/Cooldown) in `index.html`.
+    *   [x] Ensure client-side JS receives and displays player health updates.
+    *   [ ] Ensure client-side JS receives and displays Overseer health updates.
+    *   [ ] Ensure client-side JS receives and displays weapon status updates.
+    *   [ ] Implement player spawning with the standard **Energy Projectile Gun**.
+    *   [ ] Add basic firing logic to the Energy Gun (no damage yet).
+*   **Outcome Goal:** Players spawn with a basic weapon. Core UI shows player health. Placeholder UI exists for Overseer health and weapon status.
 
-## Phase 3: Item Spawning & Management
+## Phase 3: Health Pack Spawning & Instant Use
 
-*   **Focus:** `classes/managers/ItemManager.ts`, Specific `classes/items/` subclasses.
+*   **Focus:** `classes/GameManager.ts`, `classes/items/HealthPackItem.ts`, `classes/entities/GamePlayerEntity.ts`, `assets/ui/index.html`.
 *   **Tasks:**
-    *   [ ] Create `ItemManager` class.
-    *   [ ] Define item spawn locations (can be hardcoded list initially).
-    *   [ ] Implement `ItemManager` logic to spawn specific items (Health Pack, Control Panel Cards, Weapons, Flashlight) based on rules.
-    *   [ ] Implement random location selection from the defined list for spawns.
-    *   [ ] Implement spawn cooldown logic for control panel cards (only one of each type at a time).
-    *   [ ] Implement despawn timers for items spawned in the world (except weapons and flashlight).
-    *   [ ] Create `BaseItem` entity class.
-    *   [ ] Create specific item subclasses:
-        *   [ ] `HealthPackItem` - Restores player health
-        *   [ ] `HeatPanelCardItem` - Used for heat redirection
-        *   [ ] `CoolPanelCardItem` - Used for cooling redirection
-        *   [ ] `MaintenanceCardItem` - Used to force shield open
-        *   [ ] `WeaponItem` - Energy weapon (non-despawning)
-        *   [ ] `FlashlightItem` - Light source (non-despawning)
-    *   [ ] Add command `/spawnitem <itemId>` for testing specific item spawns.
-*   **Outcome Goal:** Items appear in the world according to rules. Control cards and health packs despawn after time, weapons and flashlight never despawn.
+    *   [ ] Define safe zone boundaries for random Health Pack spawning.
+    *   [x] Implement logic in `GameManager` to spawn Health Packs (initial test commands done, needs update for random spawning).
+    *   [ ] Remove despawn timer logic from Health Packs (or `BaseItem` if applicable). Consider event-based spawning (e.g., post-attack, based on player count).
+    *   [x] Update `HealthPackItem`:
+        *   [x] Healing amount should be configurable.
+        *   [x] Ensure it *doesn't* require an inventory slot.
+    *   [x] Adapt `GamePlayerEntity._handleInteract` logic:
+        *   [x] Raycast for interaction.
+        *   [x] If hit target is `HealthPackItem`:
+            *   [x] Call `player.heal(healthPack.healAmount)`. **Instantly consume.**
+            *   [x] Despawn the `HealthPackItem` entity.
+            *   [x] Provide feedback (sound/message).
+        *   [ ] Verify removal of logic related to adding items to hand/backpack slots within `_handleInteract`.
+    *   [ ] Remove obsolete player inventory code from `GamePlayerEntity`:
+        *   [ ] Properties: `_backpackInventory`, `_handItem`.
+        *   [ ] Methods: `dropHandItem`, `dropBackpackItem`, `swapHandWithBackpack`, `useHandItem` (and associated 'F' key binding), `getHandItem`, `getBackpackItem`, `hasItemInHand`, `hasItemInBackpack`, `hasSpaceInBackpack`, `findFirstEmptyBackpackSlot`, `_updateInventoryUI`.
+        *   [ ] Associated key bindings (Q for drop, F for use, 1-3 for swap in `_onTickWithPlayerInput`).
+    *   [ ] Remove inventory UI elements & related JS from `index.html`.
+    *   [x] Remove `/testhealthpack` command (pickup logic changed).
+    *   [ ] Update `/healthpack` and `/healthpacks` commands for new spawning logic.
+*   **Outcome Goal:** Health Packs spawn randomly in the world (potentially based on game events) and instantly heal the player upon interaction ('E' key), then disappear. Player inventory system and related UI/methods/bindings are fully removed.
 
-## Phase 4: Core Item Interactions (Pickup, Drop, Share)
+## Phase 4: Environmental Attacks & Direct Damage
 
-*   **Focus:** `classes/entities/GamePlayerEntity.ts`, `classes/items/BaseItem.ts`.
+*   **Focus:** `AttackManager` (or similar logic in `GameManager` initially), `GamePlayerEntity`, Attack classes, UI/Audio feedback.
 *   **Tasks:**
-    *   [ ] Implement interaction raycasting triggered by the 'E' key in `GamePlayerEntity`.
-    *   [ ] Implement `GamePlayerEntity.pickup(item)` logic:
-        *   [ ] Check if hand is empty - if yes, add item to hand
-        *   [ ] If hand is full, check backpack space and add to first empty slot
-        *   [ ] Update UI
-        *   [ ] Despawn entity (if not weapon/flashlight)
-    *   [ ] Implement item cycling/selection between inventory slots:
-        *   [ ] Add method to cycle through backpack slots and hand slot
-        *   [ ] Add method to directly select a specific slot
-        *   [ ] Update UI to highlight currently selected slot
-    *   [ ] Implement `GamePlayerEntity.dropSelectedItem()` logic:
-        *   [ ] Check which slot is selected (hand or backpack)
-        *   [ ] Remove item from that slot
-        *   [ ] Update UI
-        *   [ ] Spawn item in world with physics
-    *   [ ] Implement `HealthPackItem.consume()` method: increase player's health when used.
-    *   [ ] Implement Item Sharing:
-        *   [ ] Extend interaction ('E' key) raycast to check if target is another `GamePlayerEntity` within range
-        *   [ ] If player hit, check which item is currently selected (hand or backpack slot)
-        *   [ ] Check if target player has inventory space (backpack or hand)
-        *   [ ] Transfer selected item between players
-        *   [ ] Update UI for both players
-        *   [ ] Add visual/audio feedback for successful item transfer
-    *   [ ] Add optional notification system for successful pickup, drop, and share actions.
-*   **Outcome Goal:** Players can pick up items into hand or backpack, cycle/select between inventory slots, drop selected items, and share items with nearby players. The 3+1 inventory creates strategic decisions about what to carry.
-
-## Phase 5: Implement ONE Full Attack Slice (e.g., Superheat)
-
-*   **Focus:** Multiple Managers, Attack, Entities, Items.
-*   **Tasks:**
-    *   **Attack Management:**
-        *   [ ] Create `AttackManager` class.
-        *   [ ] Create `BaseEnvironmentalAttack` abstract class.
-        *   [ ] Create `SuperheatAttack` class, including duration logic.
+    *   [ ] Create `AttackManager` class (or handle logic in `GameManager`).
+    *   [ ] Create `BaseEnvironmentalAttack` structure/class.
+    *   [ ] Implement `SuperheatAttack`:
+        *   [ ] Logic for timed cycle (~20s cycle, ~15s intense phase).
+        *   [ ] Trigger visual effects (red tint via `EffectsManager` or direct UI call).
+        *   [ ] Trigger audio cues (`AudioManager` or direct calls).
+        *   [ ] During intense phase, call `player.takeEnvironmentalDamage(amount)` periodically. Damage amount configurable.
         *   [ ] Add command `/triggerattack superheat`.
-    *   **Supporting Managers:**
-        *   [ ] Create `AudioManager`, `EffectsManager`, `AnnouncerManager` classes.
-        *   [ ] Add `UIManager.updateTemperature(temp)` method.
-        *   [ ] Add `AnnouncerManager.broadcast("Superheating...")` method.
-        *   [ ] Add `EffectsManager.applyHeatTint()` method (screen color change).
-        *   [ ] Add `AudioManager.playHeatWarningSound()`, `playDamageSound()` methods.
-    *   **Player Effects & Damage:**
-        *   [ ] Implement direct environmental damage:
-            *   [ ] Add `takeEnvironmentalDamage(amount)` method to `GamePlayerEntity`.
-            *   [ ] In `SuperheatAttack`'s tick logic, call `takeEnvironmentalDamage` with fixed damage amount.
-    *   **UI:**
-        *   [ ] Add temperature display element to `index.html`.
-        *   [ ] Add client-side JS to update temperature display.
-    *   **Interaction & Redirection:**
-        *   [ ] Create `ThermalPanelEntity` and place it in the world.
-        *   [ ] Create `HeatPanelCardItem`.
-        *   [ ] Implement `ThermalPanelEntity.interact()`:
-            *   [ ] Check if `SuperheatAttack` is active (via `AttackManager`).
-            *   [ ] Check if interacting player has `HeatPanelCardItem` in selected inventory slot.
-            *   [ ] If checks pass: consume card, call `KoroEntity.applyBurnDamage(duration)`, call `KoroEntity.openShield(duration)`.
-*   **Outcome Goal:** Superheat attack works end-to-end: triggers, affects environment/UI/audio, damages players, can be redirected to hurt KORO using a card from inventory.
+    *   [ ] Implement `DeepFreezeAttack` (similar structure to Superheat, blue tint, different damage).
+    *   [ ] Implement `BlackoutAttack` (sets world light to dark).
+    *   [ ] Implement `UVAttack` (purple tint, maybe damage).
+    *   [ ] Implement `GamePlayerEntity.takeEnvironmentalDamage(amount)`: Directly reduce health, play sound, update UI.
+    *   [ ] Basic UI feedback for active attack type (e.g., text alert).
+    *   [ ] Ensure attack durations/damage are configurable.
+*   **Outcome Goal:** KORO can trigger timed environmental attacks (Superheat, Freeze initially) that directly damage players and have distinct visual/audio cues.
 
-## Phase 6: Implement Other Attacks
+## Phase 5: Vulnerability Windows & Core Damage Loop
 
-*   **Focus:** New Attack classes, related Panel entities, Items. Leverage existing Managers.
+*   **Focus:** `OverseerEntity`, `GamePlayerEntity`, Weapon classes.
 *   **Tasks:**
-    *   [ ] Create `SupercoolAttack` class: Implement logic, effects (blue tint), audio, UI updates, direct damage.
-    *   [ ] Create `CryoPanelEntity` and `CoolPanelCardItem`. Implement redirection logic in panel to stun KORO.
-    *   [ ] Create `UvAttack` class: Implement logic, effects (purple tint), audio, UI updates, direct damage.
-    *   [ ] Create `DarknessAttack` class: Implement logic (set global light to 0), audio/announcer.
-    *   [ ] Implement `FlashlightItem` logic (toggle a light source component when equipped/active in hand slot).
-*   **Outcome Goal:** All environmental attacks are functional with respective effects and dealing direct damage to players. Strategic inventory management becomes important for surviving different attacks.
+    *   **Vulnerability Windows:**
+        *   [ ] Implement KORO briefly opening barrier post-attack (`OverseerEntity.openBarrier(shortDuration)` called by Attack logic).
+        *   [ ] Implement KORO randomly opening barrier for longer (`OverseerEntity.openBarrier(longDuration)` called occasionally on tick).
+        *   [ ] Implement hitting KORO's *closed barrier* with BFG forcing it open (`OverseerEntity.openBarrier(longDuration)`).
+        *   [ ] Implement "KORO EXPOSED!" alert (`UIManager` or `GameManager` broadcasts message).
+    *   **Weapon Implementation:**
+        *   [ ] Finalize **Energy Projectile Gun** logic:
+            *   [ ] Raycast on fire.
+            *   [ ] If hit target is `OverseerEntity` and `isBarrierOpen()` is true, call `OverseerEntity.takeDamage(amount)`. Damage configurable.
+            *   [ ] Implement ammo (30 shots) and cooldown (10s).
+            *   [ ] Update weapon status UI.
+        *   [ ] Implement **BFG**:
+            *   [ ] Spawn one BFG randomly on the map at match start.
+            *   [ ] Implement pickup logic (replaces Energy Gun? Or specific action? TBD - simplest is replace).
+            *   [ ] Raycast on fire.
+            *   [ ] If hit target is `OverseerEntity`:
+                *   [ ] If `isBarrierOpen()` is false, call `OverseerEntity.openBarrier(longDuration)`. (Utility)
+                *   [ ] If `isBarrierOpen()` is true, call `OverseerEntity.takeDamage(highAmount)`. Damage configurable.
+            *   [ ] Implement long reload (90s). Update UI.
+    *   **KORO Damage:**
+        *   [ ] Implement `OverseerEntity.takeDamage(amount)` method.
+        *   [ ] Add health property to `OverseerEntity`.
+        *   [ ] Update Overseer health UI.
+*   **Outcome Goal:** The core gameplay loop is functional. Players survive attacks, heal with pickups, wait for/force vulnerability windows, and shoot KORO's core with weapons to deal damage.
 
-## Phase 7: Implement Remaining Interactions & Core Damage
+## Phase 6: AI Integration & Polish
 
-*   **Focus:** `MaintenancePanelEntity`, `MaintenanceCardItem`, `WeaponItem`, `KoroEntity`.
-*   **Tasks:**
-    *   [ ] Create `MaintenancePanelEntity` and place it in the world.
-    *   [ ] Implement `MaintenancePanelEntity.interact()`:
-        *   [ ] Check if player has `MaintenanceCardItem` in selected inventory slot.
-        *   [ ] Implement cooldown mechanism.
-        *   [ ] If checks pass & cooldown ready: consume card, call `KoroEntity.openShield(duration)`, set cooldown.
-    *   [ ] Implement `KoroEntity.takeHealthDamage(amount)` method.
-    *   [ ] Add health property to `KoroEntity`.
-    *   [ ] Implement `WeaponItem` firing logic:
-        *   [ ] Check if weapon is in hand slot (not backpack)
-        *   [ ] Perform raycast.
-        *   [ ] If hit target is `KoroEntity`, check `KoroEntity.isShieldOpen()`.
-        *   [ ] If shield open, call `KoroEntity.takeHealthDamage()`.
-    *   [ ] Implement KORO's random malfunction: Add a timer/chance in `KoroEntity`'s tick to occasionally call `openShield()` itself.
-    *   [ ] Implement "KORO EXPOSED" alert: Call `UIManager.showGlobalAlert("KORO EXPOSED!")` whenever shield opens.
-*   **Outcome Goal:** The primary damage loop is complete. Players can force KORO's shield open using maintenance cards from inventory and deal health damage with weapons when held in hand.
-
-## Phase 8: AI Integration & Polish
-
-*   **Focus:** `classes/ai/KoroAiManager.ts`, `AudioManager` (TTS), `KoroEntity` (voice degradation), general polish.
+*   **Focus:** `classes/ai/KoroAiManager.ts` (or similar), `AudioManager` (TTS), `OverseerEntity` (voice degradation), general polish.
 *   **Tasks:**
     *   **AI Core:**
-        *   [ ] Create `KoroAiManager` class.
-        *   [ ] Define data structure for game state snapshot.
+        *   [ ] Create AI Manager class.
+        *   [ ] Define data structure for game state snapshot (simpler now: player healths, KORO health, BFG status/location, current attack state).
         *   [ ] Implement function(s) to gather snapshot data.
-        *   [ ] Set up Gemini API connection in `KoroAiManager`.
+        *   [ ] Set up Gemini API connection.
         *   [ ] Implement the main AI loop: Get snapshot -> Format prompt -> Send to LLM -> Parse response.
-        *   [ ] Implement response parsing to trigger actions.
+        *   [ ] Implement response parsing to trigger KORO actions (choose next attack, maybe trigger malfunction/taunt).
     *   **Audio Polish:**
         *   [ ] Integrate Replicate API for "kokoro" TTS via `AudioManager.speakKoro()`.
-        *   [ ] Add configurable delay for TTS playback.
-        *   [ ] Implement voice degradation based on `KoroEntity` health.
-        *   [ ] Replace placeholder SFX with final audio assets.
+        *   [ ] Implement voice degradation based on `OverseerEntity` health.
+        *   [ ] Finalize SFX for attacks, damage, barrier movement, weapon fire/reload.
     *   **Visual Polish:**
-        *   [ ] Refine screen tints and add particle effects.
-        *   [ ] Add specific visual effects for shield opening/closing, panel activation, KORO taking damage.
+        *   [ ] Refine screen tints and add particle effects for attacks.
+        *   [ ] Add specific visual effects for barrier opening/closing, KORO taking damage, BFG impact.
     *   **UI Polish:**
-        *   [ ] Finalize UI layout for clarity and mobile compatibility.
-        *   [ ] Ensure all necessary information (health, timers, cooldowns, status) is clearly displayed.
-        *   [ ] Polish inventory UI with clearer slot indicators and selection highlighting.
-*   **Outcome Goal:** KORO dynamically chooses attacks and speaks via LLM. TTS and voice degradation are implemented. Visuals and audio are polished. The game loop feels complete and driven by KORO's AI.
+        *   [ ] Finalize UI layout.
+        *   [ ] Ensure Overseer health, weapon status/cooldowns are clear.
+        *   [ ] Add visual indicator for BFG availability/location?
+*   **Outcome Goal:** KORO dynamically chooses attacks and speaks via LLM. TTS and voice degradation enhance immersion. Visuals and audio are polished. The game loop feels complete and driven by KORO's AI.
