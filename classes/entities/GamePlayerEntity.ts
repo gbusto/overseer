@@ -9,11 +9,19 @@ import {
 import type { Vector3Like, QuaternionLike } from 'hytopia';
 import { Logger } from '../../utils/logger';
 import GameManager, { GameState } from '../GameManager';
+import BaseItem from '../items/BaseItem';
 
 // Constants
 const MAX_HEALTH = 100;
 const BASE_HEALTH = 100;
 const BACKPACK_SIZE = 3; // Number of backpack inventory slots
+
+// Simple interface for sending item data to UI
+interface UIInventoryItem {
+  name: string;
+  // We don't have iconUri in BaseItem, let's stick to name for now
+  // iconUri?: string; 
+}
 
 export default class GamePlayerEntity extends PlayerEntity {
   private _health: number = BASE_HEALTH;
@@ -80,6 +88,7 @@ export default class GamePlayerEntity extends PlayerEntity {
     this.world.chatManager.sendPlayerMessage(this.player, 'Press space to jump.');
     this.world.chatManager.sendPlayerMessage(this.player, 'Hold shift to sprint.');
     this.world.chatManager.sendPlayerMessage(this.player, 'Press E to interact with objects or pick up items.');
+    this.world.chatManager.sendPlayerMessage(this.player, 'Press F to use/consume the item in your hand.');
     this.world.chatManager.sendPlayerMessage(this.player, 'Press 1-3 to swap items between hand and backpack.');
     this.world.chatManager.sendPlayerMessage(this.player, 'Press Q to drop the item in your hand.');
     this.world.chatManager.sendPlayerMessage(this.player, 'Press \\ to enter or exit debug view.');
@@ -87,6 +96,8 @@ export default class GamePlayerEntity extends PlayerEntity {
     this.world.chatManager.sendPlayerMessage(this.player, 'Admin commands:', 'FFA500');
     this.world.chatManager.sendPlayerMessage(this.player, '/rocket - Launch yourself into the air', 'FFA500');
     this.world.chatManager.sendPlayerMessage(this.player, '/oshealth [0-100] - Set overseer health', 'FFA500');
+    this.world.chatManager.sendPlayerMessage(this.player, '/healthpack - Spawn a health pack in front of you', 'FFA500');
+    this.world.chatManager.sendPlayerMessage(this.player, '/healthpacks - Spawn health packs around the map', 'FFA500');
   }
   
   /**
@@ -161,6 +172,18 @@ export default class GamePlayerEntity extends PlayerEntity {
       input.q = false; // Reset the input to avoid continuous dropping
     }
     
+    // Handle using/consuming hand item with 'f' key
+    if (input.f) {
+      this.useHandItem();
+      input.f = false; // Reset the input to avoid continuous use
+    }
+    
+    // Handle interaction with 'e' key
+    if (input.e) {
+      this._handleInteract();
+      input.e = false; // Reset the input to avoid continuous interaction
+    }
+    
     // Handle inventory slot swapping with number keys
     if (input.one) {
       this.swapHandWithBackpack(0);
@@ -177,6 +200,86 @@ export default class GamePlayerEntity extends PlayerEntity {
       input.three = false;
     }
   };
+  
+  /**
+   * Handle player interaction (E key)
+   */
+  private _handleInteract(): void {
+    if (!this.world || !this.isSpawned) return;
+    
+    // Perform raycast from player's position in the direction they're facing
+    const origin = this.position;
+    const direction = this.player.camera.facingDirection;
+    const distance = 2; // Maximum interaction distance
+    
+    // Exclude player from raycast results
+    const raycastResult = this.world.simulation.raycast(
+      origin,
+      direction,
+      distance,
+      { filterExcludeRigidBody: this.rawRigidBody }
+    );
+    
+    if (raycastResult?.hitEntity) {
+      const hitEntity = raycastResult.hitEntity as BaseItem;
+      
+      // If the entity is an item, try to pick it up
+      if (hitEntity.pickup && typeof hitEntity.pickup === 'function') {
+        hitEntity.pickup(this);
+        this._logger.debug(`Attempted to pick up item via interaction`);
+      }
+      // If the entity is another player, share an item
+      else if (hitEntity instanceof GamePlayerEntity) {
+        this._shareItemWithPlayer(hitEntity);
+      }
+    }
+  }
+  
+  /**
+   * Share the currently held item with another player
+   * @param targetPlayer The player to share the item with
+   */
+  private _shareItemWithPlayer(targetPlayer: GamePlayerEntity): void {
+    if (!this.hasItemInHand() || !targetPlayer || !targetPlayer.isSpawned) return;
+    
+    // Get item from hand
+    const itemToShare = this.getHandItem();
+    
+    // Check if target player can accept it
+    if (targetPlayer.pickupItem(itemToShare)) {
+      // Remove from this player's hand if successfully shared
+      this._handItem = null;
+      this._updateInventoryUI();
+      
+      // Send feedback message
+      if (this.world) {
+        this.world.chatManager.sendPlayerMessage(
+          this.player, 
+          `You shared an item with ${targetPlayer.player.username || 'another player'}.`, 
+          '00FF00'
+        );
+        
+        this.world.chatManager.sendPlayerMessage(
+          targetPlayer.player, 
+          `${this.player.username || 'Another player'} shared an item with you.`, 
+          '00FF00'
+        );
+      }
+      
+      this._logger.debug(`Shared item with player ${targetPlayer.player.username || targetPlayer.player.id}`);
+    } else {
+      // Send feedback message about failed sharing
+      if (this.world) {
+        this.world.chatManager.sendPlayerMessage(
+          this.player, 
+          `${targetPlayer.player.username || 'The other player'} has no space for this item.`, 
+          'FF0000'
+        );
+      }
+      
+      this._logger.debug(`Failed to share item: target player inventory is full`);
+    }
+  }
   
   /**
    * Update health UI elements
@@ -205,11 +308,22 @@ export default class GamePlayerEntity extends PlayerEntity {
    * Update inventory UI elements
    */
   private _updateInventoryUI(): void {
-    // Update player's UI with inventory data
+    // Map hand item to a simple object or null
+    const handItemData: UIInventoryItem | null = this._handItem 
+      ? { name: this._handItem.itemName || 'Unknown Item' } 
+      : null;
+
+    // Map backpack items to simple objects or null
+    const backpackData: (UIInventoryItem | null)[] = this._backpackInventory.map(item => {
+      if (!item) return null;
+      return { name: item.itemName || 'Unknown Item' };
+    });
+
+    // Update player's UI with simplified inventory data
     this.player.ui.sendData({
       type: 'inventory-update',
-      handItem: this._handItem,
-      backpack: this._backpackInventory
+      handItem: handItemData,    // Send simple data or null
+      backpack: backpackData     // Send array of simple data or null
     });
   }
   
@@ -339,6 +453,60 @@ export default class GamePlayerEntity extends PlayerEntity {
     this._updateInventoryUI();
     
     return true;
+  }
+  
+  /**
+   * Use the item currently held in the player's hand
+   * @returns True if the item was used successfully
+   */
+  public useHandItem(): boolean {
+    // Make sure we have an item in hand
+    if (!this.hasItemInHand()) {
+      this._logger.debug('Cannot use hand item: no item in hand');
+      return false;
+    }
+    
+    const item = this._handItem;
+    
+    // Only consumable items can be used
+    if (!item.consumable) {
+      this._logger.debug(`Item ${item.itemName || 'unknown'} is not consumable`);
+      return false;
+    }
+    
+    try {
+      // Attempt to consume the item
+      if (item.consume && typeof item.consume === 'function') {
+        // Try to consume the item, passing this player entity as the consumer
+        const consumed = item.consume(this);
+        
+        if (consumed) {
+          // Remove the item from the hand if it was consumed
+          this._handItem = null;
+          this._updateInventoryUI();
+          
+          // Send feedback message
+          if (this.world) {
+            this.world.chatManager.sendPlayerMessage(
+              this.player, 
+              `You used a ${item.itemName || 'consumable item'}.`, 
+              '00FF00'
+            );
+          }
+          
+          this._logger.debug(`Successfully consumed hand item: ${item.itemName || 'unknown'}`);
+          return true;
+        } else {
+          this._logger.debug(`Failed to consume hand item: ${item.itemName || 'unknown'}`);
+        }
+      } else {
+        this._logger.debug(`Hand item doesn't have a consume method: ${item.itemName || 'unknown'}`);
+      }
+    } catch (error) {
+      this._logger.error(`Error consuming item: ${error}`);
+    }
+    
+    return false;
   }
   
   // Getter/setter for health

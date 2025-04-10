@@ -45,6 +45,7 @@ import GameManager from './classes/GameManager';
 import worldMap from './assets/hytopia_map.json';
 import { Logger, LogLevel } from './utils/logger';
 import GamePlayerEntity from './classes/entities/GamePlayerEntity';
+import HealthPackItem from './classes/items/HealthPackItem';
 
 // Initialize logger
 // If ENVIRONMENT is development, set the log level to DEBUG
@@ -159,6 +160,39 @@ startServer(world => {
     
     world.chatManager.sendPlayerMessage(player, `Set ${targetPlayerName}'s health to ${health}`, '00FF00');
     world.chatManager.sendPlayerMessage(targetPlayer.player, `Your health was set to ${health} by ${player.username}`, 'FFFFFF');
+  });
+
+  // Add direct index.ts command for health pack testing
+  world.chatManager.registerCommand('/testhealthpack', (player) => {
+    const playerEntity = world.entityManager.getPlayerEntitiesByPlayer(player)[0] as GamePlayerEntity;
+    if (!playerEntity) {
+      world.chatManager.sendPlayerMessage(player, 'Could not find your player entity', 'FF0000');
+      return;
+    }
+    
+    // Create a health pack with simple parameters
+    const healthPack = new HealthPackItem({
+      healAmount: 30
+    });
+    
+    // Spawn right in front of the player (closer than the /healthpack command)
+    const position = playerEntity.position;
+    const direction = player.camera.facingDirection;
+    const spawnPosition = {
+      x: position.x + direction.x * 1.5,
+      y: position.y,
+      z: position.z + direction.z * 1.5
+    };
+    
+    healthPack.spawn(world, spawnPosition);
+    
+    // Provide clear instructions to the player
+    world.chatManager.sendPlayerMessage(player, 'Test health pack spawned directly in front of you', '00FF00');
+    world.chatManager.sendPlayerMessage(player, 'Press E to pick it up, then F to use it', '00FF00');
+    
+    // Set player health to 50 to ensure healing is noticeable
+    playerEntity.health = 50;
+    world.chatManager.sendPlayerMessage(player, 'Your health has been set to 50 for testing', '00FF00');
   });
 
   // Register command for testing KORO's shield
