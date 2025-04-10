@@ -2,6 +2,8 @@
 
 This plan follows a user-centric approach, building core interactions first and integrating supporting systems in vertical slices. Focuses on survival, direct damage, instant health pickups, and vulnerability windows.
 
+*General Note: Utilize Hytopia MCP helper tools for SDK guidance, especially for entity creation, physics, and event handling.*
+
 ## Phase 1: Core Entities Setup (Player & KORO)
 
 *   **Focus:** `classes/entities/GamePlayerEntity.ts`, `classes/entities/OverseerEntity.ts`.
@@ -20,17 +22,23 @@ This plan follows a user-centric approach, building core interactions first and 
 
 ## Phase 2: Core UI & Player Setup
 
-*   **Focus:** `classes/entities/GamePlayerEntity.ts`, `assets/ui/index.html`.
+*   **Focus:** `classes/entities/GamePlayerEntity.ts`, `assets/ui/index.html`, `classes/weapons/`.
 *   **Tasks:**
-    *   [x] Implement Health display in `index.html`.
-    *   [ ] Implement Overseer Health display in `index.html`.
-    *   [ ] Implement Weapon display/status (Active Weapon, Ammo/Cooldown) in `index.html`.
-    *   [x] Ensure client-side JS receives and displays player health updates.
-    *   [ ] Ensure client-side JS receives and displays Overseer health updates.
-    *   [ ] Ensure client-side JS receives and displays weapon status updates.
-    *   [ ] Implement player spawning with the standard **Energy Projectile Gun**.
-    *   [ ] Add basic firing logic to the Energy Gun (no damage yet).
-*   **Outcome Goal:** Players spawn with a basic weapon. Core UI shows player health. Placeholder UI exists for Overseer health and weapon status.
+    *   **UI:**
+        *   [x] Implement Health display in `index.html`.
+        *   [x] Implement Overseer Health display in `index.html`.
+        *   [ ] Implement Weapon display/status (Active Weapon, Ammo/Cooldown) in `index.html`.
+        *   [x] Ensure client-side JS receives and displays player health updates.
+        *   [x] Ensure client-side JS receives and displays Overseer health updates.
+        *   [ ] Ensure client-side JS receives and displays weapon status updates.
+    *   **Weapon Foundation:** (Use Hytopia MCP `entities` helper)
+        *   [ ] Create `EnergyProjectile.ts` entity class (basic movement, placeholder model, configurable speed).
+        *   [ ] Create `BaseWeapon.ts` class (data structure; configurable: fire rate, ammo/energy count, energy recharge cooldown, shot interval).
+        *   [ ] Create `EnergyGun.ts` class inheriting from `BaseWeapon`.
+        *   [ ] Add `_currentWeapon` property to `GamePlayerEntity`.
+        *   [ ] Implement player spawning *and assign* an instance of the standard `EnergyGun` to `_currentWeapon`.
+        *   [ ] Add basic firing logic to `GamePlayerEntity._onTickWithPlayerInput` (e.g., left mouse) that calls `this._currentWeapon.shoot()` (which initially just logs/placeholders).
+*   **Outcome Goal:** Players spawn with a basic Energy Gun instance. Core UI shows player and Overseer health. Placeholder UI exists for weapon status. Basic weapon classes and projectile entity exist.
 
 ## Phase 3: Health Pack Spawning & Instant Use
 
@@ -80,32 +88,36 @@ This plan follows a user-centric approach, building core interactions first and 
 
 ## Phase 5: Vulnerability Windows & Core Damage Loop
 
-*   **Focus:** `OverseerEntity`, `GamePlayerEntity`, Weapon classes.
-*   **Tasks:**
+*   **Focus:** `OverseerEntity`, `GamePlayerEntity`, Weapon classes (`EnergyGun`, `BFG`, `EnergyProjectile`).
+*   **Tasks:** (Use Hytopia MCP `physics`, `entities`, `events` helpers)
     *   **Vulnerability Windows:**
         *   [ ] Implement KORO briefly opening barrier post-attack (`OverseerEntity.openBarrier(shortDuration)` called by Attack logic).
         *   [ ] Implement KORO randomly opening barrier for longer (`OverseerEntity.openBarrier(longDuration)` called occasionally on tick).
         *   [ ] Implement hitting KORO's *closed barrier* with BFG forcing it open (`OverseerEntity.openBarrier(longDuration)`).
         *   [ ] Implement "KORO EXPOSED!" alert (`UIManager` or `GameManager` broadcasts message).
     *   **Weapon Implementation:**
-        *   [ ] Finalize **Energy Projectile Gun** logic:
-            *   [ ] Raycast on fire.
-            *   [ ] If hit target is `OverseerEntity` and `isBarrierOpen()` is true, call `OverseerEntity.takeDamage(amount)`. Damage configurable.
-            *   [ ] Implement ammo (30 shots) and cooldown (10s).
-            *   [ ] Update weapon status UI.
+        *   [ ] Finalize **Energy Projectile Gun** logic (`EnergyGun.ts`, `EnergyProjectile.ts`):
+            *   [ ] Implement `EnergyGun.shoot()` to spawn `EnergyProjectile` if cooldowns/ammo allow.
+            *   [ ] Implement `EnergyProjectile` movement and lifespan.
+            *   [ ] Implement `EnergyProjectile` collision logic (hit Overseer? Barrier open? Hit other?).
+            *   [ ] Call `OverseerEntity.takeDamage(amount)` from projectile on valid hit. Damage configurable.
+            *   [ ] Implement ammo (e.g., 30 shots) and cooldowns (shot interval, recharge) in `EnergyGun`. Configurable.
+            *   [ ] Update weapon status UI (deferred).
         *   [ ] Implement **BFG**:
+            *   [ ] Create `BFG.ts` weapon class.
             *   [ ] Spawn one BFG randomly on the map at match start.
-            *   [ ] Implement pickup logic (replaces Energy Gun? Or specific action? TBD - simplest is replace).
-            *   [ ] Raycast on fire.
-            *   [ ] If hit target is `OverseerEntity`:
-                *   [ ] If `isBarrierOpen()` is false, call `OverseerEntity.openBarrier(longDuration)`. (Utility)
-                *   [ ] If `isBarrierOpen()` is true, call `OverseerEntity.takeDamage(highAmount)`. Damage configurable.
-            *   [ ] Implement long reload (90s). Update UI.
-    *   **KORO Damage:**
+            *   [ ] Implement pickup logic (replaces Energy Gun? Or specific action? Simplest: replaces Energy Gun).
+            *   [ ] Implement `BFG.shoot()` to spawn a different projectile (or maybe use raycast for simplicity?).
+            *   [ ] Implement BFG collision/hit logic:
+                *   [ ] If hit `OverseerEntity` barrier closed -> `OverseerEntity.openBarrier(longDuration)`. (Utility)
+                *   [ ] If hit `OverseerEntity` core open -> `OverseerEntity.takeDamage(highAmount)`. Damage configurable.
+            *   [ ] Implement long reload (e.g., 90s). Configurable. Update UI.
+    *   **KORO Damage & Defense:**
         *   [ ] Implement `OverseerEntity.takeDamage(amount)` method.
         *   [ ] Add health property to `OverseerEntity`.
+        *   [ ] Ensure `OverseerEntity` barrier has appropriate colliders to block projectiles.
         *   [ ] Update Overseer health UI.
-*   **Outcome Goal:** The core gameplay loop is functional. Players survive attacks, heal with pickups, wait for/force vulnerability windows, and shoot KORO's core with weapons to deal damage.
+*   **Outcome Goal:** The core gameplay loop is functional. Players survive attacks, heal with pickups, wait for/force vulnerability windows, and shoot KORO's core with weapons (Energy Gun implemented, BFG basic logic) to deal damage.
 
 ## Phase 6: AI Integration & Polish
 
