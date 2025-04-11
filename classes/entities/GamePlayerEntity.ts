@@ -5,12 +5,15 @@ import {
   BaseEntityControllerEvent,
   PlayerEntityController,
   World,
+  PlayerCameraMode
 } from 'hytopia';
 import type { Vector3Like, QuaternionLike } from 'hytopia';
 import { Logger } from '../../utils/logger';
 import GameManager, { GameState } from '../GameManager';
 import BaseItem from '../items/BaseItem';
 import HealthPackItem from '../items/HealthPackItem'; // Import HealthPackItem
+import BaseWeaponEntity from '../weapons/BaseWeaponEntity'; // Import base weapon entity
+import EnergyRifle1 from '../weapons/EnergyRifle1'; // Import specific weapon entity
 
 // Constants
 const MAX_HEALTH = 100;
@@ -30,9 +33,8 @@ export default class GamePlayerEntity extends PlayerEntity {
   private _damageAudio: Audio;
   private _logger = new Logger('GamePlayerEntity');
   
-  // Removed inventory properties
-  // private _backpackInventory: (any | null)[] = [null, null, null]; 
-  // private _handItem: any | null = null; 
+  // Active weapon state
+  private _activeWeapon: BaseWeaponEntity | null = null;
   
   // Player entities always have a PlayerController
   public get playerController(): PlayerEntityController {
@@ -43,7 +45,7 @@ export default class GamePlayerEntity extends PlayerEntity {
     super({
       player,
       name: 'Player',
-      modelUri: 'models/players/player.gltf',
+      modelUri: 'models/players/soldier-player.gltf',
       modelLoopedAnimations: ['idle'],
       modelScale: 0.5,
     });
@@ -58,6 +60,10 @@ export default class GamePlayerEntity extends PlayerEntity {
     
     // Set up player controller events
     this._setupPlayerController();
+    // Set up camera mode
+    this._setupPlayerCamera();
+    // Call the renamed public method
+    this.resetAnimations();
   }
   
   /**
@@ -88,11 +94,8 @@ export default class GamePlayerEntity extends PlayerEntity {
     this.world.chatManager.sendPlayerMessage(this.player, 'Use WASD to move around.');
     this.world.chatManager.sendPlayerMessage(this.player, 'Press space to jump.');
     this.world.chatManager.sendPlayerMessage(this.player, 'Hold shift to sprint.');
-    this.world.chatManager.sendPlayerMessage(this.player, 'Press E to interact with Health Packs.');
-    // Removed inventory-related messages
-    // this.world.chatManager.sendPlayerMessage(this.player, 'Press F to use/consume the item in your hand.');
-    // this.world.chatManager.sendPlayerMessage(this.player, 'Press 1-3 to swap items between hand and backpack.');
-    // this.world.chatManager.sendPlayerMessage(this.player, 'Press Q to drop the item in your hand.');
+    this.world.chatManager.sendPlayerMessage(this.player, 'Press E to interact with Health Packs and weapons.');
+    this.world.chatManager.sendPlayerMessage(this.player, 'Left-click to fire equipped weapons.');
     this.world.chatManager.sendPlayerMessage(this.player, 'Press \\ to enter or exit debug view.');
     this.world.chatManager.sendPlayerMessage(this.player, 'Type /start to begin a game!', '00FFFF');
     this.world.chatManager.sendPlayerMessage(this.player, 'Admin commands:', 'FFA500');
@@ -100,6 +103,8 @@ export default class GamePlayerEntity extends PlayerEntity {
     this.world.chatManager.sendPlayerMessage(this.player, '/oshealth [0-100] - Set overseer health', 'FFA500');
     this.world.chatManager.sendPlayerMessage(this.player, '/healthpack - Spawn a health pack in front of you', 'FFA500');
     this.world.chatManager.sendPlayerMessage(this.player, '/healthpacks - Spawn health packs around the map', 'FFA500');
+    this.world.chatManager.sendPlayerMessage(this.player, '/rifle - Spawn an Energy Rifle in front of you', 'FFA500');
+    this.world.chatManager.sendPlayerMessage(this.player, '/riflepos - Adjust equipped rifle position (debugging)', 'FFA500');
   }
   
   /**
@@ -153,37 +158,51 @@ export default class GamePlayerEntity extends PlayerEntity {
    * Set up player controller
    */
   private _setupPlayerController(): void {
-    // Let the default PlayerEntity controller handle animations
-    // Don't override animation names as they're handled automatically
-    
-    // Set up input event handlers
+    // Don't set default animations here anymore, call _setDefaultAnimations instead
     this.playerController.on(BaseEntityControllerEvent.TICK_WITH_PLAYER_INPUT, this._onTickWithPlayerInput);
+  }
+  
+  /**
+   * Set up player camera for first-person view
+   */
+  private _setupPlayerCamera(): void {
+      if (!this.player || !this.player.camera) {
+          this._logger.error('Cannot setup camera: Player or camera reference missing.');
+          return;
+      }
+      this.player.camera.setMode(PlayerCameraMode.FIRST_PERSON);
+      // Match Hygrounds exactly - only hide head, neck, torso, and legs
+      // Importantly, keep arms and hands visible
+      this.player.camera.setModelHiddenNodes(['head', 'neck', 'torso', 'leg_right', 'leg_left']);
+      // Set camera offset relative to player origin (adjust y for eye level)
+      this.player.camera.setOffset({ x: 0, y: 0.5, z: 0 }); // Match Hygrounds offset exactly
+      this._logger.info('Set player camera to First Person mode.');
   }
   
   /**
    * Handle player input ticks
    */
   private _onTickWithPlayerInput = (payload: any): void => {
-    // Handle input processing here
     const { input } = payload;
     
-    // Handle healing with 'h' key (for testing, can be removed later)
+    // Handle healing with 'h' key (for testing)
     if (input.h) {
-      this.heal(10); // Heal on 'h' key press
-      input.h = false; // Reset the input to avoid continuous healing
+      this.heal(10); 
+      input.h = false; 
     }
-    
-    // Removed inventory key bindings (Q, F, 1, 2, 3)
-    // if (input.q) { ... }
-    // if (input.f) { ... }
-    // if (input.one) { ... }
-    // if (input.two) { ... }
-    // if (input.three) { ... }
     
     // Handle interaction with 'e' key
     if (input.e) {
       this._handleInteract();
-      input.e = false; // Reset the input to avoid continuous interaction
+      input.e = false; 
+    }
+
+    // Handle firing with left mouse click ('ml')
+    if (input.ml) {
+      if (this._activeWeapon) {
+        this._activeWeapon.fire();
+      }
+      input.ml = false; // Consume the input
     }
   };
   
@@ -193,12 +212,10 @@ export default class GamePlayerEntity extends PlayerEntity {
   private _handleInteract(): void {
     if (!this.world || !this.isSpawned) return;
     
-    // Perform raycast from player's position in the direction they're facing
     const origin = this.position;
     const direction = this.player.camera.facingDirection;
-    const distance = 2; // Maximum interaction distance
+    const distance = 2; 
     
-    // Exclude player from raycast results
     const raycastResult = this.world.simulation.raycast(
       origin,
       direction,
@@ -209,26 +226,68 @@ export default class GamePlayerEntity extends PlayerEntity {
     if (raycastResult?.hitEntity) {
       const hitEntity = raycastResult.hitEntity;
       
-      // Check if the hit entity is a HealthPackItem
       if (hitEntity instanceof HealthPackItem) {
         this._logger.debug(`Player interacted with Health Pack`);
-        // Consume the health pack (which includes healing)
         const consumed = hitEntity.consume(this); 
         if (consumed) {
-          // If successfully consumed, despawn it
           hitEntity.despawn();
         } else {
-          // Maybe the player was at full health, log it
           this._logger.debug(`Health pack consumption returned false (player likely at full health)`);
         }
       } 
-      // Removed interaction with other players for item sharing
-      // else if (hitEntity instanceof GamePlayerEntity) { ... }
+      // Now check if it's a weapon (BaseWeaponEntity)
+      else if (hitEntity instanceof BaseWeaponEntity) {
+        this._logger.info(`Player interacted with weapon: ${hitEntity.name}`);
+        hitEntity.pickup(this); // Let the weapon handle the pickup
+      }
+      else if (hitEntity instanceof BaseItem) {
+        this._logger.debug(`Player interacted with item: ${hitEntity.itemName}`);
+        // Keep old item interaction logic for backward compatibility
+        // Can be removed later when all items are migrated to new pattern
+      }
       else {
-         this._logger.debug(`Player interacted with non-healthpack entity: ${hitEntity.name}`);
-         // Add logic for other interactable entities here later (e.g., BFG pickup)
+         this._logger.debug(`Player interacted with unhandled entity: ${hitEntity.name}`);
       }
     }
+  }
+
+  /**
+   * Helper method to set default unarmed animations.
+   * Now public and renamed to match Hygrounds convention.
+   */
+  public resetAnimations(): void {
+      const controller = this.playerController;
+      if (!controller) return;
+      
+      controller.idleLoopedAnimations = ['idle_upper', 'idle_lower'];
+      controller.walkLoopedAnimations = ['walk_upper', 'walk_lower'];
+      controller.runLoopedAnimations = ['run_upper', 'run_lower'];
+      // controller.interactOneshotAnimations = ['default_interact'];
+      this._logger.info('Reset player animations to default (unarmed).');
+  }
+
+  /**
+   * Equips a weapon
+   * @param weapon The weapon entity to equip
+   */
+  public equipWeapon(weapon: BaseWeaponEntity): void {
+      this._logger.info(`GamePlayerEntity.equipWeapon called with weapon ${weapon.name}`);
+      
+      // Unequip previous weapon if exists
+      if (this._activeWeapon && this._activeWeapon !== weapon) {
+          this._logger.info(`Unequipping previous weapon ${this._activeWeapon.name}`);
+          this._activeWeapon.unequip();
+      }
+
+      // Set as active weapon
+      this._activeWeapon = weapon;
+      this._logger.info(`Set this._activeWeapon = ${weapon.name}`);
+      
+      // Tell weapon to equip (position itself and set animations)
+      this._logger.info(`Calling weapon.equip()`);
+      this._activeWeapon.equip();
+      
+      this._logger.info(`Equipped weapon: ${weapon.name}`);
   }
   
   /**

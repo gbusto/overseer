@@ -11,6 +11,7 @@ import { Logger } from '../utils/logger';
 import GamePlayerEntity from './entities/GamePlayerEntity';
 import HealthPackItem from './items/HealthPackItem';
 import OverseerEntity from './entities/OverseerEntity';
+import EnergyRifle1 from './weapons/EnergyRifle1';
 
 // Game states enum
 export enum GameState {
@@ -254,66 +255,139 @@ export default class GameManager {
    * Register custom chat commands
    */
   private _registerCommands(): void {
-    if (!this._world) return;
-    
-    // Start game command is registered in initialize()
-    
-    // Stop game command
-    this._world.chatManager.registerCommand('/stop', (player) => {
-      if (this._gameState !== GameState.ACTIVE) {
-        this._world?.chatManager.sendPlayerMessage(player, 'No game in progress!', 'FF0000');
-        return;
-      }
-      
-      this.endGame();
-      this._world?.chatManager.sendBroadcastMessage('Game stopped!', 'FF0000');
-    });
-    
-    // Rocket command - launches player into the air
-    this._world.chatManager.registerCommand('/rocket', (player) => {
-      const playerEntity = this._world?.entityManager.getPlayerEntitiesByPlayer(player)[0];
-      
+    // Ensure world and entity manager exist before registering commands
+    if (!this._world || !this._world.entityManager) {
+      this._logger.error('Cannot register commands: World or EntityManager not available.');
+      return;
+    }
+
+    // Assign to local variables for convenience and potentially clearer type inference
+    const world = this._world;
+    const entityManager = world.entityManager; // Already checked world exists
+    const chatManager = world.chatManager; // Already checked world exists
+
+    // Command: /rocket (Admin/Debug)
+    chatManager.registerCommand('/rocket', (player) => {
+      // Corrected method name and handling potential empty array
+      const playerEntities = entityManager.getPlayerEntitiesByPlayer(player);
+      const playerEntity = playerEntities.length > 0 ? playerEntities[0] : null;
       if (playerEntity) {
-        playerEntity.applyImpulse({ x: 0, y: playerEntity.mass * 50, z: 0 });
-        this._world?.chatManager.sendPlayerMessage(player, 'Whoosh!', '00FFFF');
+        playerEntity.applyImpulse({ x: 0, y: 1500, z: 0 });
+        chatManager.sendPlayerMessage(player, 'Launched!', '00FF00');
+      } else {
+        chatManager.sendPlayerMessage(player, 'Could not find your player entity.', 'FF0000');
       }
-    });
-    
-    // Set overseer health command (registered in index.ts? Check and remove duplication if needed)
-    // This seems duplicated from index.ts, might need consolidation later.
-    // this._world.chatManager.registerCommand('/oshealth', (player, args) => { ... });
-    
-    // Spawn health packs command (calls the random spawner)
-    this._world.chatManager.registerCommand('/healthpacks', (player) => {
-      this.spawnTestHealthPacks(); // This now spawns randomly
-      // Message is now sent from within spawnTestHealthPacks
-      // this._world?.chatManager.sendPlayerMessage(player, 'Spawned health packs around the map', '00FF00');
     });
 
-    // Spawn a single health pack at player's position (Still useful for targeted testing)
-    this._world.chatManager.registerCommand('/healthpack', (player) => {
-      if (!this._world) return;
+    // Command: /oshealth [0-100] (Admin/Debug)
+    chatManager.registerCommand('/oshealth', (player, args) => {
+      const overseer = this.getOverseerEntity();
+      if (!overseer) {
+        chatManager.sendPlayerMessage(player, 'Overseer not found.', 'FF0000');
+        return;
+      }
+
+      // Validate argument presence and type first
+      const healthArgStr = args[0];
+      if (typeof healthArgStr !== 'string') {
+          chatManager.sendPlayerMessage(player, 'Usage: /oshealth [0-100]', 'FFFF00');
+          return;
+      }
+
+      // Now parse the argument, knowing it's a string
+      const healthArg = parseInt(healthArgStr, 10);
+
+      // Validate parsing result and range
+      if (isNaN(healthArg) || healthArg < 0 || healthArg > 100) {
+        chatManager.sendPlayerMessage(player, 'Usage: /oshealth [0-100]', 'FFFF00');
+        return;
+      }
+
+      overseer.setHealth(healthArg);
+      chatManager.sendPlayerMessage(player, `Overseer health set to ${healthArg}.`, '00FF00');
+    });
+
+    // Command: /healthpack (Admin/Debug)
+    chatManager.registerCommand('/healthpack', (player) => {
+      // Corrected method name and handling potential empty array
+      const playerEntities = entityManager.getPlayerEntitiesByPlayer(player);
+      const playerEntity = playerEntities.length > 0 ? playerEntities[0] : null;
+      if (playerEntity && playerEntity.isSpawned) {
+        const facingDir = playerEntity.player.camera.facingDirection;
+        const spawnPos = {
+          x: playerEntity.position.x + facingDir.x * 2,
+          y: playerEntity.position.y + 1.0, // Higher position to prevent sinking into ground
+          z: playerEntity.position.z + facingDir.z * 2,
+        };
+        const healthPack = new HealthPackItem({});
+        healthPack.spawn(world, spawnPos);
+        chatManager.sendPlayerMessage(player, 'Spawned a health pack in front of you.', '00FF00');
+      } else {
+        chatManager.sendPlayerMessage(player, 'Could not find your player entity.', 'FF0000');
+      }
+    });
+
+    // Command: /rifle (Admin/Debug)
+    chatManager.registerCommand('/rifle', (player) => {
+      const playerEntities = entityManager.getPlayerEntitiesByPlayer(player);
+      const playerEntity = playerEntities.length > 0 ? playerEntities[0] : null;
+      if (playerEntity && playerEntity.isSpawned) {
+        const facingDir = playerEntity.player.camera.facingDirection;
+        const spawnPos = {
+          x: playerEntity.position.x + facingDir.x * 2,
+          y: playerEntity.position.y + 1.0, // Higher position to prevent sinking into ground
+          z: playerEntity.position.z + facingDir.z * 2,
+        };
+        const rifle = new EnergyRifle1();
+        rifle.spawn(world, spawnPos);
+        chatManager.sendPlayerMessage(player, 'Spawned an Energy Rifle in front of you.', '00FF00');
+      } else {
+        chatManager.sendPlayerMessage(player, 'Could not find your player entity.', 'FF0000');
+      }
+    });
+    
+    // Command: /riflepos (Admin/Debug) - Adjust equipped rifle position
+    chatManager.registerCommand('/riflepos', (player) => {
+      const playerEntities = entityManager.getPlayerEntitiesByPlayer(player);
+      const playerEntity = playerEntities.length > 0 ? playerEntities[0] as any : null;
       
-      const playerEntity = this._world.entityManager.getPlayerEntitiesByPlayer(player)[0];
       if (!playerEntity) {
-        this._world.chatManager.sendPlayerMessage(player, 'Player entity not found', 'FF0000');
+        chatManager.sendPlayerMessage(player, 'Could not find your player entity.', 'FF0000');
         return;
       }
       
-      // Create a health pack with default healing
-      const healthPack = new HealthPackItem({}); 
+      // Check if player has an equipped weapon
+      if (!playerEntity._activeWeapon) {
+        chatManager.sendPlayerMessage(player, 'No weapon equipped.', 'FF0000');
+        return;
+      }
       
-      // Spawn slightly in front of the player
-      const position = playerEntity.position;
-      const direction = player.camera.facingDirection;
-      const spawnPosition = {
-        x: position.x + direction.x * 2,
-        y: position.y + 0.5,
-        z: position.z + direction.z * 2
-      };
+      // Change position to try different placements
+      const positions = [
+        { x: 0.2, y: -0.2, z: -0.4 },
+        { x: 0.3, y: -0.3, z: -0.3 },
+        { x: 0.25, y: -0.25, z: -0.5 },
+        { x: 0.4, y: -0.1, z: -0.3 },
+      ];
       
-      healthPack.spawn(this._world, spawnPosition);
-      this._world.chatManager.sendPlayerMessage(player, 'Health pack spawned in front of you', '00FF00');
+      const randomPos = positions[Math.floor(Math.random() * positions.length)];
+      playerEntity._activeWeapon.setPosition(randomPos);
+      playerEntity._activeWeapon.setTintColor({ r: 255, g: 0, b: 0 }); // Make it red
+      
+      chatManager.sendPlayerMessage(
+        player, 
+        `Adjusted rifle position to: ${JSON.stringify(randomPos)}`,
+        '00FF00'
+      );
     });
+    
+    // Command: /healthpacks (Admin/Debug)
+    chatManager.registerCommand('/healthpacks', (player) => {
+      this.spawnTestHealthPacks(); // Use the existing random spawn logic
+      chatManager.sendPlayerMessage(player, 'Spawned health packs around the map.', '00FF00');
+    });
+    
+
+    this._logger.info('Registered custom chat commands.');
   }
 } 
