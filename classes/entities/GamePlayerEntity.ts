@@ -105,6 +105,9 @@ export default class GamePlayerEntity extends PlayerEntity {
     this.world.chatManager.sendPlayerMessage(this.player, '/healthpacks - Spawn health packs around the map', 'FFA500');
     this.world.chatManager.sendPlayerMessage(this.player, '/rifle - Spawn an Energy Rifle in front of you', 'FFA500');
     this.world.chatManager.sendPlayerMessage(this.player, '/riflepos - Adjust equipped rifle position (debugging)', 'FFA500');
+    this.world.chatManager.sendPlayerMessage(this.player, '/setweaponpos x y z - Set weapon position', 'FFA500');
+    this.world.chatManager.sendPlayerMessage(this.player, '/setweaponrot x y z - Set weapon rotation (degrees)', 'FFA500');
+    this.world.chatManager.sendPlayerMessage(this.player, '/setweaponscale scale - Set weapon scale', 'FFA500');
   }
   
   /**

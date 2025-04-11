@@ -26,6 +26,7 @@ const DEFAULT_ENERGY_RIFLE_OPTIONS = {
     runAnimation: 'run_gun_both',
     mlAnimation: 'shoot_gun_both',
     // Item properties
+    iconImageUri: 'icons/weapons/energy_rifle_1.png'
 };
 
 export default class EnergyRifle1 extends BaseWeaponEntity {
@@ -53,6 +54,20 @@ export default class EnergyRifle1 extends BaseWeaponEntity {
             position: { x: 0, y: 0.01, z: -1.25 },
             rotation: Quaternion.fromEuler(0, 90, 0),
         };
+    }
+    
+    /**
+     * Override the equipped position for this specific weapon
+     */
+    protected override getEquippedPosition(): Vector3Like {
+        return { x: 0.4, y: 0.4, z: -0.4 };
+    }
+    
+    /**
+     * Override the equipped rotation for this specific weapon
+     */
+    protected override getEquippedRotation(): QuaternionLike {
+        return Quaternion.fromEuler(-100, 5, -90);
     }
 
     /**

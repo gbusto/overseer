@@ -38,6 +38,7 @@ import {
   RigidBodyType,
   ColliderShape,
   Entity,
+  ModelRegistry,
 } from 'hytopia';
 
 import OverseerEntity from './classes/entities/OverseerEntity';
@@ -46,6 +47,8 @@ import worldMap from './assets/hytopia_map.json';
 import { Logger, LogLevel } from './utils/logger';
 import GamePlayerEntity from './classes/entities/GamePlayerEntity';
 import HealthPackItem from './classes/items/HealthPackItem';
+
+ModelRegistry.instance.optimize = false;
 
 // Initialize logger
 // If ENVIRONMENT is development, set the log level to DEBUG

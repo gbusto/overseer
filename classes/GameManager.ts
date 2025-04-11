@@ -5,6 +5,7 @@ import {
   Audio,
   SceneUI,
   PlayerEvent,
+  Quaternion
 } from 'hytopia';
 import type { Vector3Like } from 'hytopia';
 import { Logger } from '../utils/logger';
@@ -372,13 +373,154 @@ export default class GameManager {
       
       const randomPos = positions[Math.floor(Math.random() * positions.length)];
       playerEntity._activeWeapon.setPosition(randomPos);
-      playerEntity._activeWeapon.setTintColor({ r: 255, g: 0, b: 0 }); // Make it red
       
       chatManager.sendPlayerMessage(
         player, 
         `Adjusted rifle position to: ${JSON.stringify(randomPos)}`,
         '00FF00'
       );
+    });
+    
+    // Command: /setweaponpos (Admin/Debug) - Set weapon position with specific values
+    chatManager.registerCommand('/setweaponpos', (player, args: string[] = []) => {
+      const playerEntities = entityManager.getPlayerEntitiesByPlayer(player);
+      const playerEntity = playerEntities.length > 0 ? playerEntities[0] as any : null;
+      
+      if (!playerEntity) {
+        chatManager.sendPlayerMessage(player, 'Could not find your player entity.', 'FF0000');
+        return;
+      }
+      
+      // Check if player has an equipped weapon
+      if (!playerEntity._activeWeapon) {
+        chatManager.sendPlayerMessage(player, 'No weapon equipped.', 'FF0000');
+        return;
+      }
+      
+      // Parse arguments: /setweaponpos x y z
+      let x = 0.3, y = -0.2, z = -0.4; // Default values
+      
+      if (args && args.length >= 3) {
+        // Fix: Properly handle zero values by not using || fallback
+        const parsedX = parseFloat(args[0] ?? '0');
+        const parsedY = parseFloat(args[1] ?? '0');
+        const parsedZ = parseFloat(args[2] ?? '0');
+        
+        // Only use default if parsing failed (NaN) - allow zero values
+        x = isNaN(parsedX) ? x : parsedX;
+        y = isNaN(parsedY) ? y : parsedY;
+        z = isNaN(parsedZ) ? z : parsedZ;
+      }
+      
+      const position = { x, y, z };
+      playerEntity._activeWeapon.setPosition(position);
+      
+      chatManager.sendPlayerMessage(
+        player, 
+        `Set weapon position to: ${JSON.stringify(position)}`,
+        '00FF00'
+      );
+    });
+    
+    // Command: /setweaponrot (Admin/Debug) - Set weapon rotation with specific values
+    chatManager.registerCommand('/setweaponrot', (player, args: string[] = []) => {
+      const playerEntities = entityManager.getPlayerEntitiesByPlayer(player);
+      const playerEntity = playerEntities.length > 0 ? playerEntities[0] as any : null;
+      
+      if (!playerEntity) {
+        chatManager.sendPlayerMessage(player, 'Could not find your player entity.', 'FF0000');
+        return;
+      }
+      
+      // Check if player has an equipped weapon
+      if (!playerEntity._activeWeapon) {
+        chatManager.sendPlayerMessage(player, 'No weapon equipped.', 'FF0000');
+        return;
+      }
+      
+      // Parse arguments: /setweaponrot x y z (in degrees)
+      let x = -45, y = 0, z = 0; // Default values
+      
+      if (args && args.length >= 3) {
+        // Fix: Properly handle zero values by not using || fallback
+        const parsedX = parseFloat(args[0] ?? '0');
+        const parsedY = parseFloat(args[1] ?? '0');
+        const parsedZ = parseFloat(args[2] ?? '0');
+        
+        // Only use default if parsing failed (NaN) - allow zero values
+        x = isNaN(parsedX) ? x : parsedX;
+        y = isNaN(parsedY) ? y : parsedY;
+        z = isNaN(parsedZ) ? z : parsedZ;
+      }
+      
+      // Convert degrees to radians for Quaternion.fromEuler
+      playerEntity._activeWeapon.setRotation(Quaternion.fromEuler(x, y, z));
+      
+      chatManager.sendPlayerMessage(
+        player, 
+        `Set weapon rotation to: ${x}° ${y}° ${z}°`,
+        '00FF00'
+      );
+    });
+    
+    // Command: /setweaponscale (Admin/Debug) - Set weapon scale
+    chatManager.registerCommand('/setweaponscale', (player, args: string[] = []) => {
+      const playerEntities = entityManager.getPlayerEntitiesByPlayer(player);
+      const playerEntity = playerEntities.length > 0 ? playerEntities[0] as any : null;
+      
+      if (!playerEntity) {
+        chatManager.sendPlayerMessage(player, 'Could not find your player entity.', 'FF0000');
+        return;
+      }
+      
+      // Check if player has an equipped weapon
+      if (!playerEntity._activeWeapon) {
+        chatManager.sendPlayerMessage(player, 'No weapon equipped.', 'FF0000');
+        return;
+      }
+      
+      // Parse arguments: /setweaponscale scale or /setweaponscale x y z
+      let scale = 1.0;
+      let scaleVec = null;
+      
+      if (args && args.length === 1) {
+        // Uniform scale - fix to handle zero properly
+        const parsedScale = parseFloat(args[0] ?? '1');
+        scale = isNaN(parsedScale) ? scale : parsedScale;
+        playerEntity._activeWeapon.setScale(scale);
+        chatManager.sendPlayerMessage(
+          player, 
+          `Set weapon scale to: ${scale}`,
+          '00FF00'
+        );
+      } 
+      else if (args && args.length >= 3) {
+        // Non-uniform scale - fix to handle zero properly
+        const parsedX = parseFloat(args[0] ?? '1');
+        const parsedY = parseFloat(args[1] ?? '1');
+        const parsedZ = parseFloat(args[2] ?? '1');
+        
+        const x = isNaN(parsedX) ? scale : parsedX;
+        const y = isNaN(parsedY) ? scale : parsedY;
+        const z = isNaN(parsedZ) ? scale : parsedZ;
+        
+        scaleVec = { x, y, z };
+        playerEntity._activeWeapon.setScale(scaleVec);
+        chatManager.sendPlayerMessage(
+          player, 
+          `Set weapon scale to: ${JSON.stringify(scaleVec)}`,
+          '00FF00'
+        );
+      }
+      else {
+        // No args, use default
+        playerEntity._activeWeapon.setScale(scale);
+        chatManager.sendPlayerMessage(
+          player, 
+          `Set weapon scale to default: ${scale}`,
+          '00FF00'
+        );
+      }
     });
     
     // Command: /healthpacks (Admin/Debug)

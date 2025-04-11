@@ -78,6 +78,7 @@ export default abstract class BaseWeaponEntity extends Entity {
             // Pass parent and parentNodeName if provided in options
             parent: options.parent,
             parentNodeName: options.parentNodeName || 'hand_right_anchor',
+            opacity: 0.99,
             ...options 
         });
 
@@ -205,7 +206,7 @@ export default abstract class BaseWeaponEntity extends Entity {
      * Called when the weapon is equipped.
      */
     public equip(): void {
-        this._logger.info(`Equip called - setting position to {x:0.3, y:-0.2, z:-0.4} and rotating`);
+        this._logger.info(`Equip called - positioning weapon and rotating`);
         
         // Debug: Check if still attached to parent
         if (!this.parent) {
@@ -214,28 +215,30 @@ export default abstract class BaseWeaponEntity extends Entity {
             this._logger.info(`Parent in equip(): ${this.parent.name}, parentNodeName: ${this.parentNodeName}`);
         }
         
-        // Move the weapon into a more visible position for first-person view
-        // Original position: {x:0, y:0, z:-0.2}
-        this.setPosition({ x: 0.3, y: -0.2, z: -0.4 });
-        this.setRotation(Quaternion.fromEuler(-45, 0, 0)); // Less extreme rotation
+        // Set position and rotation - uses virtual methods that subclasses can override
+        this.setPosition(this.getEquippedPosition());
+        this.setRotation(this.getEquippedRotation());
+        
         this._logger.info(`Setting parent animations`);
         this.setParentAnimations();
-        
-        // Also set an accent color to make it more visible
-        this.setTintColor({ r: 255, g: 255, b: 255 }); // Full bright to ensure visibility
-        
-        // Add a delayed check to see if the weapon is still visible after equipping
-        setTimeout(() => {
-            this._logger.info(`POST-EQUIP CHECK: Entity=${this.name}`);
-            this._logger.info(`  - isSpawned: ${this.isSpawned}`);
-            this._logger.info(`  - model opacity: ${this.opacity}`);
-            this._logger.info(`  - current parent: ${this.parent?.name || 'null'}`);
-            this._logger.info(`  - position: ${JSON.stringify(this.position)}`);
-            
-            // Try setting the position again in case something else moved it
-            this.setPosition({ x: 0.3, y: -0.2, z: -0.4 });
-            this.setTintColor({ r: 255, g: 0, b: 0 }); // Set to red after a delay
-        }, 500);
+    }
+
+    /**
+     * Gets the position for this weapon when equipped.
+     * Override in child classes for weapon-specific positioning.
+     */
+    protected getEquippedPosition(): Vector3Like {
+        // Default position - child classes should override with their own values
+        return { x: 0.3, y: -0.2, z: -0.4 };
+    }
+    
+    /**
+     * Gets the rotation for this weapon when equipped.
+     * Override in child classes for weapon-specific rotation.
+     */
+    protected getEquippedRotation(): QuaternionLike {
+        // Default rotation - child classes should override with their own values
+        return Quaternion.fromEuler(-45, 0, 0);
     }
 
     /**
