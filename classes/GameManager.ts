@@ -103,14 +103,17 @@ export default class GameManager {
     this._gameStartTime = Date.now();
     this._logger.info('Game started');
 
-    // Enable the Overseer's brain
-    const overseer = this._world.entityManager.getEntitiesByTag('overseer')[0];
+    // Get the overseer entity
+    const overseer = this.getOverseerEntity();
+    
     if (overseer) {
-      const overseerEntity = overseer as any; // Using 'any' to access the method
-      if (typeof overseerEntity.toggleKOROUpdates === 'function') {
-        overseerEntity.toggleKOROUpdates(true);
-        this._logger.info('Overseer brain enabled');
-      }
+      // Enable the Overseer's brain
+      overseer.toggleKOROUpdates(true);
+      
+      // Make the overseer vulnerable to damage
+      overseer.setInvulnerable(false);
+      
+      this._logger.info('Overseer brain enabled and set to vulnerable');
     }
 
     // Spawn initial health packs
@@ -129,14 +132,17 @@ export default class GameManager {
     this._gameState = GameState.ENDING;
     this._logger.info('Game ended');
 
-    // Disable the Overseer's brain
-    const overseer = this._world.entityManager.getEntitiesByTag('overseer')[0];
+    // Get the overseer entity
+    const overseer = this.getOverseerEntity();
+    
     if (overseer) {
-      const overseerEntity = overseer as any; // Using 'any' to access the method
-      if (typeof overseerEntity.toggleKOROUpdates === 'function') {
-        overseerEntity.toggleKOROUpdates(false);
-        this._logger.info('Overseer brain disabled');
-      }
+      // Disable the Overseer's brain
+      overseer.toggleKOROUpdates(false);
+      
+      // Make the overseer invulnerable to damage
+      overseer.setInvulnerable(true);
+      
+      this._logger.info('Overseer brain disabled and set to invulnerable');
     }
     
     // Despawn any remaining health packs?
@@ -305,7 +311,43 @@ export default class GameManager {
       }
 
       overseer.setHealth(healthArg);
-      chatManager.sendPlayerMessage(player, `Overseer health set to ${healthArg}.`, '00FF00');
+      const invulnStatus = overseer.isInvulnerable() ? 'invulnerable' : 'vulnerable';
+      chatManager.sendPlayerMessage(
+        player, 
+        `Overseer health set to ${healthArg}. Current status: ${invulnStatus}`, 
+        '00FF00'
+      );
+    });
+
+    // Command: /osinvuln [true/false] (Admin/Debug)
+    chatManager.registerCommand('/osinvuln', (player, args) => {
+      const overseer = this.getOverseerEntity();
+      if (!overseer) {
+        chatManager.sendPlayerMessage(player, 'Overseer not found.', 'FF0000');
+        return;
+      }
+
+      // If no argument is provided, toggle the current state
+      if (args.length === 0) {
+        const currentState = overseer.isInvulnerable();
+        overseer.setInvulnerable(!currentState);
+        chatManager.sendPlayerMessage(
+          player, 
+          `Overseer invulnerability toggled to: ${!currentState}`, 
+          '00FF00'
+        );
+        return;
+      }
+
+      // Otherwise, set to specified state
+      const argValue = args[0] || '';
+      const invulnState = argValue.toLowerCase() === 'true';
+      overseer.setInvulnerable(invulnState);
+      chatManager.sendPlayerMessage(
+        player, 
+        `Overseer invulnerability set to: ${invulnState}`, 
+        '00FF00'
+      );
     });
 
     // Command: /healthpack (Admin/Debug)

@@ -15,6 +15,7 @@ import type {
 } from 'hytopia';
 
 import { Logger } from '../../utils/logger';
+import OverseerEntity from './OverseerEntity';
 
 export default class EnergyProjectile extends Entity {
   private _logger: Logger;
@@ -144,13 +145,28 @@ export default class EnergyProjectile extends Entity {
 
     this._logger.info(`Collision detected with entity: ${otherEntity.name} (Tag: ${otherEntity.tag})`);
 
-    // --- Placeholder Collision Logic ---
-    // TODO: Implement specific collision handling, e.g.:
-    // - Check if otherEntity is OverseerEntity or GamePlayerEntity
-    // - Check if Overseer barrier is open
-    // - Apply damage if appropriate (e.g., if(typeof otherEntity.takeDamage === 'function') otherEntity.takeDamage(this._damage); )
-    // - Play impact effect/sound
+    // Check if we hit the overseer
+    if (otherEntity.tag === 'overseer') {
+      // Try to apply damage using type assertion to OverseerEntity
+      const overseer = otherEntity as OverseerEntity;
+      const damageApplied = overseer.takeDamage(this._damage);
+      
+      if (damageApplied) {
+        this._logger.info(`Applied ${this._damage} damage to Overseer`);
+      } else {
+        this._logger.info(`Damage blocked by Overseer (shield or invulnerable)`);
+      }
+    } 
+    // Check if we hit one of the shield halves
+    else if (otherEntity.name === 'OverseerShieldTop' || otherEntity.name === 'OverseerShieldBottom') {
+      this._logger.info(`Hit overseer shield - no damage applied`);
+      // Later we can add shield hit effects here
+    }
+    
+    // Play impact effect/sound can be added here
+    // TODO: Add impact effects
 
+    // Despawn the projectile upon any collision
     this.despawn();
   }
 } 

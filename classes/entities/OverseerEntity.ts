@@ -52,10 +52,13 @@ export default class OverseerEntity extends Entity {
   // Health - will affect TTS voice
   private _health: number = 100;
   
+  // Flag to control whether entity takes damage
+  private _invulnerable: boolean = true;
+  
   // Shield entities
   private _shieldTop: Entity | null = null;
   private _shieldBottom: Entity | null = null;
-  private _shieldActive: boolean = false;
+  private _shieldActive: boolean = true;
   
   // Shield positioning
   private _shieldOffsets = {
@@ -232,8 +235,8 @@ export default class OverseerEntity extends Entity {
     // Rotate bottom shield 180 degrees around X axis to face upward
     this._shieldBottom.setRotation({ x: 1, y: 0, z: 0, w: 0 });
     
-    // Make sure the shield is closed/inactive by default
-    this._shieldActive = false;
+    // Make sure the shield is closed by default (protecting KORO)
+    this._shieldActive = true;
     
     this._logger.info('Created and spawned shield entities');
   }
@@ -242,7 +245,9 @@ export default class OverseerEntity extends Entity {
    * Calculate the current shield positions based on overseer position and active state
    */
   private _calculateShieldPositions(): { top: Vector3Like, bottom: Vector3Like } {
-    const offsets = this._shieldActive ? this._shieldOpenOffsets : this._shieldOffsets;
+    // FIXED: When shield is active (true), it's closed, so use normal offsets
+    // When inactive (false), it's open, so use open offsets
+    const offsets = this._shieldActive ? this._shieldOffsets : this._shieldOpenOffsets;
     
     return {
       top: {
@@ -309,7 +314,8 @@ export default class OverseerEntity extends Entity {
       this._shieldAnimationTimer = null;
     }
     
-    this._shieldActive = true;
+    // FIXED: When shield is open, it's not protecting KORO, so set to false
+    this._shieldActive = false;
     
     if (this._shieldTop && this._shieldBottom) {
       // Start animation to open shield
@@ -323,7 +329,8 @@ export default class OverseerEntity extends Entity {
       }, duration);
     }
     
-    return this._shieldActive;
+    this._logger.info(`Shield opened, KORO is now vulnerable to direct hits`);
+    return !this._shieldActive; // Return true if opened (not active)
   }
   
   /**
@@ -336,14 +343,16 @@ export default class OverseerEntity extends Entity {
       this._shieldAnimationTimer = null;
     }
     
-    this._shieldActive = false;
+    // FIXED: When shield is closed, it's protecting KORO, so set to true
+    this._shieldActive = true;
     
     if (this._shieldTop && this._shieldBottom) {
       // Start animation to close shield
       this._animateShield(false);
     }
     
-    return this._shieldActive;
+    this._logger.info(`Shield closed, KORO is now protected from hits`);
+    return this._shieldActive; // Return true if closed (active)
   }
 
   /**
@@ -886,6 +895,49 @@ export default class OverseerEntity extends Entity {
    * @returns True if the shield is open, false if it's closed
    */
   public isShieldOpen(): boolean {
-    return this._shieldActive;
+    // FIXED: Shield is open when _shieldActive is false
+    return !this._shieldActive;
+  }
+
+  /**
+   * Set whether the overseer is invulnerable to damage
+   * @param invulnerable True to make invulnerable, false to make vulnerable
+   */
+  public setInvulnerable(invulnerable: boolean): void {
+    this._invulnerable = invulnerable;
+    this._logger.info(`KORO invulnerability set to: ${invulnerable}`);
+  }
+
+  /**
+   * Check if the overseer is currently invulnerable
+   * @returns True if invulnerable, false if vulnerable
+   */
+  public isInvulnerable(): boolean {
+    return this._invulnerable;
+  }
+
+  /**
+   * Apply damage to the overseer if it's vulnerable
+   * @param amount Amount of damage to apply
+   * @returns Whether damage was applied
+   */
+  public takeDamage(amount: number): boolean {
+    // FIXED: If invulnerable or shield is active (closed), ignore damage
+    if (this._invulnerable || this._shieldActive) {
+      this._logger.info(`Damage ignored: ${amount} (invulnerable: ${this._invulnerable}, shield closed: ${this._shieldActive})`);
+      return false;
+    }
+
+    // Calculate new health value
+    const newHealth = Math.max(0, this._health - amount);
+    
+    // Only update if health actually changed
+    if (newHealth !== this._health) {
+      this._logger.info(`Taking damage: ${amount}, health: ${this._health} -> ${newHealth}`);
+      this.setHealth(newHealth);
+      return true;
+    }
+    
+    return false;
   }
 }

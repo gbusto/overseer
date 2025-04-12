@@ -227,11 +227,11 @@ startServer(world => {
     switch (args[0].toLowerCase()) {
       case 'openshield':
         overseer.openShield();
-        world.chatManager.sendPlayerMessage(player, 'Shield opened', '00FF00');
+        world.chatManager.sendPlayerMessage(player, 'Shield opened - KORO is now vulnerable to direct hits', '00FF00');
         break;
       case 'closeshield':
         overseer.closeShield();
-        world.chatManager.sendPlayerMessage(player, 'Shield closed', '00FF00');
+        world.chatManager.sendPlayerMessage(player, 'Shield closed - KORO is now protected', '00FF00');
         break;
       case 'setpos':
         if (args.length < 7) {
