@@ -73,10 +73,21 @@ export default class GamePlayerEntity extends PlayerEntity {
     super.spawn(world, position, rotation);
     
     // Load the main UI
-    this.player.ui.load('ui/energy-bar.html');
+    this.player.ui.load('ui/index.html');
     
-    // Update player UI (only health initially)
+    // Update player UI (health and other stats)
     this._updatePlayerUI();
+    
+    // Also send overseer health data if it exists
+    const gameManager = GameManager.instance;
+    const overseer = gameManager.getOverseerEntity();
+    if (overseer) {
+      this.player.ui.sendData({
+        type: 'overseer-health-update',
+        health: overseer.getHealth(),
+        maxHealth: 100
+      });
+    }
     
     // Send welcome messages
     this._sendWelcomeMessages();
@@ -101,6 +112,8 @@ export default class GamePlayerEntity extends PlayerEntity {
     this.world.chatManager.sendPlayerMessage(this.player, 'Admin commands:', 'FFA500');
     this.world.chatManager.sendPlayerMessage(this.player, '/rocket - Launch yourself into the air', 'FFA500');
     this.world.chatManager.sendPlayerMessage(this.player, '/oshealth [0-100] - Set overseer health', 'FFA500');
+    this.world.chatManager.sendPlayerMessage(this.player, '/toggleplayerhealth - Toggle player health bar visibility', 'FFA500');
+    this.world.chatManager.sendPlayerMessage(this.player, '/togglekorohealth - Toggle KORO health bar visibility', 'FFA500');
     this.world.chatManager.sendPlayerMessage(this.player, '/healthpack - Spawn a health pack in front of you', 'FFA500');
     this.world.chatManager.sendPlayerMessage(this.player, '/healthpacks - Spawn health packs around the map', 'FFA500');
     this.world.chatManager.sendPlayerMessage(this.player, '/rifle - Spawn an Energy Rifle in front of you', 'FFA500');

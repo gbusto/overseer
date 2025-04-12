@@ -24,6 +24,15 @@
   <!-- Countdown for game start -->
   <div id="countdown-container" class="countdown-container">5</div>
 
+  <!-- Energy bar container for weapons -->
+  <div class="weapon-energy-container">
+    <div class="energy-bar">
+      <div class="energy-bar-fill"></div>
+    </div>
+    <div class="weapon-status"></div>
+    <div class="cooldown-indicator"></div>
+  </div>
+
   <!-- Crosshair overlay -->
   <div id="crosshair" class="crosshair">
     <div class="crosshair-horizontal"></div>
@@ -237,12 +246,107 @@
     pointer-events: none;
     z-index: 1000;
   }
+
+  /* ENERGY BAR STYLES */
+  .weapon-energy-container {
+    position: fixed;
+    right: 25px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    z-index: 10;
+    visibility: hidden;
+    opacity: 0;
+    transition: visibility 0.3s, opacity 0.3s;
+  }
+
+  .energy-bar {
+    width: 20px;
+    height: 200px;
+    background: rgba(0, 0, 0, 0.6);
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-radius: 10px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .energy-bar-fill {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to top, #4df0ff, #0088ff);
+    transition: height 0.2s linear;
+  }
+
+  .weapon-status {
+    color: white;
+    font-size: 12px;
+    font-family: Arial, sans-serif;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 5px 10px;
+    border-radius: 10px;
+    text-align: center;
+    visibility: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1);
+    white-space: nowrap;
+  }
+
+  .cooldown-indicator {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    background: rgba(0, 0, 0, 0.6);
+    position: relative;
+    overflow: hidden;
+    visibility: hidden;
+  }
+
+  /* Recharging animation - improved with more fluid animation */
+  @keyframes gentle-pulse {
+    0% { opacity: 0.7; }
+    50% { opacity: 1; }
+    100% { opacity: 0.7; }
+  }
+
+  .recharging .energy-bar-fill {
+    animation: gentle-pulse 1.5s infinite;
+  }
+
+  /* Low energy warning */
+  .low-energy .energy-bar-fill {
+    background: linear-gradient(to top, #ff3333, #ff8800);
+  }
 </style>
 
 <script>
   // Get UI elements
   const messagePanel = document.getElementById('overseer-message-panel');
   const messageContent = document.getElementById('message-content');
+  
+  // Energy bar elements
+  const energyBarFill = document.querySelector('.energy-bar-fill');
+  const weaponStatus = document.querySelector('.weapon-status');
+  const cooldownIndicator = document.querySelector('.cooldown-indicator');
+  const energyBarContainer = document.querySelector('.weapon-energy-container');
+  const crosshair = document.getElementById('crosshair');
+
+  // Initialize energy value
+  let currentEnergy = 100;
+  let maxEnergy = 100;
+  let isRecharging = false;
+  let isCooldown = false;
+  let hasEnergyWeapon = false;
+  
+  // For smooth animation
+  let targetEnergyPercentage = 100;
+  let animationFrameId = null;
   
   // Handle incoming data from the server
   hytopia.onData(data => {
@@ -273,6 +377,54 @@
         // Hide the panel if no message
         messagePanel.style.display = 'none';
       }
+    }
+    
+    // Handle toggle commands
+    if (data.type === 'toggle-player-health-visibility') {
+      const healthContainer = document.getElementById('health-container');
+      const isVisible = healthContainer.style.display === 'block';
+      healthContainer.style.display = isVisible ? 'none' : 'block';
+    }
+    
+    if (data.type === 'toggle-overseer-health-visibility') {
+      const overseerHealthContainer = document.getElementById('overseer-health-container');
+      const isVisible = overseerHealthContainer.style.display === 'block';
+      overseerHealthContainer.style.display = isVisible ? 'none' : 'block';
+    }
+    
+    // Handle energy weapon events
+    if (data.type === 'weapon-status') {
+      // Show energy UI when receiving weapon status data
+      setEnergyWeaponEquipped(true);
+      crosshair.style.display = 'block'; // Show crosshair when weapon equipped
+      
+      // Handle energy updates
+      if (data.energyLevel !== undefined && data.maxEnergy !== undefined) {
+        currentEnergy = data.energyLevel;
+        maxEnergy = data.maxEnergy;
+        updateEnergyBar(currentEnergy, maxEnergy);
+      }
+      
+      // Handle recharging state
+      if (data.isRecharging !== undefined) {
+        setRecharging(data.isRecharging);
+      }
+      
+      // Handle cooldown
+      if (data.cooldownProgress !== undefined) {
+        setCooldown(true, data.cooldownProgress);
+      } else {
+        setCooldown(false);
+      }
+      
+      // Handle status message
+      if (data.message) {
+        showStatus(data.message);
+      }
+    } else if (data.type === 'weapon-unequipped') {
+      // Hide energy UI when weapon is unequipped
+      setEnergyWeaponEquipped(false);
+      crosshair.style.display = 'none'; // Hide crosshair when no weapon
     }
     
     // Handle different game message types
@@ -407,9 +559,142 @@
     overlay.style.opacity = '0';
   }
 
+  // ENERGY BAR FUNCTIONS
+  
+  // Update the energy bar with smoother animation
+  function updateEnergyBar(energy, max, isLow = false) {
+    // Set the target percentage
+    targetEnergyPercentage = (energy / max) * 100;
+    
+    // Show low energy warning when below 25%
+    if (isLow || targetEnergyPercentage < 25) {
+      energyBarContainer.classList.add('low-energy');
+    } else {
+      energyBarContainer.classList.remove('low-energy');
+    }
+    
+    // If we're not in the middle of animating, directly set height
+    if (!animationFrameId) {
+      energyBarFill.style.height = `${targetEnergyPercentage}%`;
+    }
+  }
+
+  // Show or hide energy bar based on weapon equipped state
+  function setEnergyWeaponEquipped(isEquipped) {
+    hasEnergyWeapon = isEquipped;
+    if (isEquipped) {
+      // Show energy bar
+      energyBarContainer.style.visibility = 'visible';
+      energyBarContainer.style.opacity = '1';
+    } else {
+      // Hide energy bar
+      energyBarContainer.style.visibility = 'hidden';
+      energyBarContainer.style.opacity = '0';
+    }
+  }
+
+  // Show recharging animation
+  function setRecharging(recharging) {
+    isRecharging = recharging;
+    
+    if (recharging) {
+      energyBarContainer.classList.add('recharging');
+      // Start the continuous recharge animation if needed
+      startContinuousRechargeAnimation();
+    } else {
+      energyBarContainer.classList.remove('recharging');
+      // If we're not in full recharge mode, we still want regular animation
+    }
+  }
+  
+  // Continuous recharge animation that updates more smoothly
+  function startContinuousRechargeAnimation() {
+    // Cancel any existing animation
+    if (animationFrameId) {
+      cancelAnimationFrame(animationFrameId);
+    }
+    
+    // Only needed for full recharge animation
+    if (!isRecharging) return;
+    
+    // Use requestAnimationFrame for smooth animation
+    const animate = () => {
+      const currentHeight = parseFloat(energyBarFill.style.height || '0');
+      
+      // If we're close enough to the target, snap to it
+      if (Math.abs(currentHeight - targetEnergyPercentage) < 0.2) {
+        energyBarFill.style.height = `${targetEnergyPercentage}%`;
+        animationFrameId = null;
+        return;
+      }
+      
+      // Otherwise, animate smoothly
+      const newHeight = currentHeight + (targetEnergyPercentage - currentHeight) * 0.03;
+      energyBarFill.style.height = `${newHeight}%`;
+      
+      // Continue animation
+      animationFrameId = requestAnimationFrame(animate);
+    };
+    
+    animationFrameId = requestAnimationFrame(animate);
+  }
+
+  // Show cooldown indicator
+  function setCooldown(active, progress = 0) {
+    isCooldown = active;
+    cooldownIndicator.style.visibility = active ? 'visible' : 'hidden';
+    
+    if (active) {
+      // Create inner element if it doesn't exist
+      let innerElement = cooldownIndicator.querySelector('.cooldown-inner');
+      if (!innerElement) {
+        innerElement = document.createElement('div');
+        innerElement.className = 'cooldown-inner';
+        innerElement.style.position = 'absolute';
+        innerElement.style.top = '0';
+        innerElement.style.left = '0';
+        innerElement.style.width = '100%';
+        innerElement.style.height = '100%';
+        innerElement.style.background = '#ff3333';
+        innerElement.style.transformOrigin = 'center';
+        innerElement.style.borderRadius = '50%';
+        innerElement.style.transition = 'transform 0.1s linear';
+        cooldownIndicator.appendChild(innerElement);
+      }
+      
+      innerElement.style.transform = `scale(${1 - progress})`;
+    }
+  }
+
+  // Show status message
+  function showStatus(message, duration = 3000) {
+    if (!message) {
+      weaponStatus.style.visibility = 'hidden';
+      return;
+    }
+    
+    // Skip showing energy level messages (format: "Energy: X/Y")
+    if (message.startsWith('Energy:')) {
+      return;
+    }
+    
+    weaponStatus.textContent = message;
+    weaponStatus.style.visibility = 'visible';
+    
+    // Hide after duration if specified
+    if (duration > 0) {
+      setTimeout(() => {
+        weaponStatus.style.visibility = 'hidden';
+      }, duration);
+    }
+  }
+
   // Initialize with default values but hide UI elements initially
   updateHealth(100, 100);
   updateOverseerHealth(100, 100);
   document.getElementById('health-container').style.display = 'none';
   document.getElementById('overseer-health-container').style.display = 'none';
+  
+  // Hide crosshair initially (show only when weapon equipped)
+  crosshair.style.display = 'none';
 </script> 

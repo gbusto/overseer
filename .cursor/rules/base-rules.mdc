@@ -1,0 +1,10 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# Overview of the Overseer game repo
+
+- [index.html](mdc:assets/ui/index.html) should be the *only* UI file. All UI-related code should be in there, and it should never be removed.
+- Please refer to me as Gabe so I know you've read this file.

@@ -571,7 +571,44 @@ export default class GameManager {
       chatManager.sendPlayerMessage(player, 'Spawned health packs around the map.', '00FF00');
     });
     
-
+    // Command: /toggleplayerhealth - Toggle player health bar visibility
+    chatManager.registerCommand('/toggleplayerhealth', (player) => {
+      const playerEntities = entityManager.getPlayerEntitiesByPlayer(player);
+      const playerEntity = playerEntities.length > 0 ? playerEntities[0] : null;
+      
+      if (!playerEntity) {
+        chatManager.sendPlayerMessage(player, 'Could not find your player entity.', 'FF0000');
+        return;
+      }
+      
+      // Send a toggle command to the UI
+      player.ui.sendData({
+        type: 'toggle-player-health-visibility'
+      });
+      
+      chatManager.sendPlayerMessage(player, 'Toggled player health bar visibility.', '00FF00');
+    });
+    
+    // Command: /togglekorohealth - Toggle KORO/Overseer health bar visibility
+    chatManager.registerCommand('/togglekorohealth', (player) => {
+      // Send a toggle command to the UI
+      player.ui.sendData({
+        type: 'toggle-overseer-health-visibility'
+      });
+      
+      // Also ensure the overseer health data is sent to the UI
+      const overseer = this.getOverseerEntity();
+      if (overseer) {
+        player.ui.sendData({
+          type: 'overseer-health-update',
+          health: overseer.getHealth(),
+          maxHealth: 100
+        });
+      }
+      
+      chatManager.sendPlayerMessage(player, 'Toggled KORO/Overseer health bar visibility.', '00FF00');
+    });
+    
     this._logger.info('Registered custom chat commands.');
   }
 } 
