@@ -73,7 +73,7 @@ export default class GamePlayerEntity extends PlayerEntity {
     super.spawn(world, position, rotation);
     
     // Load the main UI
-    this.player.ui.load('ui/index.html');
+    this.player.ui.load('ui/energy-bar.html');
     
     // Update player UI (only health initially)
     this._updatePlayerUI();
