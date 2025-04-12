@@ -347,4 +347,12 @@ export default class EnergyRifle1 extends BaseWeaponEntity {
 
         projectile.spawn(world, spawnPosition, facingDirection);
     }
+
+    public override equip(): void {
+        // Call the parent equip method first
+        super.equip();
+        
+        // Update the UI immediately to show the energy bar when equipped
+        this._updateOwnerEnergyUI();
+    }
 } 
