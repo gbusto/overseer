@@ -34,9 +34,9 @@ export default class EnergyProjectile extends Entity {
     super({
       name: 'EnergyProjectile',
       tag: 'projectile',
-      modelUri: 'models/effects/energy_bolt.glb', // Placeholder model
+      modelUri: 'models/weapons/energy-orb.glb', // Placeholder model
       modelScale: 0.5, // Small projectile
-      opacity: 1,
+      opacity: 0.99,
       rigidBodyOptions: {
         type: RigidBodyType.KINEMATIC_POSITION,
         colliders: [

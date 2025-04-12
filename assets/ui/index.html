@@ -24,6 +24,12 @@
   <!-- Countdown for game start -->
   <div id="countdown-container" class="countdown-container">5</div>
 
+  <!-- Crosshair overlay -->
+  <div id="crosshair" class="crosshair">
+    <div class="crosshair-horizontal"></div>
+    <div class="crosshair-vertical"></div>
+  </div>
+
   <!-- Fade overlay for transitions -->
   <div id="fade-overlay" class="fade-overlay"></div>
 </div>
@@ -184,6 +190,38 @@
     color: white;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
     display: none; /* Hidden by default */
+  }
+
+  /* Crosshair styles */
+  .crosshair {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 20px;
+    height: 20px;
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  .crosshair-horizontal {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background-color: rgba(255, 255, 255, 0.8);
+    transform: translateY(-50%);
+  }
+
+  .crosshair-vertical {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 2px;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.8);
+    transform: translateX(-50%);
   }
 
   /* Fade overlay styles */
