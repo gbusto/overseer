@@ -73,18 +73,31 @@ The biodome environment is controlled via the `BiodomeController` class:
 |--------|-------------|------------|
 | `biodome.setTemperature(temperature, changeRate?, autoReset?)` | Sets target biodome temperature with configurable change rate | Temperature (°F), optional change rate (°/sec), auto-reset (boolean, default true) |
 | `biodome.resetTemperature()` | Immediately resets temperature to normal (74°F) | None |
+| `biodome.resetLighting()` | Immediately resets all lighting colors and intensities to default values | None |
 | `biodome.getCurrentTemperature()` | Gets current temperature in Fahrenheit | None |
+| `biodome.getNormalTemperature()` | Gets normal temperature baseline (74°F) | None |
+| `biodome.getHeatDangerThreshold()` | Gets heat danger threshold (104°F) | None |
+| `biodome.getColdDangerThreshold()` | Gets cold danger threshold (32°F) | None |
 | `biodome.toggleBiodomeUI(player?)` | Toggles biodome status UI visibility | Optional specific player, otherwise affects all players |
 | `biodome.onTick(tickDeltaMs)` | Update method called each frame, handles temperature changes and effects | Time delta in milliseconds |
 
-Temperature thresholds:
-- 104°F or higher: Temperature text appears red (danger)
-- 90°F - 103°F: Temperature text appears yellow (warning)
-- Below 90°F and above 50°F: Temperature text appears white (normal)
-- 50°F or lower: Temperature text appears yellow (warning)
-- 32°F or lower: Temperature text appears red (danger)
+Temperature thresholds and ranges:
+- Temperature range: -50°F to 200°F (MIN_TEMP to MAX_TEMP)
+- Normal temperature: 74°F (NORMAL_TEMP)
+- 104°F or higher: Temperature text appears red, ambient lighting gradually shifts to red (HEAT_DANGER_THRESHOLD)
+- 90°F - 103°F: Temperature text appears yellow (HEAT_WARNING_THRESHOLD)
+- Below 90°F and above 50°F: Temperature text appears white (normal range)
+- 50°F or lower: Temperature text appears yellow (COLD_WARNING_THRESHOLD)
+- 32°F or lower: Temperature text appears red, ambient lighting gradually shifts to blue (COLD_DANGER_THRESHOLD)
 
-Environmental damage is automatically applied when temperature exceeds 100°F (heat damage) or drops below 32°F (cold damage).
+Environmental effects:
+- Ambient lighting gradually shifts to red as temperature rises above 104°F
+- Directional lighting (sunlight) becomes more reddish as temperature rises above 104°F
+- Ambient lighting gradually shifts to blue as temperature falls below 32°F
+- Directional lighting (sunlight) becomes more bluish as temperature falls below 32°F
+- Light intensities increase gradually from default (1) to maximum (5) as temperature approaches either extreme
+- The intensity of color and brightness changes is proportional to how close the temperature is to MIN_TEMP or MAX_TEMP
+- Environmental damage is automatically applied when temperature exceeds 100°F (heat damage) or drops below 32°F (cold damage)
 
 ## UI Controls
 
