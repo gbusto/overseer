@@ -21,6 +21,8 @@ The game loop is primarily controlled through `GameManager.ts`, which implements
 | `GameManager.instance.getOverseerEntity()` | Returns the OverseerEntity (KORO) instance | GameManager.ts |
 | `GameManager.instance.spawnTestHealthPacks()` | Spawns health packs around the map | GameManager.ts |
 | `GameManager.instance.isGameActive` | Returns whether game is in ACTIVE state | GameManager.ts |
+| `GameManager.isPlayerVulnerable()` | Returns whether players can take damage (based on game state or override flag) | GameManager.ts |
+| `GameManager.setPlayerVulnerable(vulnerable)` | Sets whether players can take damage outside of active game state | GameManager.ts |
 
 ## KORO/Overseer Control
 
@@ -115,7 +117,7 @@ The game's UI can be controlled via UI data messages:
 | Method | Description | Parameters |
 |--------|-------------|------------|
 | `player.ui.sendData({ type: 'overseer-health-update', health, maxHealth })` | Updates KORO health UI | Health and max health values |
-| `player.ui.sendData({ type: 'health-update', health, maxHealth })` | Updates player health UI | Health and max health values |
+| `player.ui.sendData({ type: 'health-update', health, maxHealth })` | Updates player health UI | Health (rounded to nearest integer) and max health values |
 | `player.ui.sendData({ type: 'toggle-player-health-visibility' })` | Toggles player health bar visibility | None |
 | `player.ui.sendData({ type: 'toggle-overseer-health-visibility' })` | Toggles KORO health bar visibility | None |
 | `player.ui.sendData({ type: 'overseer-message', message, action })` | Shows message from KORO | Message text and action type |
@@ -138,6 +140,7 @@ These commands can be used in the game chat for testing and debugging:
 | `/start` | Starts a new game |
 | `/oshealth [0-100]` | Sets KORO's health |
 | `/osinvuln [true/false]` | Toggles KORO's invulnerability |
+| `/toggledamage [true/false]` | Toggles player vulnerability to damage (allows damage even when game is not active) |
 | `/toggleplayerhealth` | Toggles player health bar visibility |
 | `/togglekorohealth` | Toggles KORO health bar visibility |
 | `/koro openshield` | Opens KORO's shield |
