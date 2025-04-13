@@ -1,6 +1,7 @@
 import {
     Vector3,
-    Quaternion
+    Quaternion,
+    Entity
 } from 'hytopia';
 import type {
     EntityOptions,
@@ -9,9 +10,11 @@ import type {
 } from 'hytopia';
 
 import BaseEnergyWeaponEntity from './BaseEnergyWeaponEntity';
+import BFGProjectile from '../entities/BFGProjectile';
+import BaseEnergyProjectile from '../entities/BaseEnergyProjectile';
 
 // Define default options for this specific weapon
-const DEFAULT_ENERGY_RIFLE_OPTIONS = {
+const DEFAULT_BFG_OPTIONS = {
     name: 'BFG',
     modelUri: 'models/weapons/bfg.glb',
     modelScale: 3.0,
@@ -28,7 +31,7 @@ const DEFAULT_ENERGY_RIFLE_OPTIONS = {
     energyPerShot: 12, // Energy consumed per shot
     energyRechargeRate: 3, // Energy units recharged per second
     fullRechargeTimeMs: 15000, // Time for a full recharge when depleted
-    energyBarColor: 'yellow' // Energy bar color in UI
+    energyBarColor: 'yellow' // Energy bar color in UI - yellow for BFG
 };
 
 export default class BFG extends BaseEnergyWeaponEntity {
@@ -47,8 +50,18 @@ export default class BFG extends BaseEnergyWeaponEntity {
     }> = {}) {
         // Merge default options with provided options
         super({
-            ...DEFAULT_ENERGY_RIFLE_OPTIONS,
+            ...DEFAULT_BFG_OPTIONS,
             ...options
+        });
+    }
+
+    /**
+     * Override to create a BFG-specific projectile
+     */
+    protected override createProjectile(shooter: Entity): BaseEnergyProjectile {
+        return new BFGProjectile({
+            damage: this._damage * 1.5, // BFG does extra damage
+            shooter: shooter
         });
     }
 

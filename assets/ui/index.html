@@ -319,9 +319,15 @@
     animation: gentle-pulse 1.5s infinite;
   }
 
-  /* Low energy warning */
+  /* Low energy warning - pulsing effect instead of color change */
+  @keyframes low-energy-pulse {
+    0% { opacity: 0.7; filter: brightness(0.8); }
+    50% { opacity: 1; filter: brightness(1.2); }
+    100% { opacity: 0.7; filter: brightness(0.8); }
+  }
+
   .low-energy .energy-bar-fill {
-    background: linear-gradient(to top, #ff3333, #ff8800);
+    animation: low-energy-pulse 0.8s infinite;
   }
 </style>
 
@@ -397,7 +403,7 @@
       if (data.energyLevel !== undefined && data.maxEnergy !== undefined) {
         currentEnergy = data.energyLevel;
         maxEnergy = data.maxEnergy;
-        updateEnergyBar(currentEnergy, maxEnergy);
+        updateEnergyBar(currentEnergy, maxEnergy, data.energyBarColor);
       }
       
       // Handle recharging state
@@ -566,7 +572,7 @@
   // ENERGY BAR FUNCTIONS
   
   // Update the energy bar - simplified for accurate display
-  function updateEnergyBar(energy, max) {
+  function updateEnergyBar(energy, max, color = 'blue') {
     // Ensure energy doesn't go below 0 or above max visually
     const clampedEnergy = Math.max(0, Math.min(energy, max));
     // Calculate percentage, handle max=0 case
@@ -581,6 +587,22 @@
 
     // Directly set the height to ensure 0% and 100% are accurate
     energyBarFill.style.height = `${targetEnergyPercentage}%`;
+    
+    // Set the color of the energy bar
+    if (color === 'yellow') {
+        energyBarFill.style.background = 'linear-gradient(to top, #ffcc00, #ffee44)';
+    } else if (color === 'blue') {
+        energyBarFill.style.background = 'linear-gradient(to top, #4df0ff, #0088ff)';
+    } else if (color === 'green') {
+        energyBarFill.style.background = 'linear-gradient(to top, #00cc00, #44ff44)';
+    } else if (color === 'red') {
+        energyBarFill.style.background = 'linear-gradient(to top, #cc0000, #ff4444)';
+    } else if (color === 'purple') {
+        energyBarFill.style.background = 'linear-gradient(to top, #aa00aa, #ff44ff)';
+    } else {
+        // Default blue gradient if no color matches
+        energyBarFill.style.background = 'linear-gradient(to top, #4df0ff, #0088ff)';
+    }
   }
 
   // Show or hide energy bar based on weapon equipped state

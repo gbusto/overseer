@@ -1,6 +1,7 @@
 import {
     Vector3,
-    Quaternion
+    Quaternion,
+    Entity
 } from 'hytopia';
 import type {
     EntityOptions,
@@ -9,6 +10,8 @@ import type {
 } from 'hytopia';
 
 import BaseEnergyWeaponEntity from './BaseEnergyWeaponEntity';
+import EnergyProjectile from '../entities/EnergyProjectile';
+import BaseEnergyProjectile from '../entities/BaseEnergyProjectile';
 
 // Define default options for this specific weapon
 const DEFAULT_ENERGY_RIFLE_OPTIONS = {
@@ -28,7 +31,7 @@ const DEFAULT_ENERGY_RIFLE_OPTIONS = {
     energyPerShot: 12, // Energy consumed per shot
     energyRechargeRate: 3, // Energy units recharged per second
     fullRechargeTimeMs: 15000, // Time for a full recharge when depleted
-    energyBarColor: 'yellow' // Energy bar color in UI
+    energyBarColor: 'blue' // Energy bar color in UI - explicitly set to yellow
 };
 
 export default class EnergyRifle1 extends BaseEnergyWeaponEntity {
@@ -49,6 +52,16 @@ export default class EnergyRifle1 extends BaseEnergyWeaponEntity {
         super({
             ...DEFAULT_ENERGY_RIFLE_OPTIONS,
             ...options
+        });
+    }
+
+    /**
+     * Override to explicitly use the standard EnergyProjectile
+     */
+    protected override createProjectile(shooter: Entity): BaseEnergyProjectile {
+        return new EnergyProjectile({
+            damage: this._damage,
+            shooter: shooter
         });
     }
 

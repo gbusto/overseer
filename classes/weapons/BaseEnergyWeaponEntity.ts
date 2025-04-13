@@ -3,7 +3,8 @@ import {
     Vector3,
     Quaternion,
     PlayerEntity,
-    EntityEvent
+    EntityEvent,
+    Entity
 } from 'hytopia';
 import type {
     EntityOptions,
@@ -13,6 +14,7 @@ import type {
 
 import BaseWeaponEntity from './BaseWeaponEntity';
 import EnergyProjectile from '../entities/EnergyProjectile';
+import BaseEnergyProjectile from '../entities/BaseEnergyProjectile';
 
 export default abstract class BaseEnergyWeaponEntity extends BaseWeaponEntity {
     // Energy weapon specific properties
@@ -59,6 +61,19 @@ export default abstract class BaseEnergyWeaponEntity extends BaseWeaponEntity {
         
         // Set up tick event for continuous energy recharge
         this.on(EntityEvent.TICK, this._onTick);
+    }
+
+    /**
+     * Creates a projectile for this weapon
+     * Override this in subclasses to create different projectile types
+     * @param shooter The entity that fired the weapon
+     * @returns A new projectile instance
+     */
+    protected createProjectile(shooter: Entity): BaseEnergyProjectile {
+        return new EnergyProjectile({
+            damage: this._damage,
+            shooter: shooter
+        });
     }
 
     /**
@@ -333,12 +348,8 @@ export default abstract class BaseEnergyWeaponEntity extends BaseWeaponEntity {
             z: ownerPosition.z + facingDirection.z * spawnOffsetDist,
         };
 
-        // Create and spawn the projectile
-        const projectile = new EnergyProjectile({
-            damage: this._damage,
-            shooter: owner
-        });
-
+        // Create and spawn the projectile using the createProjectile method
+        const projectile = this.createProjectile(owner);
         projectile.spawn(world, spawnPosition, facingDirection);
     }
 
