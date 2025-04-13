@@ -46,6 +46,20 @@ KORO (the Overseer entity) can be controlled through the following methods:
 | `overseer.setInvulnerable(state)` | Set whether KORO can take damage | Boolean |
 | `overseer.isInvulnerable()` | Returns whether KORO is currently invulnerable | None |
 
+### Temperature Regulation
+
+| Method | Description | Parameters |
+|--------|-------------|------------|
+| `overseer.getInternalTemperature()` | Gets KORO's current internal temperature | None |
+| `overseer.getNormalInternalTemperature()` | Gets KORO's normal internal temperature baseline | None |
+| `overseer.setInternalTemperature(temp)` | Sets KORO's internal temperature | Temperature in Fahrenheit |
+
+The Overseer's internal temperature is affected by the biodome temperature settings:
+- KORO's internal temperature rises or falls based on how extreme the biodome temperature is
+- More extreme biodome temperatures cause faster changes to KORO's internal temperature
+- When KORO's shield is open, its internal temperature gradually returns to normal
+- Temperature changes are automatically reflected in the UI for players to see
+
 ### AI Behavior
 
 | Method | Description | Parameters |

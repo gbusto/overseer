@@ -26,6 +26,18 @@
       <div id="biodome-temperature" class="biodome-status-value">74°F (23.3°C)</div>
     </div>
   </div>
+  
+  <!-- Overseer internal temperature panel -->
+  <div id="overseer-temp-container" class="overseer-temp-container">
+    <div class="overseer-temp-label">OVERSEER TEMPERATURE</div>
+    <div class="biodome-status-row">
+      <div class="biodome-status-icon temperature-icon"></div>
+      <div id="overseer-temperature" class="biodome-status-value">75°F</div>
+    </div>
+    <div class="overseer-temp-bar-container">
+      <div id="overseer-temp-bar" class="overseer-temp-bar"></div>
+    </div>
+  </div>
 
   <!-- Timer -->
   <div id="timer-container" class="timer-container">10:00</div>
@@ -447,6 +459,43 @@
       transform: translateY(-100px);
     }
   }
+
+  /* Overseer temperature styles */
+  .overseer-temp-container {
+    position: fixed;
+    top: 175px; /* Position below biodome status container */
+    right: 20px;
+    width: 200px;
+    background-color: rgba(0, 0, 0, 0.5);
+    border-radius: 5px;
+    padding: 5px;
+    color: white;
+    font-size: 12px;
+  }
+  
+  .overseer-temp-label {
+    text-align: center;
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #00CED1; /* Same color as overseer health */
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+  }
+  
+  .overseer-temp-bar-container {
+    height: 8px;
+    background-color: #333;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 5px;
+    margin-bottom: 2px;
+  }
+  
+  .overseer-temp-bar {
+    height: 100%;
+    width: 50%; /* Default width */
+    background-color: #888;
+    transition: width 0.3s, background-color 0.3s;
+  }
 </style>
 
 <script>
@@ -583,6 +632,12 @@
         updateOverseerHealth(data.health, data.maxHealth);
         // Only show overseer health in active game state
         document.getElementById('overseer-health-container').style.display = 'block';
+        break;
+      
+      case 'overseer-temp-update':
+        updateOverseerTemperature(data);
+        // Show overseer temperature UI
+        document.getElementById('overseer-temp-container').style.display = 'block';
         break;
       
       case 'timer-update':
@@ -862,25 +917,74 @@
 
   // Handle biodome status updates
   function updateBiodomeStatus(data) {
-    if (data.temperature) {
-      // Round temperatures to integers
-      const temperatureF = Math.round(data.temperature.fahrenheit);
-      const temperatureC = Math.round(data.temperature.celsius);
+    // Show biodome container
+    biodomeStatusContainer.style.display = 'block';
+    
+    if (data.temperature !== undefined) {
+      const tempF = data.temperature;
+      const tempC = ((tempF - 32) * 5 / 9).toFixed(1);
+      biodomeTemperature.textContent = `${tempF}°F (${tempC}°C)`;
       
-      // Format display text without decimal places
-      biodomeTemperature.textContent = `${temperatureF}°F (${temperatureC}°C)`;
+      // Reset all temperature classes
+      biodomeTemperature.classList.remove('temperature-normal', 'temperature-warning', 'temperature-danger');
       
-      // Set temperature styling based on danger level
-      biodomeTemperature.className = 'biodome-status-value';
-      
-      if (temperatureF >= 104 || temperatureF <= 32) {
+      // Determine temperature class based on value
+      if (tempF >= 104 || tempF <= 32) {
         biodomeTemperature.classList.add('temperature-danger');
-      } else if (temperatureF >= 90 || temperatureF <= 50) {
+      } else if (tempF >= 90 || tempF <= 50) {
         biodomeTemperature.classList.add('temperature-warning');
       } else {
         biodomeTemperature.classList.add('temperature-normal');
       }
     }
+  }
+
+  // Update overseer temperature
+  function updateOverseerTemperature(data) {
+    const tempElement = document.getElementById('overseer-temperature');
+    const tempBar = document.getElementById('overseer-temp-bar');
+    
+    if (!tempElement || !tempBar) return;
+    
+    const temp = data.temperature;
+    const normal = data.normal || 75;
+    
+    // Update text
+    tempElement.textContent = `${temp}°F`;
+    
+    // Calculate color based on temperature difference from normal
+    let color = '#888'; // Normal gray
+    const tempDiff = temp - normal;
+    
+    if (tempDiff > 30) {
+      color = '#ff0000'; // Hot red
+      tempElement.classList.add('temperature-danger');
+      tempElement.classList.remove('temperature-normal', 'temperature-warning');
+    } else if (tempDiff > 15) {
+      color = '#ff8800'; // Warm orange
+      tempElement.classList.add('temperature-warning');
+      tempElement.classList.remove('temperature-normal', 'temperature-danger');
+    } else if (tempDiff < -30) {
+      color = '#00aaff'; // Cold blue
+      tempElement.classList.add('temperature-danger');
+      tempElement.classList.remove('temperature-normal', 'temperature-warning');
+    } else if (tempDiff < -15) {
+      color = '#88ddff'; // Cool light blue
+      tempElement.classList.add('temperature-warning');
+      tempElement.classList.remove('temperature-normal', 'temperature-danger');
+    } else {
+      tempElement.classList.add('temperature-normal');
+      tempElement.classList.remove('temperature-warning', 'temperature-danger');
+    }
+    
+    // Set bar color
+    tempBar.style.backgroundColor = color;
+    
+    // Calculate bar width (50% at normal, 100% at max, 0% at min)
+    // Assuming range of normal±50 degrees
+    const percentFromNormal = (temp - (normal - 50)) / 100;
+    const barWidth = Math.max(0, Math.min(100, percentFromNormal * 100));
+    tempBar.style.width = `${barWidth}%`;
   }
 
   // Initialize with default values but hide UI elements initially

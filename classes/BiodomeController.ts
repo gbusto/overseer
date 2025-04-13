@@ -280,18 +280,12 @@ export default class BiodomeController {
     // Get all players in the world
     const players = this._world.entityManager.getAllPlayerEntities();
     
-    // Convert F to C for display
-    const tempC = this._fahrenheitToCelsius(this._currentTemp);
-    
     // Send temperature data to all players
     players.forEach(player => {
       if (player.player && player.player.ui) {
         player.player.ui.sendData({
           type: 'biodome-status',
-          temperature: {
-            fahrenheit: Math.round(this._currentTemp),
-            celsius: Math.round(tempC)
-          },
+          temperature: Math.round(this._currentTemp),
           isTemperatureDangerous: this._currentTemp >= this.HEAT_DANGER_THRESHOLD || this._currentTemp <= this.COLD_DANGER_THRESHOLD
         });
       }

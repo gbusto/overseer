@@ -49,6 +49,14 @@ export default class OverseerEntity extends Entity {
   // Biodome controller
   private _biodome: BiodomeController | null = null;
   
+  // Temperature regulation properties
+  private _internalTemp: number = 75; // Default internal temperature (F)
+  private _normalInternalTemp: number = 75; // Baseline normal temperature
+  private _tempChangeRate: number = 0.05; // Base rate of temperature change per second
+  private _coolingRate: number = 0.2; // Rate of cooling when shield is open (per second)
+  private _lastInternalTempUpdate: number = 0; // Throttle UI updates
+  private _internalTempUpdateInterval: number = 500; // Update UI every 500ms max
+  
   // Next update check
   private _nextUpdateCheck: number = 0;
   private _updateCheckInterval: number = 5000; // Check every 5 seconds
@@ -477,6 +485,9 @@ export default class OverseerEntity extends Entity {
       this._biodome.onTick(tickDeltaMs);
     }
     
+    // Update internal temperature
+    this._updateInternalTemperature(tickDeltaMs);
+    
     // Check for AI updates periodically to avoid checking every tick
     if (time > this._nextUpdateCheck) {
       this._nextUpdateCheck = time + this._updateCheckInterval;
@@ -645,6 +656,14 @@ export default class OverseerEntity extends Entity {
   private _onSpawned = (): void => {
     // Keep track of world
     this._world = this.world || null;
+    
+    // Initialize internal temperature
+    this._internalTemp = this._normalInternalTemp;
+    
+    // Send initial temperature data
+    if (this._world) {
+      this._updateInternalTempUI();
+    }
     
     this._logger.info('Spawned and initialized');
   }
@@ -1020,5 +1039,89 @@ export default class OverseerEntity extends Entity {
    */
   public isBiodomeEnvironmentalDamageEnabled(): boolean {
     return this._biodome ? this._biodome.isEnvironmentalDamageEnabled() : false;
+  }
+
+  /**
+   * Update internal temperature based on biodome temperature
+   * @param tickDeltaMs Time since last tick in milliseconds
+   */
+  private _updateInternalTemperature(tickDeltaMs: number): void {
+    if (!this._biodome) return;
+    
+    const biodomeTemp = this._biodome.getCurrentTemperature();
+    const normalBiodomeTemp = this._biodome.getNormalTemperature();
+    const deltaSeconds = tickDeltaMs / 1000;
+    
+    // If shield is open, cool down toward normal temperature
+    if (!this._shieldActive) { // Shield is open when _shieldActive is false
+      // Move temperature toward normal at cooling rate
+      const tempDiff = this._internalTemp - this._normalInternalTemp;
+      if (Math.abs(tempDiff) > 0.1) { // Only adjust if significantly different
+        this._internalTemp -= tempDiff * this._coolingRate * deltaSeconds;
+        this._logger.debug(`Shield open: Internal temp cooling to ${this._internalTemp.toFixed(1)}°F`);
+      }
+    } else {
+      // Calculate how extreme the biodome temperature is (0-1 scale)
+      const normalRange = 50; // How many degrees from normal is considered "full extremity"
+      const tempDifference = biodomeTemp - normalBiodomeTemp;
+      const extremityFactor = Math.min(Math.abs(tempDifference) / normalRange, 1);
+      
+      // Apply temperature change scaled by extremity
+      const changeAmount = tempDifference * this._tempChangeRate * extremityFactor * deltaSeconds;
+      this._internalTemp += changeAmount;
+      
+      if (Math.abs(changeAmount) > 0.01) {
+        this._logger.debug(`Internal temp changing by ${changeAmount.toFixed(3)} to ${this._internalTemp.toFixed(1)}°F (extremity: ${extremityFactor.toFixed(2)})`);
+      }
+    }
+    
+    // Update UI at regulated intervals to avoid flooding
+    const currentTime = Date.now();
+    if (currentTime - this._lastInternalTempUpdate >= this._internalTempUpdateInterval) {
+      this._updateInternalTempUI();
+      this._lastInternalTempUpdate = currentTime;
+    }
+  }
+  
+  /**
+   * Send internal temperature updates to all player UIs
+   */
+  private _updateInternalTempUI(): void {
+    if (!this._world) return;
+    
+    const players = this._world.entityManager.getAllPlayerEntities().map(entity => entity.player);
+    players.forEach(player => {
+      player.ui.sendData({
+        type: 'overseer-temp-update',
+        temperature: Math.round(this._internalTemp), // Round to integer for display
+        normal: this._normalInternalTemp
+      });
+    });
+  }
+  
+  /**
+   * Get the current internal temperature of the Overseer
+   * @returns Current internal temperature in Fahrenheit
+   */
+  public getInternalTemperature(): number {
+    return this._internalTemp;
+  }
+  
+  /**
+   * Get the normal internal temperature baseline
+   * @returns Normal internal temperature in Fahrenheit
+   */
+  public getNormalInternalTemperature(): number {
+    return this._normalInternalTemp;
+  }
+  
+  /**
+   * Set the internal temperature of the Overseer
+   * @param temp New temperature in Fahrenheit
+   */
+  public setInternalTemperature(temp: number): void {
+    this._internalTemp = Math.max(0, Math.min(200, temp)); // Clamp to reasonable range
+    this._updateInternalTempUI();
+    this._logger.debug(`Internal temperature set to ${this._internalTemp.toFixed(1)}°F`);
   }
 }
