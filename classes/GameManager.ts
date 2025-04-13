@@ -915,6 +915,15 @@ export default class GameManager {
         );
       }
     });
+
+    chatManager.registerCommand('/taunt', (player) => {
+      const overseer = this.getOverseerEntity();
+      if (!overseer) {
+        chatManager.sendPlayerMessage(player, 'Overseer not found.', 'FF0000');
+        return;
+      }
+      overseer.performShieldTaunt();
+    });
     
     // Command: /toggleui - Toggle all UI elements visibility 
     chatManager.registerCommand('/toggleui', (player) => {

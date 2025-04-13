@@ -69,8 +69,14 @@ type GameStateSnapshot = z.infer<typeof GameStateSnapshotSchema>;
 // Define a more interactive response schema
 const KOROResponseSchema = z.object({
   message: z.string().optional(), // Make message optional
-  action: z.enum(['none', 'observe', 'warn', 'threaten']).default('none'),
-  target: z.string().optional() // Player name or "all"
+  action: z.enum([
+    'none', 
+    'attack_heat', 
+    'attack_freeze', 
+    'taunt_shield' 
+  ]).default('none'),
+  intensity: z.enum(['low', 'medium', 'high']).optional(), // Optional intensity for attacks
+  target: z.string().optional() // Player name or "all" - less relevant now but keep for potential future use
 });
 
 // Define event type for better structure
@@ -302,11 +308,61 @@ export class KOROBrain {
               return; // Exit if LLM call failed or returned nothing usable
           }
 
-          this.logger.info(`LLM Response: ${response.message || '(no message)'}, Action: ${response.action}, Target: ${response.target || 'N/A'}`);
+          this.logger.info(`LLM Response: ${response.message || '(no message)'}, Action: ${response.action}, Intensity: ${response.intensity || 'N/A'}, Target: ${response.target || 'N/A'}`);
           this.addResponseToHistory(response);
 
-          // TODO: Implement action parsing - trigger Overseer methods based on response.action
-          // e.g., if (response.action === 'threaten') { this._overseer.triggerThreatEffect(); }
+          // --- Action Execution ---
+          switch (response.action) {
+              case 'attack_heat':
+              case 'attack_freeze':
+                  // Check if KORO can actually attack based on the snapshot state
+                  if (snapshot.game_context.can_initiate_environmental_attack) {
+                      const intensity = response.intensity || 'medium'; // Default to medium if not provided
+                      const isHeatAttack = response.action === 'attack_heat';
+                      const changeRate = 10; // Constant change rate
+                      
+                      // Define temperature/rate based on intensity (UPDATED RANGES)
+                      let targetTemp: number;
+                      if (intensity === 'low') {
+                          targetTemp = isHeatAttack ? 120 : 0; 
+                      } else if (intensity === 'medium') {
+                          targetTemp = isHeatAttack ? 160 : -25;
+                      } else { // high
+                          targetTemp = isHeatAttack ? 200 : -50; 
+                      }
+                      
+                      this.logger.info(`Attempting to initiate ${intensity} ${response.action} (Target: ${targetTemp}°F, Rate: ${changeRate}°/s)`);
+                      // Call Overseer method - needs to be implemented in OverseerEntity.ts
+                      // This method should internally check cooldowns/state again for safety
+                      const attackInitiated = this._overseer.initiateTemperatureAttack(targetTemp, changeRate); 
+                      
+                      if (attackInitiated) {
+                          this.addTriggeredAttack(`${intensity} ${response.action}`);
+                          this.recordEnvironmentalAttackEnd(); // Start the cooldown after initiating
+                      } else {
+                          this.logger.warn(`OverseerEntity prevented ${response.action} initiation (likely cooldown or state issue).`);
+                           this.addRecentEvent({ type: 'attack_prevented', content: `Attempted ${intensity} ${response.action} but was prevented.`, priority: 'medium'});
+                      }
+                  } else {
+                      this.logger.warn(`LLM chose ${response.action} but KORO cannot attack now (cooldown/temp not normal).`);
+                       this.addRecentEvent({ type: 'attack_invalid_choice', content: `LLM chose ${response.action} when attack not possible.`, priority: 'low'});
+                  }
+                  break;
+                  
+              case 'taunt_shield':
+                  this.logger.info(`Attempting to perform shield taunt.`);
+                  // Call Overseer method - needs to be implemented in OverseerEntity.ts
+                  this._overseer.performShieldTaunt(); 
+                   this.addRecentEvent({ type: 'taunt_shield', content: `KORO initiated shield taunt.`, priority: 'low'});
+                  break;
+                  
+              case 'none':
+              default:
+                  // Do nothing specific for 'none' action
+                   this.logger.debug(`KORO action: none.`);
+                  break;
+          }
+          // --- End Action Execution ---
 
           // Handle TTS if enabled and a message exists
           if (this._ttsGenerationEnabled && response.message) {
@@ -447,13 +503,13 @@ Your personality is: Bureaucratic, formal, anxious, slightly paranoid, and occas
 
 CORE MECHANICS:
 - You have a protective shield. You are INVULNERABLE when the shield is closed.
-- Your shield opens AUTOMATICALLY if your internal temperature gets too high (>${snapshot.koro_status.critical_high_internal_temp_f}°F) or too low (<${snapshot.koro_status.critical_low_internal_temp_f}°F). This is called "auto-venting".
+- Your shield opens AUTOMATICALLY if your internal temperature gets too high (>${snapshot.koro_status.critical_high_internal_temp_f}°F) or too low (<${snapshot.koro_status.critical_low_internal_temp_f}°F). This is called "auto-venting". **WHILE AUTO-VENTING, YOU ARE VULNERABLE TO PLAYER ATTACKS.**
 - While auto-venting, your internal temperature will slowly return to normal (${snapshot.koro_status.normal_internal_temp_f}°F).
-- Initiating environmental attacks (like heating/cooling the biodome) will affect your internal temperature. Heating the biodome significantly will raise your internal temp, potentially forcing an auto-vent.
+- Initiating environmental attacks (heating/cooling the biodome) will affect your internal temperature. Heating the biodome significantly will raise your internal temp, potentially forcing an auto-vent. Cooling may lower it.
 - The BFG weapon, if a player has it (${snapshot.game_context.is_bfg_held_by_player}), can FORCE your shield open if it hits the closed shield.
-- You can only initiate a new environmental attack if the biodome temperature is back in the normal range AND your attack cooldown is ready (indicated by 'Can KORO Attack Now?: true').
+- You can only initiate a new environmental attack if the biodome temperature is back in the normal range AND your attack cooldown is ready (indicated by 'Can KORO Launch Attack?: true').
 
-YOUR GOAL: Eliminate the intruders using environmental attacks and by managing your shield/temperature state.
+YOUR GOAL: Eliminate the intruders using environmental attacks, managing your shield/temperature state, and psychological tactics (taunting).
 
 YOUR CURRENT STATE:
 ${context}
@@ -463,14 +519,19 @@ ${responseHistory}
 ----------------------------
 INSTRUCTIONS:
 1.  Analyze the CURRENT GAME STATE and YOUR RECENT RESPONSES/ACTIONS.
-2.  Decide on the most appropriate tactical ACTION: 'none', 'observe', 'warn', 'threaten', or initiating an environmental attack (e.g., 'attack_superheat', 'attack_deepfreeze').
-    - Choose 'none' if no specific action is warranted.
-    - Prioritize actions based on the state: If players are low health, threaten. If BFG is held, warn. If shield is open, consider defensive posture (less likely to attack).
-    - Only choose an attack action if 'Can KORO Attack Now?' is true.
+2.  Decide on the most appropriate tactical ACTION: 'none', 'attack_heat', 'attack_freeze', 'taunt_shield'.
+    - Choose 'none' if no specific action is warranted or if you want to provide only commentary.
+    - Choose 'attack_heat' or 'attack_freeze' ONLY IF 'Can KORO Launch Attack?' is true in the current state.
+        - For these attacks, specify an 'intensity':
+            - 'low': Target Temps: Heat 120°F / Freeze 0°F. Slower effect, less likely to cause auto-venting.
+            - 'medium': Target Temps: Heat 160°F / Freeze -25°F. Balanced risk/reward. Default if unspecified.
+            - 'high': Target Temps: Heat 200°F / Freeze -50°F. Most damaging, highest risk of auto-venting and becoming vulnerable.
+        - All temperature attacks change at a rate of 10°F per second.
+    - Choose 'taunt_shield' to randomly open and close your shield briefly, attempting to bait players or appear erratic. This can be done anytime, regardless of attack cooldown.
 3.  Provide a verbal MESSAGE ONLY OCCASIONALLY. Aim for a message roughly every 3-5 updates (24-40 seconds) OR immediately after a highly significant event (like a player death, BFG shield breach, or reaching critical health).
     - Keep messages VERY short (under 10 words). Match the persona.
     - In most updates, DO NOT provide a message. Focus on the action.
-4.  If targeting a specific player makes sense (e.g., warning the BFG holder), specify their ID in the 'target' field.
+4.  The 'target' field is less important now but can be used if a message targets a specific player.
 
 Output ONLY the JSON object matching the KOROResponse schema.`;
   }

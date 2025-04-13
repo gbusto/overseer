@@ -109,6 +109,9 @@ export default class OverseerEntity extends Entity {
   private _messageDisplayTimeoutId: NodeJS.Timeout | null = null;
   private _messageDisplayDuration: number = 8000; // Display messages for 8 seconds
 
+  // Shield Taunt State
+  private _isTaunting: boolean = false;
+
   constructor(options: Partial<EntityOptions> = {}) {
     // Set up the entity with fixed physics to stay in place
     super({
@@ -1354,6 +1357,72 @@ export default class OverseerEntity extends Entity {
           this._logger.info(`Reported significant event to KORO Brain: [${priority}] ${type} - ${content}`);
       } else {
           this._logger.warn(`Attempted to report event "${type}" but KORO Brain is not initialized.`);
+      }
+  }
+
+  // --- New AI Action Methods ---
+
+  /**
+   * Initiates a temperature-based environmental attack via the BiodomeController.
+   * Assumes KOROBrain has already verified that an attack is currently allowed.
+   * @param targetTemperature The target temperature in Fahrenheit.
+   * @param changeRate The rate of temperature change in degrees per second.
+   * @returns True if the command was successfully passed to the BiodomeController, false otherwise.
+   */
+  public initiateTemperatureAttack(targetTemperature: number, changeRate: number): boolean {
+      // Call the existing method, forcing autoReset to true for AI attacks
+      this.setBiodomeTemperature(targetTemperature, changeRate, true);
+      // Log the action (logging inside setBiodomeTemperature might be sufficient, but keeping here for clarity on AI action)
+      this._logger.info(`AI initiated temperature attack via setBiodomeTemperature: Target ${targetTemperature}°F, Rate ${changeRate}°/s`);
+      return true; // Indicate the command was processed
+  }
+
+  /**
+   * Performs a shield taunt sequence: rapidly opening and closing the shield.
+   * Prevents overlapping taunts.
+   */
+  public async performShieldTaunt(): Promise<void> {
+      if (this._isTaunting) {
+          this._logger.debug('Shield taunt requested but already in progress.');
+          return;
+      }
+      
+      this._logger.info('Starting shield taunt sequence...');
+      this._isTaunting = true;
+      
+      // Helper function for async delay
+      const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+      
+      try {
+          // Sequence: Open -> Wait -> Close -> Wait -> Open -> Wait -> Close
+          const randomDelay1 = 500 + Math.random() * 1000; // 0.5 - 1.5 seconds
+          const randomDelay2 = 300 + Math.random() * 700;  // 0.3 - 1.0 seconds
+          const randomDelay3 = 600 + Math.random() * 900;  // 0.6 - 1.5 seconds
+
+          this.openShield();
+          await delay(randomDelay1);
+          
+          // Only close if still taunting (might have been interrupted)
+          if (!this._isTaunting) return;
+          this.closeShield();
+          await delay(randomDelay2);
+
+          // Only open again if still taunting
+          if (!this._isTaunting) return;
+          this.openShield();
+          await delay(randomDelay3);
+
+          // Final close if still taunting
+          if (!this._isTaunting) return;
+          this.closeShield();
+          
+          this._logger.info('Shield taunt sequence finished.');
+          
+      } catch (error) {
+          this._logger.error('Error during shield taunt sequence:', error);
+      } finally {
+          // Ensure the flag is reset even if errors occur or sequence is interrupted
+          this._isTaunting = false; 
       }
   }
 }
