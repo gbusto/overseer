@@ -13,6 +13,7 @@ import GamePlayerEntity from './entities/GamePlayerEntity';
 import HealthPackItem from './items/HealthPackItem';
 import OverseerEntity from './entities/OverseerEntity';
 import EnergyRifle1 from './weapons/EnergyRifle1';
+import BFG from './weapons/BFG';
 
 // Game states enum
 export enum GameState {
@@ -388,7 +389,25 @@ export default class GameManager {
         chatManager.sendPlayerMessage(player, 'Could not find your player entity.', 'FF0000');
       }
     });
-    
+
+    chatManager.registerCommand('/bfg', (player) => {
+      const playerEntities = entityManager.getPlayerEntitiesByPlayer(player);
+      const playerEntity = playerEntities.length > 0 ? playerEntities[0] : null;
+      if (playerEntity && playerEntity.isSpawned) {
+        const facingDir = playerEntity.player.camera.facingDirection;
+        const spawnPos = {
+          x: playerEntity.position.x + facingDir.x * 2,
+          y: playerEntity.position.y + 1.0, // Higher position to prevent sinking into ground
+          z: playerEntity.position.z + facingDir.z * 2,
+        };
+        const bfg = new BFG();
+        bfg.spawn(world, spawnPos);
+        chatManager.sendPlayerMessage(player, 'Spawned a BFG in front of you.', '00FF00');
+      } else {
+        chatManager.sendPlayerMessage(player, 'Could not find your player entity.', 'FF0000');
+      }
+    });
+
     // Command: /riflepos (Admin/Debug) - Adjust equipped rifle position
     chatManager.registerCommand('/riflepos', (player) => {
       const playerEntities = entityManager.getPlayerEntitiesByPlayer(player);
