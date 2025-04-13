@@ -283,25 +283,29 @@ export default abstract class BaseEnergyWeaponEntity extends BaseWeaponEntity {
      */
     public fire(): void {
         const owner = this.getOwner();
+        // Initial checks: Owner exists, not already recharging, not in standard cooldown
         if (!owner || !owner.world || this._isFullRecharging || this.isInCooldown()) {
             // Send UI update even if fire fails due to cooldown/recharge
-            if (owner) this._updateOwnerEnergyUI();
+            // if (owner) this._updateOwnerEnergyUI();
             return;
         }
 
+        // Check if energy is less than required for a shot
         if (this._currentEnergy < this._energyPerShot) {
-            // Not enough energy
             this._logger.debug(`Not enough energy to fire. Required: ${this._energyPerShot}, Has: ${this._currentEnergy.toFixed(1)}`);
-            // Start full recharge if completely empty
-            if (this._currentEnergy <= 0 && !this._isFullRecharging) {
-                this._logger.info(`Energy depleted. Initiating full recharge.`);
-                // Defer starting the recharge to the next tick to avoid issues
-                this._needsToStartFullRecharge = true;
-            }
-            this._updateOwnerEnergyUI(); // Send status (e.g., low energy)
-            return;
+            
+            // Force energy to zero and trigger full recharge
+            this._currentEnergy = 0; 
+            this._needsToStartFullRecharge = true; 
+            this._logger.info(`Energy depleted. Initiating full recharge sequence.`);
+            
+            // Update UI immediately to show empty state
+            this._updateOwnerEnergyUI(); 
+            return; // Prevent firing
         }
 
+        // If we have enough energy, proceed with firing:
+        
         // Consume energy
         this._currentEnergy -= this._energyPerShot;
         this._lastFireTime = Date.now(); // Set cooldown start time
@@ -311,28 +315,29 @@ export default abstract class BaseEnergyWeaponEntity extends BaseWeaponEntity {
         const camera = owner.player?.camera;
         if (!camera) {
             this._logger.error('Cannot fire: Owner has no camera reference.');
+            // Still update UI even if camera fails
+            this._updateOwnerEnergyUI(); 
             return;
         }
         
         const facingDirection = camera.facingDirection;
         const ownerPosition = owner.position;
         
-        // Calculate a starting position slightly in front of the player's camera
-        // Use the camera offset if available, otherwise default eye level
+        // Calculate projectile spawn position
         const eyeLevelOffset = camera.offset?.y ?? 0.6; 
-        const spawnOffsetDist = 0.5; // Distance in front of player
+        const spawnOffsetDist = 0.5; 
         const spawnPosition: Vector3Like = {
             x: ownerPosition.x + facingDirection.x * spawnOffsetDist,
             y: ownerPosition.y + eyeLevelOffset + facingDirection.y * spawnOffsetDist,
             z: ownerPosition.z + facingDirection.z * spawnOffsetDist,
         };
         
-        // Create and spawn projectile using the correct direction
+        // Create and spawn projectile
         const projectile = this.createProjectile(owner);
         projectile.spawn(owner.world, spawnPosition, facingDirection);
         this._logger.debug(`Spawned projectile ${projectile.name}`);
         
-        // Play firing animation on the owner (player)
+        // Play firing animation on the owner
         if (this.mlAnimation) {
             owner.startModelOneshotAnimations([this.mlAnimation]); 
         }

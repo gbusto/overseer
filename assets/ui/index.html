@@ -876,26 +876,30 @@
     // Calculate percentage, handle max=0 case
     const targetEnergyPercentage = max > 0 ? (clampedEnergy / max) * 100 : 0;
 
-    // Show low energy warning when below 25%
-    if (targetEnergyPercentage < 25 && max > 0) { // Added check for max > 0
-        energyBarContainer.classList.add('low-energy');
-    } else {
-        energyBarContainer.classList.remove('low-energy');
-    }
+    let barColor = color; // Default to the weapon's specified color
+    energyBarContainer.classList.remove('low-energy'); // Remove low-energy pulse by default
 
-    // Directly set the height to ensure 0% and 100% are accurate
+    // Check for very low energy (e.g., at 0 or near 0)
+    if (clampedEnergy <= 0.1 && max > 0) { // Use a small threshold to catch near-zero
+        barColor = 'red'; // Override color to red
+    } else if (targetEnergyPercentage < 25 && max > 0) {
+        // Keep low-energy pulse for < 25%, but don't force red unless near zero
+        energyBarContainer.classList.add('low-energy');
+    }
+    
+    // Set the bar height
     energyBarFill.style.height = `${targetEnergyPercentage}%`;
     
-    // Set the color of the energy bar
-    if (color === 'yellow') {
-        energyBarFill.style.background = 'linear-gradient(to top, #ffcc00, #ffee44)';
-    } else if (color === 'blue') {
-        energyBarFill.style.background = 'linear-gradient(to top, #4df0ff, #0088ff)';
-    } else if (color === 'green') {
-        energyBarFill.style.background = 'linear-gradient(to top, #00cc00, #44ff44)';
-    } else if (color === 'red') {
+    // Set the color of the energy bar fill based on determined color
+    if (barColor === 'red') {
         energyBarFill.style.background = 'linear-gradient(to top, #cc0000, #ff4444)';
-    } else if (color === 'purple') {
+    } else if (barColor === 'yellow') {
+        energyBarFill.style.background = 'linear-gradient(to top, #ffcc00, #ffee44)';
+    } else if (barColor === 'blue') {
+        energyBarFill.style.background = 'linear-gradient(to top, #4df0ff, #0088ff)';
+    } else if (barColor === 'green') {
+        energyBarFill.style.background = 'linear-gradient(to top, #00cc00, #44ff44)';
+    } else if (barColor === 'purple') {
         energyBarFill.style.background = 'linear-gradient(to top, #aa00aa, #ff44ff)';
     } else {
         // Default blue gradient if no color matches
