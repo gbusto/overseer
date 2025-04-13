@@ -1,11 +1,7 @@
 import {
   Entity,
-  RigidBodyType,
-  ColliderShape,
   Vector3,
-  World,
-  EntityEvent,
-  Quaternion
+  World
 } from 'hytopia';
 
 import type {
@@ -14,18 +10,12 @@ import type {
   QuaternionLike
 } from 'hytopia';
 
-import { Logger } from '../../utils/logger';
-import OverseerEntity from './OverseerEntity';
+import BaseEnergyProjectile from './BaseEnergyProjectile';
 
-export default class EnergyProjectile extends Entity {
-  private _logger: Logger;
-  private _speed: number;
-  private _lifespanMs: number;
-  private _damage: number;
-  private _direction: Vector3 = new Vector3(0, 0, 1); // Default forward
-  private _despawnTimer: NodeJS.Timeout | null = null;
-  private _shooter: Entity | null = null;
-
+/**
+ * Standard energy projectile for the EnergyRifle1 weapon
+ */
+export default class EnergyProjectile extends BaseEnergyProjectile {
   constructor(options: Partial<EntityOptions & {
     speed?: number;
     lifespanMs?: number;
@@ -34,139 +24,28 @@ export default class EnergyProjectile extends Entity {
   }> = {}) {
     super({
       name: 'EnergyProjectile',
-      tag: 'projectile',
-      modelUri: 'models/weapons/energy-orb.glb', // Placeholder model
-      modelScale: 0.5, // Small projectile
+      modelUri: 'models/weapons/energy-orb.glb',
+      modelScale: 0.5,
       opacity: 0.99,
-      rigidBodyOptions: {
-        type: RigidBodyType.KINEMATIC_POSITION,
-        colliders: [
-          {
-            shape: ColliderShape.BALL,
-            radius: 0.2,
-            isSensor: true,
-          }
-        ],
-      },
+      loggerName: 'EnergyProjectile',
       ...options
     });
-
-    this._logger = new Logger('EnergyProjectile');
-    this._speed = options.speed ?? 50; // Default speed
-    this._lifespanMs = options.lifespanMs ?? 2000; // Default lifespan 2 seconds
-    this._damage = options.damage ?? 10; // Default damage
-    this._shooter = options.shooter ?? null;
-
-    this.on(EntityEvent.SPAWN, this._onSpawned);
-    this.on(EntityEvent.DESPAWN, this._onDespawned);
-    this.on(EntityEvent.ENTITY_COLLISION, this._onCollisionEnter);
-    this.on(EntityEvent.TICK, this._onTick);
-
-    this._logger.info(`Created with speed: ${this._speed}, lifespan: ${this._lifespanMs}ms`);
   }
 
   /**
-   * Spawns the projectile and sets its initial velocity and despawn timer.
-   * @param world The world to spawn in.
-   * @param position Starting position.
-   * @param initialDirection Optional initial direction vector (will be normalized).
-   * @param initialRotation Optional initial rotation (overrides direction calculation).
+   * Optional override if we need specific spawn behavior for this projectile type
    */
   public spawn(world: World, position: Vector3Like, initialDirection?: Vector3Like, initialRotation?: QuaternionLike): void {
-    if (initialDirection) {
-      const dirVec = new Vector3(initialDirection.x, initialDirection.y, initialDirection.z);
-      const length = Math.sqrt(dirVec.x * dirVec.x + dirVec.y * dirVec.y + dirVec.z * dirVec.z);
-      if (length > 0) {
-          this._direction.x = dirVec.x / length;
-          this._direction.y = dirVec.y / length;
-          this._direction.z = dirVec.z / length;
-      } else {
-          this._direction.x = 0; this._direction.y = 0; this._direction.z = 1;
-      }
-    }
-    
-    let rotation: QuaternionLike | undefined = initialRotation;
-    if (!rotation && initialDirection) {
-        this._logger.warn('Initial rotation based on direction is disabled due to lookRotation uncertainty.');
-    }
-
-    super.spawn(world, position, rotation); 
-    // Despawn timer is started in _onSpawned callback
+    super.spawn(world, position, initialDirection, initialRotation);
+    // Any additional spawn behavior specific to EnergyProjectile would go here
   }
 
-  private _onSpawned = (): void => {
-    this._logger.info(`Spawned at ${JSON.stringify(this.position)} moving towards ${JSON.stringify(this._direction)}`);
-    this._startDespawnTimer();
-  }
-
-  private _onDespawned = (): void => {
-    this._logger.info(`Despawned.`);
-    this._stopDespawnTimer();
-  }
-
-  private _startDespawnTimer(): void {
-    if (this._despawnTimer) {
-      clearTimeout(this._despawnTimer);
-    }
-    this._despawnTimer = setTimeout(() => {
-      if (this.isSpawned) {
-        this._logger.info(`Lifespan expired, despawning.`);
-        this.despawn();
-      }
-    }, this._lifespanMs);
-  }
-
-  private _stopDespawnTimer(): void {
-    if (this._despawnTimer) {
-      clearTimeout(this._despawnTimer);
-      this._despawnTimer = null;
-    }
-  }
-
-  private _onTick = ({ tickDeltaMs }: { tickDeltaMs: number }): void => {
-    if (!this.isSpawned) return;
-
-    const moveDelta = tickDeltaMs / 1000; 
-    const moveAmount = this._speed * moveDelta;
-    const moveVector = new Vector3(
-        this._direction.x * moveAmount,
-        this._direction.y * moveAmount,
-        this._direction.z * moveAmount
-    );
-    
-    const currentPos = this.position;
-    this.setPosition(new Vector3(currentPos.x + moveVector.x, currentPos.y + moveVector.y, currentPos.z + moveVector.z));
-  }
-
-  private _onCollisionEnter = ({ otherEntity, started }: { otherEntity: Entity, started: boolean }): void => {
-    if (!this.isSpawned || !otherEntity || otherEntity === this._shooter || !started) {
-      return;
-    }
-
-    this._logger.info(`Collision detected with entity: ${otherEntity.name} (Tag: ${otherEntity.tag})`);
-
-    // Check if we hit the overseer
-    if (otherEntity.tag === 'overseer') {
-      // Try to apply damage using type assertion to OverseerEntity
-      const overseer = otherEntity as OverseerEntity;
-      const damageApplied = overseer.takeDamage(this._damage);
-      
-      if (damageApplied) {
-        this._logger.info(`Applied ${this._damage} damage to Overseer`);
-      } else {
-        this._logger.info(`Damage blocked by Overseer (shield or invulnerable)`);
-      }
-    } 
-    // Check if we hit one of the shield halves
-    else if (otherEntity.name === 'OverseerShieldTop' || otherEntity.name === 'OverseerShieldBottom') {
-      this._logger.info(`Hit overseer shield - no damage applied`);
-      // Later we can add shield hit effects here
-    }
-    
-    // Play impact effect/sound can be added here
-    // TODO: Add impact effects
-
-    // Despawn the projectile upon any collision
-    this.despawn();
+  /**
+   * Standard impact behavior for energy projectile
+   */
+  protected override onImpact(hitEntity: Entity): void {
+    // Standard energy projectile just despawns on impact
+    // Future: Could add specific visual or audio effects here
+    super.onImpact(hitEntity);
   }
 } 
