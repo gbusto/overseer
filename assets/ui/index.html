@@ -18,6 +18,15 @@
     <div id="overseer-health-text" class="overseer-health-text">100/100</div>
   </div>
 
+  <!-- Biodome status panel -->
+  <div id="biodome-status-container" class="biodome-status-container">
+    <div class="biodome-status-label">BIODOME STATUS</div>
+    <div class="biodome-status-row">
+      <div class="biodome-status-icon temperature-icon"></div>
+      <div id="biodome-temperature" class="biodome-status-value">74°F (23.3°C)</div>
+    </div>
+  </div>
+
   <!-- Timer -->
   <div id="timer-container" class="timer-container">10:00</div>
 
@@ -329,12 +338,90 @@
   .low-energy .energy-bar-fill {
     animation: low-energy-pulse 0.8s infinite;
   }
+
+  /* Biodome status styles */
+  .biodome-status-container {
+    position: fixed;
+    top: 110px; /* Increased from 75px to position below overseer health container */
+    right: 20px;
+    width: 200px;
+    background-color: rgba(0, 0, 0, 0.5);
+    border-radius: 5px;
+    padding: 5px;
+    color: white;
+    font-size: 12px;
+  }
+  
+  .biodome-status-label {
+    text-align: center;
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #44aadd;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+  }
+  
+  .biodome-status-row {
+    display: flex;
+    align-items: center;
+    margin: 3px 0;
+  }
+  
+  .biodome-status-icon {
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: contain;
+  }
+  
+  .temperature-icon {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M15,13V5A3,3 0 0,0 12,2A3,3 0 0,0 9,5V13A5,5 0 1,0 15,13M12,4A1,1 0 0,1 13,5V8H11V5A1,1 0 0,1 12,4Z" /></svg>');
+  }
+  
+  .biodome-status-value {
+    flex-grow: 1;
+    text-align: right;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+  }
+  
+  /* Temperature warning colors */
+  .temperature-normal {
+    color: #ffffff;
+  }
+  
+  .temperature-warning {
+    color: #ffcc00;
+    animation: pulse-warning 2s infinite;
+  }
+  
+  .temperature-danger {
+    color: #ff3333;
+    animation: pulse-danger 1s infinite;
+  }
+  
+  @keyframes pulse-warning {
+    0% { opacity: 0.8; }
+    50% { opacity: 1; }
+    100% { opacity: 0.8; }
+  }
+  
+  @keyframes pulse-danger {
+    0% { opacity: 0.7; }
+    50% { opacity: 1; }
+    100% { opacity: 0.7; }
+  }
 </style>
 
 <script>
   // Get UI elements
   const messagePanel = document.getElementById('overseer-message-panel');
   const messageContent = document.getElementById('message-content');
+  
+  // Biodome elements
+  const biodomeTemperature = document.getElementById('biodome-temperature');
+  const biodomeStatusContainer = document.getElementById('biodome-status-container');
   
   // Energy bar elements
   const energyBarFill = document.querySelector('.energy-bar-fill');
@@ -391,6 +478,18 @@
       const overseerHealthContainer = document.getElementById('overseer-health-container');
       const isVisible = overseerHealthContainer.style.display === 'block';
       overseerHealthContainer.style.display = isVisible ? 'none' : 'block';
+    }
+    
+    // Handle biodome visibility toggle
+    if (data.type === 'toggle-biodome-visibility') {
+      const biodomeContainer = document.getElementById('biodome-status-container');
+      const isVisible = biodomeContainer.style.display === 'block';
+      biodomeContainer.style.display = isVisible ? 'none' : 'block';
+    }
+    
+    // Handle biodome status updates
+    if (data.type === 'biodome-status') {
+      updateBiodomeStatus(data);
     }
     
     // Handle energy weapon events
@@ -461,9 +560,10 @@
       
       case 'game-start':
         startGame(data.startTime, data.duration);
-        // Show health bars when game starts
+        // Show health bars and biodome status when game starts
         document.getElementById('health-container').style.display = 'block';
         document.getElementById('overseer-health-container').style.display = 'block';
+        document.getElementById('biodome-status-container').style.display = 'block';
         break;
       
       case 'game-active':
@@ -471,15 +571,17 @@
         const remaining = data.duration - (Date.now() - data.startTime);
         updateTimer(remaining);
         showTimer(true);
-        // Show health bars in active game
+        // Show health bars and biodome status in active game
         document.getElementById('health-container').style.display = 'block';
         document.getElementById('overseer-health-container').style.display = 'block';
+        document.getElementById('biodome-status-container').style.display = 'block';
         break;
       
       case 'game-reset':
         // Hide all game UI elements on reset
         document.getElementById('health-container').style.display = 'none';
         document.getElementById('overseer-health-container').style.display = 'none';
+        document.getElementById('biodome-status-container').style.display = 'none';
         document.getElementById('timer-container').style.display = 'none';
         document.getElementById('countdown-container').style.display = 'none';
         break;
@@ -698,11 +800,35 @@
     }
   }
 
+  // Handle biodome status updates
+  function updateBiodomeStatus(data) {
+    if (data.temperature) {
+      // Round temperatures to integers
+      const temperatureF = Math.round(data.temperature.fahrenheit);
+      const temperatureC = Math.round(data.temperature.celsius);
+      
+      // Format display text without decimal places
+      biodomeTemperature.textContent = `${temperatureF}°F (${temperatureC}°C)`;
+      
+      // Set temperature styling based on danger level
+      biodomeTemperature.className = 'biodome-status-value';
+      
+      if (temperatureF >= 104 || temperatureF <= 32) {
+        biodomeTemperature.classList.add('temperature-danger');
+      } else if (temperatureF >= 90 || temperatureF <= 50) {
+        biodomeTemperature.classList.add('temperature-warning');
+      } else {
+        biodomeTemperature.classList.add('temperature-normal');
+      }
+    }
+  }
+
   // Initialize with default values but hide UI elements initially
   updateHealth(100, 100);
   updateOverseerHealth(100, 100);
   document.getElementById('health-container').style.display = 'none';
   document.getElementById('overseer-health-container').style.display = 'none';
+  document.getElementById('biodome-status-container').style.display = 'none';
   
   // Hide crosshair initially (show only when weapon equipped)
   crosshair.style.display = 'none';

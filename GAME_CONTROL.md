@@ -65,6 +65,27 @@ Player entities are controlled via the `GamePlayerEntity` class:
 | `playerEntity.health` | Property to get/set player health | Value from 0-100 |
 | `playerEntity.equipWeapon(weapon)` | Equips a weapon to the player | BaseWeaponEntity instance |
 
+## Biodome Control
+
+The biodome environment is controlled via the `BiodomeController` class:
+
+| Method | Description | Parameters |
+|--------|-------------|------------|
+| `biodome.setTemperature(temperature, changeRate?, autoReset?)` | Sets target biodome temperature with configurable change rate | Temperature (°F), optional change rate (°/sec), auto-reset (boolean, default true) |
+| `biodome.resetTemperature()` | Immediately resets temperature to normal (74°F) | None |
+| `biodome.getCurrentTemperature()` | Gets current temperature in Fahrenheit | None |
+| `biodome.toggleBiodomeUI(player?)` | Toggles biodome status UI visibility | Optional specific player, otherwise affects all players |
+| `biodome.onTick(tickDeltaMs)` | Update method called each frame, handles temperature changes and effects | Time delta in milliseconds |
+
+Temperature thresholds:
+- 104°F or higher: Temperature text appears red (danger)
+- 90°F - 103°F: Temperature text appears yellow (warning)
+- Below 90°F and above 50°F: Temperature text appears white (normal)
+- 50°F or lower: Temperature text appears yellow (warning)
+- 32°F or lower: Temperature text appears red (danger)
+
+Environmental damage is automatically applied when temperature exceeds 100°F (heat damage) or drops below 32°F (cold damage).
+
 ## UI Controls
 
 The game's UI can be controlled via UI data messages:

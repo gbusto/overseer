@@ -628,6 +628,172 @@ export default class GameManager {
       chatManager.sendPlayerMessage(player, 'Toggled KORO/Overseer health bar visibility.', '00FF00');
     });
     
+    // Biodome temperature commands
+    
+    // Command: /biodome-temp <temperature> [rate] - Set biodome temperature
+    chatManager.registerCommand('/biodome-temp', (player, args) => {
+      const overseer = this.getOverseerEntity();
+      if (!overseer) {
+        chatManager.sendPlayerMessage(player, 'Overseer not found.', 'FF0000');
+        return;
+      }
+
+      // Validate and parse temperature argument
+      const tempArg = args[0];
+      if (!tempArg) {
+        chatManager.sendPlayerMessage(player, 'Usage: /biodome-temp <temperature> [rate]', 'FFFF00');
+        return;
+      }
+
+      const temperature = parseFloat(tempArg as string);
+      if (isNaN(temperature)) {
+        chatManager.sendPlayerMessage(player, 'Temperature must be a number.', 'FF0000');
+        return;
+      }
+
+      // Parse optional change rate argument
+      let changeRate;
+      if (args.length > 1 && args[1] !== undefined) {
+        changeRate = parseFloat(args[1]);
+        if (isNaN(changeRate)) {
+          chatManager.sendPlayerMessage(player, 'Rate must be a number.', 'FF0000');
+          return;
+        }
+      }
+
+      // Set the temperature
+      overseer.setBiodomeTemperature(temperature, changeRate);
+      
+      // Notify the player
+      chatManager.sendPlayerMessage(
+        player, 
+        `Setting biodome temperature to ${temperature}°F${changeRate ? ` at rate of ${changeRate}°/sec` : ''}.`, 
+        '00FF00'
+      );
+    });
+
+    // Command: /biodome-heat - Trigger a heat attack
+    chatManager.registerCommand('/biodome-heat', (player) => {
+      const overseer = this.getOverseerEntity();
+      if (!overseer) {
+        chatManager.sendPlayerMessage(player, 'Overseer not found.', 'FF0000');
+        return;
+      }
+
+      // Set a high temperature (140°F) with moderate change rate
+      const attackTemp = 140;
+      const changeRate = 2.0; // Faster change for dramatic effect
+      
+      overseer.setBiodomeTemperature(attackTemp, changeRate);
+      
+      // Broadcast to all players
+      chatManager.sendBroadcastMessage(
+        'WARNING: Biodome temperature critical! Cooling systems failure detected.', 
+        'FF3300'
+      );
+      
+      // Notify the admin player
+      chatManager.sendPlayerMessage(
+        player, 
+        `Heat attack triggered. Biodome temperature rising to ${attackTemp}°F.`, 
+        '00FF00'
+      );
+    });
+
+    // Command: /biodome-cold - Trigger a cold attack
+    chatManager.registerCommand('/biodome-cold', (player) => {
+      const overseer = this.getOverseerEntity();
+      if (!overseer) {
+        chatManager.sendPlayerMessage(player, 'Overseer not found.', 'FF0000');
+        return;
+      }
+
+      // Set a low temperature (0°F) with moderate change rate
+      const attackTemp = 0;
+      const changeRate = 2.0; // Faster change for dramatic effect
+      
+      overseer.setBiodomeTemperature(attackTemp, changeRate);
+      
+      // Broadcast to all players
+      chatManager.sendBroadcastMessage(
+        'WARNING: Biodome temperature dropping rapidly! Heating systems failure detected.', 
+        '44AAFF'
+      );
+      
+      // Notify the admin player
+      chatManager.sendPlayerMessage(
+        player, 
+        `Cold attack triggered. Biodome temperature dropping to ${attackTemp}°F.`, 
+        '00FF00'
+      );
+    });
+
+    // Command: /biodome-reset - Reset temperature to normal
+    chatManager.registerCommand('/biodome-reset', (player) => {
+      const overseer = this.getOverseerEntity();
+      if (!overseer) {
+        chatManager.sendPlayerMessage(player, 'Overseer not found.', 'FF0000');
+        return;
+      }
+
+      // Reset the temperature
+      overseer.resetBiodomeTemperature();
+      
+      // Notify the player
+      chatManager.sendPlayerMessage(
+        player, 
+        'Biodome temperature resetting to normal levels.', 
+        '00FF00'
+      );
+      
+      // Broadcast to all players
+      chatManager.sendBroadcastMessage(
+        'Biodome environmental systems restored to normal operation.', 
+        '00FF00'
+      );
+    });
+    
+    // Command: /biodome-status - Get current biodome temperature
+    chatManager.registerCommand('/biodome-status', (player) => {
+      const overseer = this.getOverseerEntity();
+      if (!overseer) {
+        chatManager.sendPlayerMessage(player, 'Overseer not found.', 'FF0000');
+        return;
+      }
+
+      // Get current temperature
+      const currentTemp = overseer.getBiodomeTemperature();
+      
+      // Convert to Celsius for display
+      const tempC = ((currentTemp - 32) * 5 / 9).toFixed(1);
+      
+      // Notify the player
+      chatManager.sendPlayerMessage(
+        player, 
+        `Current biodome temperature: ${currentTemp.toFixed(1)}°F (${tempC}°C)`, 
+        '00CCFF'
+      );
+    });
+    
+    // Command: /togglebiodome - Toggle biodome status UI visibility
+    chatManager.registerCommand('/togglebiodome', (player) => {
+      const overseer = this.getOverseerEntity();
+      if (!overseer) {
+        chatManager.sendPlayerMessage(player, 'Overseer not found.', 'FF0000');
+        return;
+      }
+      
+      // Toggle the biodome UI for this player
+      overseer.toggleBiodomeUI(player);
+      
+      // Notify the player
+      chatManager.sendPlayerMessage(
+        player, 
+        'Toggled biodome status display.', 
+        '00FF00'
+      );
+    });
+    
     this._logger.info('Registered custom chat commands.');
   }
 } 

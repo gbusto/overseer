@@ -27,17 +27,17 @@ This plan follows a user-centric approach, building core interactions first and 
     *   **UI:**
         *   [x] Implement Health display in `index.html`.
         *   [x] Implement Overseer Health display in `index.html`.
-        *   [ ] Implement Weapon display/status (Active Weapon, Ammo/Cooldown) in `index.html`.
+        *   [x] Implement Weapon display/status (Active Weapon, Ammo/Cooldown) in `index.html`.
         *   [x] Ensure client-side JS receives and displays player health updates.
         *   [x] Ensure client-side JS receives and displays Overseer health updates.
-        *   [ ] Ensure client-side JS receives and displays weapon status updates.
+        *   [x] Ensure client-side JS receives and displays weapon status updates.
     *   **Weapon Foundation:** (Use Hytopia MCP `entities` helper)
-        *   [ ] Create `EnergyProjectile.ts` entity class (basic movement, placeholder model, configurable speed).
-        *   [ ] Create `BaseWeapon.ts` class (data structure; configurable: fire rate, ammo/energy count, energy recharge cooldown, shot interval).
-        *   [ ] Create `EnergyGun.ts` class inheriting from `BaseWeapon`.
-        *   [ ] Add `_currentWeapon` property to `GamePlayerEntity`.
-        *   [ ] Implement player spawning *and assign* an instance of the standard `EnergyGun` to `_currentWeapon`.
-        *   [ ] Add basic firing logic to `GamePlayerEntity._onTickWithPlayerInput` (e.g., left mouse) that calls `this._currentWeapon.shoot()` (which initially just logs/placeholders).
+        *   [x] Create `EnergyProjectile.ts` entity class (basic movement, placeholder model, configurable speed).
+        *   [x] Create `BaseWeapon.ts` class (data structure; configurable: fire rate, ammo/energy count, energy recharge cooldown, shot interval).
+        *   [x] Create `EnergyGun.ts` class inheriting from `BaseWeapon`.
+        *   [x] Add `_currentWeapon` property to `GamePlayerEntity`.
+        *   [x] Implement player spawning *and assign* an instance of the standard `EnergyGun` to `_currentWeapon`.
+        *   [x] Add basic firing logic to `GamePlayerEntity._onTickWithPlayerInput` (e.g., left mouse) that calls `this._currentWeapon.shoot()` (which initially just logs/placeholders).
 *   **Outcome Goal:** Players spawn with a basic Energy Gun instance. Core UI shows player and Overseer health. Placeholder UI exists for weapon status. Basic weapon classes and projectile entity exist.
 
 ## Phase 3: Health Pack Spawning & Instant Use

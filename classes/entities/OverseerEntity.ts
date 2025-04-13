@@ -20,6 +20,7 @@ import { KOROBrain } from '../ai/KOROBrain';
 import { Logger } from '../../utils/logger';
 import GameManager from '../GameManager';
 import { GameState } from '../GameManager';
+import BiodomeController from '../BiodomeController';
 
 // Configuration for TTS API
 const TTS_API_URL = process.env.TTS_API_URL || 'http://localhost:8000/tts';
@@ -44,6 +45,9 @@ export default class OverseerEntity extends Entity {
   
   // AI Brain
   private _brain: KOROBrain;
+  
+  // Biodome controller
+  private _biodome: BiodomeController | null = null;
   
   // Next update check
   private _nextUpdateCheck: number = 0;
@@ -156,6 +160,10 @@ export default class OverseerEntity extends Entity {
     
     // Store the world reference
     this._world = world;
+    
+    // Initialize the biodome controller
+    this._biodome = new BiodomeController(world);
+    this._logger.info('Biodome controller initialized');
     
     // Create and spawn shield
     this._createShield(world);
@@ -464,6 +472,11 @@ export default class OverseerEntity extends Entity {
       this._shieldBottom.setPosition(positions.bottom);
     }
     
+    // Update biodome controller
+    if (this._biodome) {
+      this._biodome.onTick(tickDeltaMs);
+    }
+    
     // Check for AI updates periodically to avoid checking every tick
     if (time > this._nextUpdateCheck) {
       this._nextUpdateCheck = time + this._updateCheckInterval;
@@ -655,6 +668,9 @@ export default class OverseerEntity extends Entity {
       clearTimeout(this._messageDisplayTimeoutId);
       this._messageDisplayTimeoutId = null;
     }
+    
+    // Clean up biodome controller reference
+    this._biodome = null;
     
     this._world = null;
   }
@@ -939,5 +955,47 @@ export default class OverseerEntity extends Entity {
     }
     
     return false;
+  }
+
+  /**
+   * Public interface for controlling the biodome temperature
+   * @param temperature Target temperature in Fahrenheit
+   * @param changeRate Optional: Speed of temperature change in degrees per second
+   * @param autoReset Optional: Whether to automatically reset to normal temperature after a delay
+   */
+  public setBiodomeTemperature(temperature: number, changeRate?: number, autoReset: boolean = true): void {
+    if (this._biodome) {
+      this._biodome.setTemperature(temperature, changeRate, autoReset);
+    } else {
+      this._logger.error('Cannot set biodome temperature: Biodome controller not initialized');
+    }
+  }
+
+  /**
+   * Reset biodome temperature to normal
+   */
+  public resetBiodomeTemperature(): void {
+    if (this._biodome) {
+      this._biodome.resetTemperature();
+    }
+  }
+
+  /**
+   * Get current biodome temperature
+   */
+  public getBiodomeTemperature(): number {
+    return this._biodome ? this._biodome.getCurrentTemperature() : 74; // Default if not initialized
+  }
+
+  /**
+   * Toggle biodome status UI visibility for a specific player or all players
+   * @param player Optional specific player to toggle UI for
+   */
+  public toggleBiodomeUI(player?: any): void {
+    if (this._biodome) {
+      this._biodome.toggleBiodomeUI(player);
+    } else {
+      this._logger.error('Cannot toggle biodome UI: Biodome controller not initialized');
+    }
   }
 }
