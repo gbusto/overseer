@@ -134,16 +134,16 @@ This plan follows a user-centric approach, building core interactions first and 
             *   [ ] TODO: Implement actual tracking for `available_health_packs` (if not already done via tag search).
         *   [x] Set up Gemini API connection (`generateObject` call in `KOROBrain`).
         *   [x] Implement the main AI loop (`generateUpdate` in `KOROBrain`) using fixed interval, snapshot, and LLM call (if enabled).
-        *   [ ] Update LLM Prompt (`_buildPrompt` in `KOROBrain`): Explain core mechanics, temperature relationship, BFG, attack readiness flag, and strongly guide AI on verbal response frequency (discourage messages every update).
+        *   [x] Update LLM Prompt (`_buildPrompt` in `KOROBrain`): Explain core mechanics, temperature relationship, BFG, attack readiness flag, and strongly guide AI on verbal response frequency (discourage messages every update).
         *   [ ] Implement Event Logging (Calls to `_brain.addEventWithPriority(...)`):
-            *   [ ] Log `koro_damage` (medium priority) in `OverseerEntity.takeDamage`.
+            *   [x] Log `koro_damage` (medium priority) in `OverseerEntity.takeDamage`.
             *   [ ] Log `player_damage` (low priority) in `GamePlayerEntity.takeDamage`.
             *   [ ] Log `player_death` (high priority) from `GameManager` / death logic.
             *   [ ] Log `bfg_pickup` (high priority) from `GameManager` / pickup logic.
             *   [ ] Log `healthpack_pickup` (low priority) in `GamePlayerEntity._handleInteract`.
-            *   [ ] Log `attack_end` / `attack_cooldown_start` (low priority) - Ensure `recordEnvironmentalAttackEnd` is called correctly (e.g., from `BiodomeController` or `OverseerEntity` when temp normalizes).
-            *   [ ] Log `shield_vent_start` / `shield_vent_stop` (low priority) in `OverseerEntity._startAutoVenting` / `_stopAutoVenting`.
-            *   [ ] Log `shield_breach_bfg` (high priority) in `OverseerEntity.forceOpenShield`.
+            *   [ ] Log `attack_end` / `attack_cooldown_start` (low priority) - Ensure `recordEnvironmentalAttackEnd` is called correctly (e.g., from `BiodomeController` or `OverseerEntity` when temp normalizes). (NOTE: I don't think we'll actually want or need this one)
+            *   [x] Log `shield_vent_start` / `shield_vent_stop` (low priority) in `OverseerEntity._startAutoVenting` / `_stopAutoVenting`.
+            *   [x] Log `shield_breach_bfg` (high priority) in `OverseerEntity.forceOpenShield`.
             *   [x] Chat messages logged via `_onChatMessage` / `addChatMessage`.
             *   [x] KORO attacks logged via `addTriggeredAttack`.
         *   [ ] Implement Action Parsing: Parse `response.action` from LLM in `KOROBrain.generateUpdate` and trigger corresponding actions (e.g., call `OverseerEntity.startEnvironmentalAttack("Superheat")` or target a player). Define available actions clearly.
@@ -166,4 +166,5 @@ This plan follows a user-centric approach, building core interactions first and 
         *   [ ] Handle all players die / lose; need some kind of event to happen
         *   [ ] Implement smooth transition after players win or lose before transitioning back to IDLE state
         *   [ ] Program out the actual main game loop in GameManager.ts
+        *   [ ] Tweak attack damage, KORO damage, BFG damage, Rifle damage, and weapon cooldown / recharge speeds so the game is challeging but fun
 *   **Outcome Goal:** KORO dynamically chooses actions based on game state via LLM, speaking occasionally with degraded voice. Core loop feels responsive with simplified AI updates and planned event logging. Visuals and audio are polished.
