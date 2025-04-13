@@ -12,6 +12,7 @@ import { Logger } from '../utils/logger';
 import GamePlayerEntity from './entities/GamePlayerEntity';
 import HealthPackItem from './items/HealthPackItem';
 import OverseerEntity from './entities/OverseerEntity';
+import type { KoroMode } from './ai/KOROBrain';
 import EnergyRifle1 from './weapons/EnergyRifle1';
 import BFG from './weapons/BFG';
 import BiodomeController from './BiodomeController';
@@ -124,7 +125,9 @@ export default class GameManager {
     
     if (overseer) {
       // Enable the Overseer's brain
-      overseer.toggleKOROUpdates(true);
+      const defaultMode: KoroMode = process.env.NODE_ENV === 'production' ? 'prod' : 'dev-with-llm';
+      overseer.setKoroMode(defaultMode);
+      this._logger.info(`Set KORO mode to default: ${defaultMode}`);
       
       // Make the overseer vulnerable to damage
       overseer.setInvulnerable(false);
@@ -153,7 +156,8 @@ export default class GameManager {
     
     if (overseer) {
       // Disable the Overseer's brain
-      overseer.toggleKOROUpdates(false);
+      overseer.setKoroMode('disabled');
+      this._logger.info('Set KORO mode to disabled');
       
       // Make the overseer invulnerable to damage
       overseer.setInvulnerable(true);
@@ -923,6 +927,7 @@ export default class GameManager {
         return;
       }
       overseer.performShieldTaunt();
+      chatManager.sendPlayerMessage(player, 'Triggered Overseer shield taunt sequence.', '00FF00');
     });
     
     // Command: /toggleui - Toggle all UI elements visibility 
@@ -1120,6 +1125,58 @@ export default class GameManager {
       playerEntity.respawn();
       chatManager.sendPlayerMessage(player, 'You have been respawned for testing purposes.', '00FF00');
     });
+    
+    // --- KORO Mode Commands ---
+
+    // Command: /koromode [mode] - Set KORO operational mode
+    chatManager.registerCommand('/koromode', (player, args) => {
+        const overseer = this.getOverseerEntity();
+        if (!overseer) {
+            chatManager.sendPlayerMessage(player, 'Overseer not found.', 'FF0000');
+            return;
+        }
+
+        const validModes: KoroMode[] = ['disabled', 'dev-no-llm', 'dev-with-llm', 'prod'];
+        const modeArg = args[0] as KoroMode;
+
+        if (!modeArg || !validModes.includes(modeArg)) {
+            chatManager.sendPlayerMessage(player, `Usage: /koromode [${validModes.join('|')}]`, 'FFFF00');
+            const currentStatus = overseer.getKoroStatus();
+            if (currentStatus) {
+                 chatManager.sendPlayerMessage(player, `Current mode: ${currentStatus.mode}`, '00CCFF');
+            }
+            return;
+        }
+
+        overseer.setKoroMode(modeArg);
+        const status = overseer.getKoroStatus(); // Get status after setting
+        chatManager.sendPlayerMessage(player, `KORO mode set to: ${modeArg}`, '00FF00');
+        if (status) {
+             chatManager.sendPlayerMessage(player, `Status: Processing=${status.processing}, LLM=${status.llm}, TTS=${status.tts}`, '00CCFF');
+        }
+    });
+
+    // Command: /korostatus - Get current KORO mode and status
+    chatManager.registerCommand('/korostatus', (player) => {
+        const overseer = this.getOverseerEntity();
+        if (!overseer) {
+            chatManager.sendPlayerMessage(player, 'Overseer not found.', 'FF0000');
+            return;
+        }
+
+        const status = overseer.getKoroStatus();
+        if (status) {
+            chatManager.sendPlayerMessage(player, `KORO Status:`, '00CCFF');
+            chatManager.sendPlayerMessage(player, `  Mode: ${status.mode}`, '00CCFF');
+            chatManager.sendPlayerMessage(player, `  Processing: ${status.processing}`, '00CCFF');
+            chatManager.sendPlayerMessage(player, `  LLM Interaction: ${status.llm}`, '00CCFF');
+            chatManager.sendPlayerMessage(player, `  TTS Generation: ${status.tts}`, '00CCFF');
+        } else {
+             chatManager.sendPlayerMessage(player, 'Could not retrieve KORO status (brain might not be initialized).', 'FF0000');
+        }
+    });
+
+    // --- End KORO Mode Commands ---
     
     this._logger.info('Registered custom chat commands.');
   }

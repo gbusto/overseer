@@ -17,6 +17,7 @@ import type {
 } from 'hytopia';
 
 import { KOROBrain } from '../ai/KOROBrain';
+import type { KoroMode } from '../ai/KOROBrain';
 import { Logger } from '../../utils/logger';
 import GameManager from '../GameManager';
 import { GameState } from '../GameManager';
@@ -1357,6 +1358,33 @@ export default class OverseerEntity extends Entity {
           this._logger.info(`Reported significant event to KORO Brain: [${priority}] ${type} - ${content}`);
       } else {
           this._logger.warn(`Attempted to report event "${type}" but KORO Brain is not initialized.`);
+      }
+  }
+
+  // --- KORO Mode and Status Control ---
+
+  /**
+   * Sets the operational mode for KORO's brain.
+   * @param mode The desired operational mode.
+   */
+  public setKoroMode(mode: KoroMode): void {
+      if (this._brain) {
+          this._brain.setMode(mode);
+      } else {
+          this._logger.warn('Attempted to set KORO mode, but brain is not initialized.');
+      }
+  }
+
+  /**
+   * Gets the current status of KORO's brain components.
+   * @returns An object with the current mode and enabled status of processing, LLM, and TTS, or null if brain is not initialized.
+   */
+  public getKoroStatus(): { mode: KoroMode, processing: boolean, llm: boolean, tts: boolean } | null {
+      if (this._brain) {
+          return this._brain.getKoroStatus();
+      } else {
+          this._logger.warn('Attempted to get KORO status, but brain is not initialized.');
+          return null;
       }
   }
 

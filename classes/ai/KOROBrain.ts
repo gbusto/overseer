@@ -16,6 +16,9 @@ import OverseerEntity from '../entities/OverseerEntity'; // Import OverseerEntit
 import GameManager from '../GameManager'; // Import GameManager
 import GamePlayerEntity from '../entities/GamePlayerEntity'; // Import GamePlayerEntity
 
+// KORO Operational Modes
+export type KoroMode = 'disabled' | 'dev-no-llm' | 'dev-with-llm' | 'prod';
+
 // Configuration
 const DEFAULT_UPDATE_INTERVAL_MS = 8000; // Make interval configurable (8 seconds)
 const ENVIRONMENTAL_ATTACK_COOLDOWN_MS = 30000; // Cooldown between KORO attacks (30 seconds)
@@ -113,6 +116,9 @@ export class KOROBrain {
   private _gameManager: GameManager;
   private _world: World | null = null; // Store world reference
 
+  // Current operational mode
+  private _currentMode: KoroMode = 'disabled'; // Start disabled
+
   // Track basic world state - simplified, main data comes from snapshot
   private worldState = {
     // playerCount: 0, // Now derived in snapshot
@@ -145,8 +151,11 @@ export class KOROBrain {
         this.logger.warn('TTS generation enabled but LLM interaction is disabled. TTS will not function.');
         this._ttsGenerationEnabled = false; // Force disable TTS if LLM is off
     }
+    
+    // Start in disabled mode by default
+    this.setMode('disabled');
 
-    this.logger.info(`Initialized KORO brain (Update Interval: ${this.updateIntervalMs}ms, Processing: ${this._brainProcessingEnabled}, LLM: ${this._llmInteractionEnabled}, TTS: ${this._ttsGenerationEnabled})`);
+    this.logger.info(`Initialized KORO brain (Update Interval: ${this.updateIntervalMs}ms, Initial Mode: ${this._currentMode})`);
   }
 
   // --- Control Flags ---
@@ -191,6 +200,62 @@ export class KOROBrain {
       return this._ttsGenerationEnabled;
   }
 
+  /**
+   * Sets the operational mode for KORO, configuring enabled features.
+   * @param mode The desired operational mode.
+   */
+  public setMode(mode: KoroMode): void {
+    this.logger.info(`Setting KORO mode to: ${mode}`);
+    this._currentMode = mode;
+
+    switch (mode) {
+      case 'disabled':
+        this.setBrainProcessingEnabled(false);
+        this.setLlmInteractionEnabled(false);
+        this.setTtsGenerationEnabled(false); // Ensure TTS is off
+        break;
+      case 'dev-no-llm':
+        this.setBrainProcessingEnabled(true);
+        this.setLlmInteractionEnabled(false);
+        this.setTtsGenerationEnabled(false); // Ensure TTS is off
+        break;
+      case 'dev-with-llm':
+        this.setBrainProcessingEnabled(true);
+        this.setLlmInteractionEnabled(true);
+        this.setTtsGenerationEnabled(false); // Ensure TTS is off in dev
+        break;
+      case 'prod':
+        this.setBrainProcessingEnabled(true);
+        this.setLlmInteractionEnabled(true);
+        // Enable TTS only if the API token is configured
+        const ttsAvailable = !!process.env.TTS_API_TOKEN;
+        if (ttsAvailable) {
+            this.setTtsGenerationEnabled(true);
+        } else {
+            this.logger.warn('Prod mode requested, but TTS_API_TOKEN is not set. TTS remains disabled.');
+            this.setTtsGenerationEnabled(false);
+        }
+        break;
+      default:
+        this.logger.warn(`Unknown KORO mode requested: ${mode}. Defaulting to 'disabled'.`);
+        this.setMode('disabled');
+        break;
+    }
+     this.logger.info(`KORO Mode Set: Processing=${this.isBrainProcessingEnabled()}, LLM=${this.isLlmInteractionEnabled()}, TTS=${this.isTtsGenerationEnabled()}`);
+  }
+  
+  /**
+   * Gets the current status of KORO's components.
+   * @returns An object indicating the enabled status of brain processing, LLM interaction, and TTS generation.
+   */
+  public getKoroStatus(): { mode: KoroMode, processing: boolean, llm: boolean, tts: boolean } {
+      return {
+          mode: this._currentMode,
+          processing: this._brainProcessingEnabled,
+          llm: this._llmInteractionEnabled,
+          tts: this._ttsGenerationEnabled
+      };
+  }
 
   // --- Event Handling ---
 
