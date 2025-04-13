@@ -23,8 +23,6 @@ const DEFAULT_ENERGY_RIFLE_OPTIONS = {
     fireRate: 8,
     // Animation names using Hygrounds conventions
     idleAnimation: 'idle_gun_both',
-    walkAnimation: 'walk_gun_both',
-    runAnimation: 'run_gun_both',
     mlAnimation: 'shoot_gun_both',
     // Item properties
     iconImageUri: 'icons/weapons/energy_rifle_1.png',
@@ -55,8 +53,6 @@ export default class EnergyRifle1 extends BaseWeaponEntity {
         damage?: number;
         fireRate?: number;
         idleAnimation?: string;
-        walkAnimation?: string;
-        runAnimation?: string;
         mlAnimation?: string;
         iconImageUri?: string;
         cooldownMs?: number;
@@ -146,7 +142,6 @@ export default class EnergyRifle1 extends BaseWeaponEntity {
 
         // Handle processing the full recharge state (if active)
         if (this._isFullRecharging) {
-            console.log("ON TICK: Processing Full Recharge");
             this._processFullRecharge();
             // Don't do regular recharge while full recharge is happening
             return; 

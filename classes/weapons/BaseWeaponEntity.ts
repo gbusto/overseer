@@ -39,8 +39,6 @@ export default abstract class BaseWeaponEntity extends Entity {
 
     // Animation Names (using Hygrounds conventions)
     public idleAnimation: string = 'idle_gun_both'; 
-    public walkAnimation: string = 'walk_gun_both'; 
-    public runAnimation: string = 'run_gun_both';   
     public mlAnimation: string = 'shoot_gun_both'; 
 
     // Updated constructor options to include parent details
@@ -50,8 +48,6 @@ export default abstract class BaseWeaponEntity extends Entity {
         iconImageUri?: string;
         // Animation options using Hygrounds names
         idleAnimation?: string;
-        walkAnimation?: string;
-        runAnimation?: string;
         mlAnimation?: string;
     }> = {}) {
         // Create physics setup similar to Hygrounds
@@ -90,8 +86,6 @@ export default abstract class BaseWeaponEntity extends Entity {
 
         // Store animation names from options, falling back to defaults
         this.idleAnimation = options.idleAnimation ?? this.idleAnimation;
-        this.walkAnimation = options.walkAnimation ?? this.walkAnimation;
-        this.runAnimation = options.runAnimation ?? this.runAnimation;
         this.mlAnimation = options.mlAnimation ?? this.mlAnimation;
 
         if (this.parent && this.parentNodeName) {
@@ -196,8 +190,8 @@ export default abstract class BaseWeaponEntity extends Entity {
 
         // Updated to match Hygrounds ItemEntity.setParentAnimations()
         controller.idleLoopedAnimations = [this.idleAnimation, 'idle_lower'];
-        controller.walkLoopedAnimations = [this.idleAnimation, 'walk_lower']; // Use idleAnimation, not walkAnimation
-        controller.runLoopedAnimations = [this.idleAnimation, 'run_lower'];   // Use idleAnimation, not runAnimation
+        controller.walkLoopedAnimations = [this.idleAnimation, 'walk_lower'];
+        controller.runLoopedAnimations = [this.idleAnimation, 'run_lower'];
 
         this._logger.info(`Set parent (${owner.name}) animations for ${this.name}`);
     }
