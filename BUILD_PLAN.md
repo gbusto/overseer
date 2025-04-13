@@ -120,25 +120,44 @@ This plan follows a user-centric approach, building core interactions first and 
 
 ## Phase 6: AI Integration & Polish
 
-*   **Focus:** `classes/ai/KoroAiManager.ts` (or similar), `AudioManager` (TTS), `OverseerEntity` (voice degradation), general polish.
+*   **Focus:** `classes/ai/KOROBrain.ts`, `AudioManager`, `OverseerEntity`, `GamePlayerEntity`, `GameManager`, general polish.
 *   **Tasks:**
-    *   **AI Core:**
-        *   [ ] Create AI Manager class.
-        *   [ ] Define data structure for game state snapshot (simpler now: player healths, KORO health, BFG status/location, current attack state).
-        *   [ ] Finalize LLM context structure (ensure it includes: KORO health/temp/shield_status, biodome_temp, health_pack_count, BFG_held_status, player_count/healths, recent KORO responses, recent game events, recent attacks).
-        *   [ ] Implement function(s) to gather snapshot data.
-        *   [ ] Set up Gemini API connection.
-        *   [ ] Implement the main AI loop: Get snapshot -> Format prompt -> Send to LLM -> Parse response.
-        *   [ ] Implement response parsing to trigger KORO actions (choose next attack, maybe trigger malfunction/taunt).
+    *   **AI Core - Simplified Implementation:**
+        *   [x] Create AI Manager class (`KOROBrain.ts`).
+        *   [x] Implement configurable update interval (default 8s) in `KOROBrain`.
+        *   [x] Implement separate enable flags for Brain Processing, LLM Interaction, TTS Generation in `KOROBrain`.
+        *   [x] Implement `can_initiate_environmental_attack` flag and cooldown logic in `KOROBrain`.
+        *   [x] Finalize LLM context snapshot structure (`GameStateSnapshotSchema` in `KOROBrain`):
+            *   Includes: KORO status (health, shield, temps + thresholds), Game context (biodome temps + thresholds, health packs, BFG held, attack readiness), Player info (count, healths), Interaction history (KORO responses, game events, attacks triggered).
+        *   [x] Implement function (`_gatherGameStateSnapshot` in `KOROBrain`) to gather snapshot data (using Overseer/GameManager refs).
+            *   [ ] TODO: Implement actual tracking for `is_bfg_held_by_player`.
+            *   [ ] TODO: Implement actual tracking for `available_health_packs` (if not already done via tag search).
+        *   [x] Set up Gemini API connection (`generateObject` call in `KOROBrain`).
+        *   [x] Implement the main AI loop (`generateUpdate` in `KOROBrain`) using fixed interval, snapshot, and LLM call (if enabled).
+        *   [ ] Update LLM Prompt (`_buildPrompt` in `KOROBrain`): Explain core mechanics, temperature relationship, BFG, attack readiness flag, and strongly guide AI on verbal response frequency (discourage messages every update).
+        *   [ ] Implement Event Logging (Calls to `_brain.addEventWithPriority(...)`):
+            *   [ ] Log `koro_damage` (medium priority) in `OverseerEntity.takeDamage`.
+            *   [ ] Log `player_damage` (low priority) in `GamePlayerEntity.takeDamage`.
+            *   [ ] Log `player_death` (high priority) from `GameManager` / death logic.
+            *   [ ] Log `bfg_pickup` (high priority) from `GameManager` / pickup logic.
+            *   [ ] Log `healthpack_pickup` (low priority) in `GamePlayerEntity._handleInteract`.
+            *   [ ] Log `attack_end` / `attack_cooldown_start` (low priority) - Ensure `recordEnvironmentalAttackEnd` is called correctly (e.g., from `BiodomeController` or `OverseerEntity` when temp normalizes).
+            *   [ ] Log `shield_vent_start` / `shield_vent_stop` (low priority) in `OverseerEntity._startAutoVenting` / `_stopAutoVenting`.
+            *   [ ] Log `shield_breach_bfg` (high priority) in `OverseerEntity.forceOpenShield`.
+            *   [x] Chat messages logged via `_onChatMessage` / `addChatMessage`.
+            *   [x] KORO attacks logged via `addTriggeredAttack`.
+        *   [ ] Implement Action Parsing: Parse `response.action` from LLM in `KOROBrain.generateUpdate` and trigger corresponding actions (e.g., call `OverseerEntity.startEnvironmentalAttack("Superheat")` or target a player). Define available actions clearly.
+        *   [ ] Refactor TTS/UI Broadcast: Move logic from old private methods (`_generateTTS`, `_broadcastOverseerMessage`) in `OverseerEntity` into the new public methods (`generateTTSForMessage`, `broadcastOverseerUIMessage`).
     *   **Audio Polish:**
-        *   [ ] Integrate Replicate API for "kokoro" TTS via `AudioManager.speakKoro()`.
-        *   [ ] Implement voice degradation based on `OverseerEntity` health.
-        *   [ ] Finalize SFX for attacks, damage, barrier movement, weapon fire/reload.
+        *   [x] Integrate Replicate API for "kokoro" TTS via `AudioManager.speakKoro()` (assuming this refers to the TTS call setup).
+        *   [x] Implement voice degradation based on `OverseerEntity` health (should be part of `generateTTSForMessage` logic).
+        *   [ ] Implement non-verbal SFX for shield hits and KORO core damage in `OverseerEntity.takeDamage`.
+        *   [ ] Finalize SFX for environmental attacks, barrier movement, weapon fire/reload.
     *   **Visual Polish:**
-        *   [ ] Refine screen tints and add particle effects for attacks.
-        *   [ ] Add specific visual effects for barrier opening/closing, KORO taking damage, BFG impact.
+        *   [x] Refine screen tints and add particle effects for attacks.
+        *   [x] Add specific visual effects for barrier opening/closing, KORO taking damage, BFG impact.
     *   **UI Polish:**
         *   [ ] Finalize UI layout.
         *   [ ] Ensure Overseer health, weapon status/cooldowns are clear.
         *   [ ] Add visual indicator for BFG availability/location?
-*   **Outcome Goal:** KORO dynamically chooses attacks and speaks via LLM. TTS and voice degradation enhance immersion. Visuals and audio are polished. The game loop feels complete and driven by KORO's AI.
+*   **Outcome Goal:** KORO dynamically chooses actions based on game state via LLM, speaking occasionally with degraded voice. Core loop feels responsive with simplified AI updates and planned event logging. Visuals and audio are polished.

@@ -176,8 +176,7 @@ export default class OverseerEntity extends Entity {
     // Store the world reference
     this._world = world;
     
-    // Initialize the KORO brain now that we have the world context
-    // Pass 'this' (OverseerEntity), GameManager instance, and the world
+    // Pass world reference and default interval (8s)
     this._brain = new KOROBrain(this, GameManager.instance, world);
     
     // Start with the brain processing disabled until game starts
@@ -613,30 +612,17 @@ export default class OverseerEntity extends Entity {
    */
   private _onPlayerJoined = ({ player }: { player: any }): void => {
     if (!this._world || !this._brain) return;
-
-    // Player count is now derived within KOROBrain snapshot
-    // const playerCount = this._world.entityManager.getAllPlayerEntities().length;
-    // this._brain?.setPlayerCount(playerCount);
-
-    // Add player joined event with high priority
-    const needsImmediateResponse = this._brain?.addEventWithPriority(
+    const needsImmediateResponse = this._brain.addEventWithPriority(
       'player_join',
       `Player ${player.username || player.id} entered the facility`,
-      'high',
+      'high', // Keep high for potential greeting/initial scan?
       {
         playerId: player.id,
         playerName: player.username || player.id,
         position: player.position
       }
     );
-
     this._logger.info(`Player joined: ${player.username || player.id}`);
-
-    // Only trigger immediate response if the event is high priority
-    if (needsImmediateResponse) {
-       this._logger.info('High priority player join event, triggering brain update.');
-       this._brain?.generateUpdate(); // Trigger update if needed
-    }
   }
   
   /**
@@ -644,17 +630,9 @@ export default class OverseerEntity extends Entity {
    */
   private _onPlayerLeft = ({ player }: { player: any }): void => {
     if (!this._world || !this._brain) return;
-
-    // Player count is now derived within KOROBrain snapshot
-    // const playerCount = this._world.entityManager.getAllPlayerEntities().length - 1;
-    // this._brain?.setPlayerCount(playerCount);
-
-    // Determine priority (high if it was the last player)
     const remainingPlayers = this._world.entityManager.getAllPlayerEntities().length -1;
-    const priority = remainingPlayers === 0 ? 'high' : 'medium';
-
-    // Add player left event
-    const needsImmediateResponse = this._brain?.addEventWithPriority(
+    const priority = remainingPlayers === 0 ? 'high' : 'medium'; // Still useful priority info for LLM
+    const needsImmediateResponse = this._brain.addEventWithPriority(
       'player_leave',
       `Player ${player.username || player.id} left the facility`,
       priority,
@@ -664,14 +642,7 @@ export default class OverseerEntity extends Entity {
         remainingPlayers: remainingPlayers
       }
     );
-
     this._logger.info(`Player left: ${player.username || player.id}, remaining: ${remainingPlayers}`);
-
-    // Only respond immediately if high priority
-    if (needsImmediateResponse) {
-      this._logger.info('High priority player leave event, triggering brain update.');
-      this._brain?.generateUpdate(); // Trigger update if needed
-    }
   }
 
   /**
@@ -722,18 +693,10 @@ export default class OverseerEntity extends Entity {
    * Handle chat messages
    */
   private _onChatMessage = ({ player, message }: { player?: any, message: string }): void => {
-    if (!player || !message) return;
-    
-    // Add the chat message to the brain's events with priority check
-    const needsImmediateResponse = this._brain?.addChatMessage(player.username || player.id, message);
-    
+    if (!player || !message || !this._brain) return;
+    // Add chat message, brain decides priority
+    const needsImmediateResponse = this._brain.addChatMessage(player.username || player.id, message);
     this._logger.debug(`Chat message from ${player.username || player.id}: ${message}`);
-    
-    // If it's a direct mention or high priority event, trigger an immediate response
-    if (needsImmediateResponse) {
-      this._logger.info(`KORO mentioned in chat by ${player.username || player.id}, triggering response`);
-      this._generateBrainResponse();
-    }
   }
   
   /**

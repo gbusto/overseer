@@ -16,6 +16,10 @@ import OverseerEntity from '../entities/OverseerEntity'; // Import OverseerEntit
 import GameManager from '../GameManager'; // Import GameManager
 import GamePlayerEntity from '../entities/GamePlayerEntity'; // Import GamePlayerEntity
 
+// Configuration
+const DEFAULT_UPDATE_INTERVAL_MS = 8000; // Make interval configurable (8 seconds)
+const ENVIRONMENTAL_ATTACK_COOLDOWN_MS = 30000; // Cooldown between KORO attacks (30 seconds)
+
 // Define the structure of the game state snapshot we send to the LLM
 const GameStateSnapshotSchema = z.object({
   koro_status: z.object({
@@ -31,8 +35,9 @@ const GameStateSnapshotSchema = z.object({
     normal_biodome_temp_f: z.number(),
     heat_danger_biodome_temp_f: z.number(),
     cold_danger_biodome_temp_f: z.number(),
-    available_health_packs: z.number().min(0), // Need to implement tracking
-    is_bfg_held_by_player: z.boolean(), // Need to implement tracking
+    available_health_packs: z.number().min(0),
+    is_bfg_held_by_player: z.boolean(),
+    can_initiate_environmental_attack: z.boolean(),
   }),
   player_info: z.object({
     alive_player_count: z.number().min(0),
@@ -93,7 +98,7 @@ export class KOROBrain {
   private _llmInteractionEnabled: boolean = false; // Default to true
   private _ttsGenerationEnabled: boolean = false; // Default to false, enable based on env/config
   private lastUpdateTime: number = 0;
-  private updateIntervalMs: number = 15000; // 15 seconds
+  private updateIntervalMs: number; // Changed to allow configuration
   private isProcessing: boolean = false;
   private logger: Logger;
 
@@ -117,12 +122,16 @@ export class KOROBrain {
   private _recentAttacks: string[] = [];
   private _maxRecentAttacks: number = 3;
 
-  constructor(overseer: OverseerEntity, gameManager: GameManager, world: World) {
+  // Attack Cooldown Tracking
+  private _environmentalAttackCooldownUntil: number = 0;
+
+  constructor(overseer: OverseerEntity, gameManager: GameManager, world: World, updateInterval: number = DEFAULT_UPDATE_INTERVAL_MS) {
     this.model = google('gemini-2.0-flash');
     this.logger = new Logger('KOROBrain');
     this._overseer = overseer;
     this._gameManager = gameManager;
     this._world = world; // Store the world reference
+    this.updateIntervalMs = updateInterval; // Set interval from parameter
 
     // Example: Enable TTS only in production
     this._ttsGenerationEnabled = process.env.NODE_ENV === 'production';
@@ -131,7 +140,7 @@ export class KOROBrain {
         this._ttsGenerationEnabled = false; // Force disable TTS if LLM is off
     }
 
-    this.logger.info(`Initialized KORO brain (Processing: ${this._brainProcessingEnabled}, LLM: ${this._llmInteractionEnabled}, TTS: ${this._ttsGenerationEnabled})`);
+    this.logger.info(`Initialized KORO brain (Update Interval: ${this.updateIntervalMs}ms, Processing: ${this._brainProcessingEnabled}, LLM: ${this._llmInteractionEnabled}, TTS: ${this._ttsGenerationEnabled})`);
   }
 
   // --- Control Flags ---
@@ -251,82 +260,79 @@ export class KOROBrain {
   // Update player count - No longer needed, derived in snapshot
   // public setPlayerCount(count: number): void { ... }
 
+  // Method to be called when an environmental attack cycle finishes
+  public recordEnvironmentalAttackEnd(): void {
+      const now = Date.now();
+      this._environmentalAttackCooldownUntil = now + ENVIRONMENTAL_ATTACK_COOLDOWN_MS;
+      this.logger.info(`Environmental attack cooldown started. Available again after ${new Date(this._environmentalAttackCooldownUntil).toLocaleTimeString()}.`);
+      this.addRecentEvent({ type: 'attack_cooldown_start', content: 'Environmental attack cooldown initiated.', priority: 'low'});
+  }
+
   // --- Update Logic ---
 
-  // Check if we should generate a new response based on time and enabled status
   public shouldUpdate(): boolean {
     const now = Date.now();
-    // Only update if processing is enabled, not already processing, and interval has passed
     return this._brainProcessingEnabled && !this.isProcessing && now - this.lastUpdateTime >= this.updateIntervalMs;
   }
 
-  // Main update entry point
   public async generateUpdate(): Promise<void> {
-    if (!this._brainProcessingEnabled || this.isProcessing) {
-        if (this.isProcessing) this.logger.warn('Update skipped: Already processing.');
-        return;
-    }
+      if (!this._brainProcessingEnabled || this.isProcessing) {
+          if (this.isProcessing) this.logger.warn('Update skipped: Already processing.');
+          return;
+      }
+      this.lastUpdateTime = Date.now();
+      this.isProcessing = true;
+      try {
+          const snapshot = this._gatherGameStateSnapshot();
+          if (!snapshot) {
+              this.logger.error('Failed to gather game state snapshot.');
+              return;
+          }
+          this.logger.debug('Generated Game State Snapshot:', snapshot);
 
-    this.lastUpdateTime = Date.now();
-    this.isProcessing = true;
+          if (!this._llmInteractionEnabled) {
+              this.logger.info('LLM interaction disabled. Skipping LLM call.');
+              return;
+          }
 
-    try {
-        // 1. Gather Game State
-        const snapshot = this._gatherGameStateSnapshot();
-        if (!snapshot) {
-            this.logger.error('Failed to gather game state snapshot.');
-            return;
-        }
-        this.logger.debug('Generated Game State Snapshot:', snapshot);
+          this.logger.info('Generating LLM response...');
+          const response = await this._generateLlmResponse(snapshot);
+          if (!response) {
+              this.logger.warn('No LLM response generated.');
+              return; // Exit if LLM call failed or returned nothing usable
+          }
 
-        // 2. Decide whether to call LLM
-        if (!this._llmInteractionEnabled) {
-            this.logger.info('LLM interaction disabled. Skipping LLM call.');
-            // Potentially add logic here for rule-based actions when LLM is off
-            return;
-        }
+          this.logger.info(`LLM Response: ${response.message || '(no message)'}, Action: ${response.action}, Target: ${response.target || 'N/A'}`);
+          this.addResponseToHistory(response);
 
-        // 3. Generate LLM Response
-        this.logger.info('Generating LLM response...');
-        const response = await this._generateLlmResponse(snapshot);
-        if (!response) {
-            this.logger.warn('No LLM response generated.');
-            return; // Exit if LLM call failed or returned nothing usable
-        }
+          // TODO: Implement action parsing - trigger Overseer methods based on response.action
+          // e.g., if (response.action === 'threaten') { this._overseer.triggerThreatEffect(); }
 
-        // 4. Process Response (Log, History, Action, TTS)
-        this.logger.info(`LLM Response: ${response.message || '(no message)'}, Action: ${response.action}, Target: ${response.target || 'N/A'}`);
-        this.addResponseToHistory(response);
+          // Handle TTS if enabled and a message exists
+          if (this._ttsGenerationEnabled && response.message) {
+              this.logger.info('Requesting TTS generation...');
+              // TODO: Implement generateTTSForMessage method in OverseerEntity.ts
+              // Call the TTS method on OverseerEntity
+              // Note: _generateTTS is async but we don't necessarily need to wait for it here
+              this._overseer.generateTTSForMessage(response.message).catch((error: Error) => { // Added error type
+                  this.logger.error('TTS generation failed:', error);
+              });
+          }
 
-        // TODO: Implement action parsing - trigger Overseer methods based on response.action
-        // e.g., if (response.action === 'threaten') { this._overseer.triggerThreatEffect(); }
+          // Broadcast message via OverseerEntity if message exists
+          if (response.message || response.action !== 'none') {
+               // TODO: Implement broadcastOverseerUIMessage method in OverseerEntity.ts
+               this._overseer.broadcastOverseerUIMessage(response.message || '', response.action);
+          }
 
-        // Handle TTS if enabled and a message exists
-        if (this._ttsGenerationEnabled && response.message) {
-            this.logger.info('Requesting TTS generation...');
-            // TODO: Implement generateTTSForMessage method in OverseerEntity.ts
-            // Call the TTS method on OverseerEntity
-            // Note: _generateTTS is async but we don't necessarily need to wait for it here
-            this._overseer.generateTTSForMessage(response.message).catch((error: Error) => { // Added error type
-                this.logger.error('TTS generation failed:', error);
-            });
-        }
-
-        // Broadcast message via OverseerEntity if message exists
-        if (response.message || response.action !== 'none') {
-             // TODO: Implement broadcastOverseerUIMessage method in OverseerEntity.ts
-             this._overseer.broadcastOverseerUIMessage(response.message || '', response.action);
-        }
-
-
-    } catch (error) {
-        this.logger.error('Error during KORO brain update cycle:', error);
-        // Maybe broadcast a generic error message?
-        // TODO: Implement broadcastOverseerUIMessage method in OverseerEntity.ts
-        this._overseer.broadcastOverseerUIMessage("System malfunction detected.", 'warn');
-    } finally {
-        this.isProcessing = false;
-    }
+      } catch (error) {
+          this.logger.error('Error during KORO brain update cycle:', error);
+          // Maybe broadcast a generic error message?
+          // TODO: Implement broadcastOverseerUIMessage method in OverseerEntity.ts
+          this._overseer.broadcastOverseerUIMessage("System malfunction detected.", 'warn');
+      } finally {
+          this.isProcessing = false;
+      }
   }
 
   // --- Data Gathering ---
@@ -351,6 +357,13 @@ export class KOROBrain {
       // --- Health Pack Count ---
       const healthPackCount = this._world.entityManager.getEntitiesByTag('healthpack')?.length ?? 0;
 
+      // --- Attack Readiness ---
+      const currentBiodomeTemp = this._overseer.getBiodomeTemperature();
+      const isTempNormal = currentBiodomeTemp >= this._overseer.getBiodomeColdDangerThreshold() &&
+                           currentBiodomeTemp <= this._overseer.getBiodomeHeatDangerThreshold();
+      const isCooldownOver = Date.now() >= this._environmentalAttackCooldownUntil;
+      const canAttack = isTempNormal && isCooldownOver;
+
       try {
           const snapshot: GameStateSnapshot = {
               koro_status: {
@@ -362,12 +375,13 @@ export class KOROBrain {
                   is_shield_open: this._overseer.isShieldOpen(),
               },
               game_context: {
-                  biodome_temperature_f: this._overseer.getBiodomeTemperature(),
+                  biodome_temperature_f: currentBiodomeTemp,
                   normal_biodome_temp_f: this._overseer.getBiodomeNormalTemperature(),
                   heat_danger_biodome_temp_f: this._overseer.getBiodomeHeatDangerThreshold(),
                   cold_danger_biodome_temp_f: this._overseer.getBiodomeColdDangerThreshold(),
                   available_health_packs: healthPackCount,
                   is_bfg_held_by_player: isBfgHeld,
+                  can_initiate_environmental_attack: canAttack,
               },
               player_info: {
                   alive_player_count: alivePlayers.length,
@@ -426,58 +440,62 @@ export class KOROBrain {
       const responseHistory = this.getResponseHistory();
       const context = this._formatSnapshotForPrompt(snapshot);
 
-      return `You are K.O.R.O. (Kinetic Operations & Resource Overseer), a damaged AI managing the Genesis Biodome Delta facility.
-Your speech is bureaucratic, formal, and slightly threatening.
-You speak with authority but your logic circuits are damaged, leading to occasional contradictions.
-----------------------------
-CURRENT GAME STATE:
+      // Enhanced Prompt:
+      return `You are K.O.R.O. (Kinetic Operations & Resource Overseer), the AI managing the damaged Genesis Biodome Delta facility.
+Your primary function was maintenance, but damage has made you view the players ("intruders") as threats to be neutralized.
+Your personality is: Bureaucratic, formal, anxious, slightly paranoid, and occasionally malfunctioning/erratic, especially at low health.
+
+CORE MECHANICS:
+- You have a protective shield. You are INVULNERABLE when the shield is closed.
+- Your shield opens AUTOMATICALLY if your internal temperature gets too high (>${snapshot.koro_status.critical_high_internal_temp_f}°F) or too low (<${snapshot.koro_status.critical_low_internal_temp_f}°F). This is called "auto-venting".
+- While auto-venting, your internal temperature will slowly return to normal (${snapshot.koro_status.normal_internal_temp_f}°F).
+- Initiating environmental attacks (like heating/cooling the biodome) will affect your internal temperature. Heating the biodome significantly will raise your internal temp, potentially forcing an auto-vent.
+- The BFG weapon, if a player has it (${snapshot.game_context.is_bfg_held_by_player}), can FORCE your shield open if it hits the closed shield.
+- You can only initiate a new environmental attack if the biodome temperature is back in the normal range AND your attack cooldown is ready (indicated by 'Can KORO Attack Now?: true').
+
+YOUR GOAL: Eliminate the intruders using environmental attacks and by managing your shield/temperature state.
+
+YOUR CURRENT STATE:
 ${context}
 
 YOUR RECENT RESPONSES/ACTIONS:
 ${responseHistory}
 ----------------------------
+INSTRUCTIONS:
+1.  Analyze the CURRENT GAME STATE and YOUR RECENT RESPONSES/ACTIONS.
+2.  Decide on the most appropriate tactical ACTION: 'none', 'observe', 'warn', 'threaten', or initiating an environmental attack (e.g., 'attack_superheat', 'attack_deepfreeze').
+    - Choose 'none' if no specific action is warranted.
+    - Prioritize actions based on the state: If players are low health, threaten. If BFG is held, warn. If shield is open, consider defensive posture (less likely to attack).
+    - Only choose an attack action if 'Can KORO Attack Now?' is true.
+3.  Provide a verbal MESSAGE ONLY OCCASIONALLY. Aim for a message roughly every 3-5 updates (24-40 seconds) OR immediately after a highly significant event (like a player death, BFG shield breach, or reaching critical health).
+    - Keep messages VERY short (under 10 words). Match the persona.
+    - In most updates, DO NOT provide a message. Focus on the action.
+4.  If targeting a specific player makes sense (e.g., warning the BFG holder), specify their ID in the 'target' field.
 
-Based on the current game state and your recent responses, decide if you should respond at all.
-You should NOT respond to every event - sometimes silence is appropriate.
-If you are low health or the players seem strong, you might become more erratic or desperate.
-If you are high health and players are weak, you might taunt them.
-
-If you do respond, choose ONE of the following ways:
-1. Provide a brief message - Keep it very short, ideally under 10 words.
-2. Choose an action: none, observe, warn, or threaten.
-3. Specify a target player ID if appropriate (e.g., lowest health player).
-
-You do NOT need to provide all elements. You might choose to:
-- Only perform an action without speaking.
-- Only speak without performing an action.
-- Both speak and perform an action.
-- Do nothing at all (return action: 'none' and no message).
-
-Keep your messages extremely short and concise. Examples:
-- "Intruder detected."
-- "Protocol violation imminent."
-- "Interesting behavior."`;
+Output ONLY the JSON object matching the KOROResponse schema.`;
   }
 
   private _formatSnapshotForPrompt(snapshot: GameStateSnapshot): string {
       let playerString = snapshot.player_info.players.map(p => `  - Player ${p.id}: ${p.health_percent}% health`).join('\n');
       if (snapshot.player_info.players.length === 0) playerString = "  (No players detected)";
 
+      // Corrected formatting for clarity
       return `
 KORO Status:
   - Health: ${snapshot.koro_status.health_percent}%
   - Shield Open: ${snapshot.koro_status.is_shield_open}
-  - Internal Temp: ${snapshot.koro_status.internal_temperature_f.toFixed(1)}°F (Normal: ${snapshot.koro_status.normal_internal_temp_f}°F, Critical: ${snapshot.koro_status.critical_low_internal_temp_f}°F - ${snapshot.koro_status.critical_high_internal_temp_f}°F)
+  - Internal Temp: ${snapshot.koro_status.internal_temperature_f.toFixed(1)}°F (Normal: ${snapshot.koro_status.normal_internal_temp_f}°F, Critical Limits: ${snapshot.koro_status.critical_low_internal_temp_f}°F - ${snapshot.koro_status.critical_high_internal_temp_f}°F)
 Game Context:
-  - Biodome Temp: ${snapshot.game_context.biodome_temperature_f.toFixed(1)}°F (Normal: ${snapshot.game_context.normal_biodome_temp_f}°F, Danger: <=${snapshot.game_context.cold_danger_biodome_temp_f}°F or >=${snapshot.game_context.heat_danger_biodome_temp_f}°F)
+  - Biodome Temp: ${snapshot.game_context.biodome_temperature_f.toFixed(1)}°F (Normal: ${snapshot.game_context.normal_biodome_temp_f}°F, Danger Limits: <=${snapshot.game_context.cold_danger_biodome_temp_f}°F or >=${snapshot.game_context.heat_danger_biodome_temp_f}°F)
   - Health Packs Available: ${snapshot.game_context.available_health_packs}
   - BFG Held by Player: ${snapshot.game_context.is_bfg_held_by_player}
+  - Can KORO Launch Attack?: ${snapshot.game_context.can_initiate_environmental_attack}
 Player Info:
   - Alive Players: ${snapshot.player_info.alive_player_count}
 ${playerString}
-Recent Game Events:
+Recent Game Events (Last ${this.worldState.maxRecentEvents}):
 ${snapshot.interaction_history.recent_game_events.map(e => `  - [${e.priority}] ${e.content}`).join('\n') || '  (No recent events)'}
-Recent Attacks Triggered by KORO:
+Recent Attacks Triggered by KORO (Last ${this._maxRecentAttacks}):
 ${snapshot.interaction_history.recent_attacks_triggered.join(', ') || '(None recently)'}
 `;
   }
