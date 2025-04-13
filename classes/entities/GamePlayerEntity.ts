@@ -133,6 +133,7 @@ export default class GamePlayerEntity extends PlayerEntity {
    * Take damage from sources
    */
   public takeDamage(amount: number): void {
+    // Prevent taking damage or showing effects if already dead
     if (!this.isSpawned || !this.world || this._dead) return;
     
     // Only take damage if the game is active or player vulnerability is enabled
@@ -150,6 +151,25 @@ export default class GamePlayerEntity extends PlayerEntity {
     
     // Update health UI elements
     this._updateHealthUI();
+    
+    // Send damage indicator UI update ONLY if the player is still alive after taking damage
+    if (this.health > 0) {
+      // TODO: This needs hitDirection, which is not currently passed to takeDamage
+      // We might need to refactor where damage is applied or how indicators are triggered.
+      // For now, let's comment out the indicator logic to prevent errors.
+      /* 
+      const facingDir = this.player.camera.facingDirection;
+      this.player.ui.sendData({
+        type: 'damage-indicator', 
+        direction: {
+          x: -(facingDir.x * hitDirection.z - facingDir.z * hitDirection.x),
+          y: 0,
+          z: -(facingDir.x * hitDirection.x + facingDir.z * hitDirection.z)
+        }
+      });
+      */
+      this._logger.debug('Skipping damage indicator UI update temporarily.'); // Placeholder log
+    }
     
     this._logger.debug(`Player took ${amount} damage, health: ${oldHealth} -> ${this.health}`);
     
@@ -390,20 +410,20 @@ export default class GamePlayerEntity extends PlayerEntity {
         this.playerController.walkLoopedAnimations = [];
         this.playerController.runLoopedAnimations = [];
         
-        // Notify the player
+        // Notify the player (chat)
         this.world.chatManager.sendPlayerMessage(
           this.player, 
           'You have been eliminated! You will remain in spectator mode until the game ends.', 
           'FF0000'
         );
-        
-        // Broadcast to all players
-        this.world.chatManager.sendBroadcastMessage(`${this.player.username || this.player.id} has been eliminated!`, 'FF0000');
-        
+                
         this._logger.info(`Player died: ${this.player.username || this.player.id}`);
 
         // Inform the GameManager about the player's death
-        GameManager.instance.handlePlayerDeath(this); 
+        GameManager.instance.handlePlayerDeath(this);
+        
+        // Send a message to the UI to indicate player death
+        this.player.ui.sendData({ type: 'player-died' });
         
         // Update camera to spectator mode
         this.updateCameraToSpectate();
@@ -420,6 +440,12 @@ export default class GamePlayerEntity extends PlayerEntity {
     this._dead = false;
     this.health = this._maxHealth;
     
+    // Calculate random spawn position within +/- 20 X/Z, Y=10
+    const spawnX = (Math.random() * 40) - 20; // Range -20 to +20
+    const spawnZ = (Math.random() * 40) - 20; // Range -20 to +20
+    const spawnY = 10;
+    this.setPosition({ x: spawnX, y: spawnY, z: spawnZ });
+    
     // Reset animations
     this.resetAnimations();
     
@@ -429,13 +455,15 @@ export default class GamePlayerEntity extends PlayerEntity {
     // Update UI
     this._updatePlayerUI();
     
-    // Notify player
-    this.world.chatManager.sendPlayerMessage(
-      this.player,
-      'You have been respawned for testing purposes.',
-      '00FF00'
-    );
+    // Unequip any weapon (ensure _activeWeapon is null)
+    if (this._activeWeapon) {
+      this._activeWeapon.unequip(); // Properly handle unequip logic if it exists
+      this._activeWeapon = null;
+      this._logger.debug('Unequipped weapon on respawn.');
+    }
     
-    this._logger.info(`Player respawned: ${this.player.username || this.player.id}`);
+    
+    // Send a message to the UI to indicate player respawn
+    this.player.ui.sendData({ type: 'player-respawned' });
   }
 } 

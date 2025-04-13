@@ -520,6 +520,9 @@
   let isRecharging = false;
   let isCooldown = false;
   
+  // Add a flag to track player death state in the UI
+  let isPlayerDead = false;
+  
   // Handle incoming data from the server
   hytopia.onData(data => {
     // Check if this is an overseer message
@@ -690,6 +693,21 @@
         if (crosshairElement) crosshairElement.style.display = 'none';
         break;
       
+      case 'player-died':
+        isPlayerDead = true;
+        // Optional: Hide other UI elements like health bar, crosshair, etc.
+        // document.getElementById('health-container').style.display = 'none';
+        // document.getElementById('crosshair').style.display = 'none';
+        // setEnergyWeaponEquipped(false); // Hide weapon UI
+        break;
+        
+      case 'player-respawned':
+        isPlayerDead = false;
+        // Optional: Show UI elements again if hidden on death
+        // document.getElementById('health-container').style.display = 'block';
+        // Crosshair visibility depends on weapon status, don't force show here
+        break;
+      
       case 'fade-white':
         fadeToWhite(data.duration);
         break;
@@ -699,28 +717,31 @@
         break;
 
       case 'environmental-damage-effect':
-        // Create damage indicator at random position near the center of the screen
-        const effect = document.createElement('div');
-        effect.className = `environmental-damage ${data.damageType}`;
-        
-        // Format the damage amount
-        effect.textContent = `-${parseFloat(data.amount).toFixed(1)}`;
-        
-        // Position randomly within central area of screen
-        const centerX = window.innerWidth / 2;
-        const centerY = window.innerHeight / 2;
-        const randomX = centerX + (Math.random() * 200 - 100); // ±100px from center
-        const randomY = centerY + (Math.random() * 200 - 100); // ±100px from center
-        
-        effect.style.left = `${randomX}px`;
-        effect.style.top = `${randomY}px`;
-        
-        document.body.appendChild(effect);
-        
-        // Remove the element after animation completes
-        setTimeout(() => {
-          effect.remove();
-        }, 2000);
+        // *** Check the flag before showing the damage effect ***
+        if (!isPlayerDead) {
+          // Create damage indicator at random position near the center of the screen
+          const effect = document.createElement('div');
+          effect.className = `environmental-damage ${data.damageType}`;
+          
+          // Format the damage amount
+          effect.textContent = `-${parseFloat(data.amount).toFixed(1)}`;
+          
+          // Position randomly within central area of screen
+          const centerX = window.innerWidth / 2;
+          const centerY = window.innerHeight / 2;
+          const randomX = centerX + (Math.random() * 200 - 100); // ±100px from center
+          const randomY = centerY + (Math.random() * 200 - 100); // ±100px from center
+          
+          effect.style.left = `${randomX}px`;
+          effect.style.top = `${randomY}px`;
+          
+          document.body.appendChild(effect);
+          
+          // Remove the element after animation completes
+          setTimeout(() => {
+            effect.remove();
+          }, 2000);
+        }
         break;
     }
   });
