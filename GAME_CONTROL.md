@@ -157,6 +157,10 @@ These commands can be used in the game chat for testing and debugging:
 | `/toggledamage [true/false]` | Toggles player vulnerability to damage (allows damage even when game is not active) |
 | `/toggleplayerhealth` | Toggles player health bar visibility |
 | `/togglekorohealth` | Toggles KORO health bar visibility |
+| `/togglebiodome` | Toggles biodome status display visibility |
+| `/toggleui` | Toggles visibility of ALL UI elements (player health, KORO health, biodome status, overseer temperature, crosshair) |
+| `/togglealldamage` | Toggles ALL damage systems (player vulnerability, KORO vulnerability, environmental damage) |
+| `/togglebiodomeeffects` | Toggles biodome environmental effects and resets temperature if disabled |
 | `/koro openshield` | Opens KORO's shield |
 | `/koro closeshield` | Closes KORO's shield |
 | `/healthpack` | Spawns a health pack in front of the player |
@@ -164,7 +168,6 @@ These commands can be used in the game chat for testing and debugging:
 | `/rifle` | Spawns an energy rifle in front of the player |
 | `/rocket` | Launches player into the air (testing) |
 | `/getpos` | Gets player's current position |
-| `/togglebiodome` | Toggles biodome status display visibility |
 | `/biodome-temp <temperature> [rate]` | Sets biodome temperature with optional change rate |
 | `/biodome-heat` | Triggers a heat attack (high temperature) |
 | `/biodome-cold` | Triggers a cold attack (low temperature) |

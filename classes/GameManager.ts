@@ -886,6 +886,144 @@ export default class GameManager {
       }
     });
     
+    // Command: /toggleui - Toggle all UI elements visibility 
+    chatManager.registerCommand('/toggleui', (player) => {
+      // Toggle all UI elements at once
+      // 1. Player health
+      player.ui.sendData({
+        type: 'toggle-player-health-visibility'
+      });
+      
+      // 2. KORO health
+      player.ui.sendData({
+        type: 'toggle-overseer-health-visibility'
+      });
+      
+      // 3. Biodome status
+      player.ui.sendData({
+        type: 'toggle-biodome-visibility'
+      });
+      
+      // 4. KORO temperature UI
+      player.ui.sendData({
+        type: 'toggle-overseer-temp-visibility'
+      });
+      
+      // 5. Crosshair
+      player.ui.sendData({
+        type: 'toggle-crosshair-visibility'
+      });
+      
+      chatManager.sendPlayerMessage(
+        player, 
+        'Toggled visibility of all UI elements.',
+        '00FF00'
+      );
+    });
+    
+    // Command: /togglealldamage - Toggle all damage systems (player and environment)
+    chatManager.registerCommand('/togglealldamage', (player) => {
+      const overseer = this.getOverseerEntity();
+      if (!overseer) {
+        chatManager.sendPlayerMessage(player, 'Overseer not found.', 'FF0000');
+        return;
+      }
+      
+      // 1. Toggle player vulnerability
+      const playerVulnerable = !GameManager.isPlayerVulnerable();
+      GameManager.setPlayerVulnerable(playerVulnerable);
+      
+      // 2. Toggle environmental damage
+      const envDamageEnabled = !overseer.isBiodomeEnvironmentalDamageEnabled();
+      overseer.setBiodomeEnvironmentalDamageEnabled(envDamageEnabled);
+      
+      // 3. Toggle KORO vulnerability
+      const currentKoroInvulnerable = overseer.isInvulnerable();
+      const newKoroInvulnerableState = !currentKoroInvulnerable;
+      overseer.setInvulnerable(newKoroInvulnerableState);
+      const koroIsNowVulnerable = !newKoroInvulnerableState;
+      
+      // Determine overall status message
+      const allDamageEnabled = playerVulnerable && envDamageEnabled && koroIsNowVulnerable;
+      
+      // Notify the player
+      chatManager.sendPlayerMessage(
+        player, 
+        `All damage systems status: ${allDamageEnabled ? 'Mostly Enabled' : 'Partially/Fully Disabled'}.`,
+        '00FF00'
+      );
+      
+      // Additional details
+      chatManager.sendPlayerMessage(
+        player, 
+        `Player Vulnerability: ${playerVulnerable}, Env Damage: ${envDamageEnabled}, KORO Vulnerability: ${koroIsNowVulnerable}`,
+        '00CCFF'
+      );
+      
+      // Broadcast to all players
+      if (koroIsNowVulnerable) {
+        chatManager.sendBroadcastMessage(
+          'WARNING: Overseer systems vulnerable.',
+          'FF3300'
+        );
+      } else {
+        chatManager.sendBroadcastMessage(
+          'Overseer systems secured.',
+          '00FF00'
+        );
+      }
+      
+      // Add specific messages for player/env damage toggles
+      if (playerVulnerable) {
+          chatManager.sendBroadcastMessage('Player damage protection disabled.','FF3300');
+      } else {
+          chatManager.sendBroadcastMessage('Player damage protection enabled.','00FF00');
+      }
+      if (envDamageEnabled) {
+          chatManager.sendBroadcastMessage('Biodome environmental hazards active.','FF3300');
+      } else {
+          chatManager.sendBroadcastMessage('Biodome environmental hazards neutralized.','00FF00');
+      }
+    });
+    
+    // Command: /togglebiodomeeffects - Toggle all biodome environmental effects
+    chatManager.registerCommand('/togglebiodomeeffects', (player) => {
+      const overseer = this.getOverseerEntity();
+      if (!overseer) {
+        chatManager.sendPlayerMessage(player, 'Overseer not found.', 'FF0000');
+        return;
+      }
+      
+      // Toggle environmental damage
+      const envDamageEnabled = !overseer.isBiodomeEnvironmentalDamageEnabled();
+      overseer.setBiodomeEnvironmentalDamageEnabled(envDamageEnabled);
+      
+      // Reset temperature to normal if disabling effects
+      if (!envDamageEnabled) {
+        overseer.resetBiodomeTemperature();
+      }
+      
+      // Notify the player
+      chatManager.sendPlayerMessage(
+        player, 
+        `Biodome environmental effects ${envDamageEnabled ? 'enabled' : 'disabled'}.`,
+        '00FF00'
+      );
+      
+      // Broadcast to all players
+      if (envDamageEnabled) {
+        chatManager.sendBroadcastMessage(
+          'WARNING: Biodome environmental effects enabled. Temperature extremes can cause damage.',
+          'FF3300'
+        );
+      } else {
+        chatManager.sendBroadcastMessage(
+          'Biodome environmental effects disabled. Temperature extremes are harmless.',
+          '00FF00'
+        );
+      }
+    });
+    
     this._logger.info('Registered custom chat commands.');
   }
 } 
