@@ -52,8 +52,9 @@ export default class OverseerEntity extends Entity {
   // Temperature regulation properties
   private _internalTemp: number = 75; // Default internal temperature (F)
   private _normalInternalTemp: number = 75; // Baseline normal temperature
-  private _tempChangeRate: number = 0.05; // Base rate of temperature change per second
-  private _coolingRate: number = 0.2; // Rate of cooling when shield is open (per second)
+  private _biodomeInfluenceRate: number = 0.05; // How strongly biodome temp affects internal temp (per second)
+  private _tempRegulationRateOpen: number = 0.2; // Rate of returning to normal temp when shield OPEN (per second)
+  private _tempRegulationRateClosed: number = 0.02; // Rate of returning to normal temp when shield CLOSED (per second)
   private _lastInternalTempUpdate: number = 0; // Throttle UI updates
   private _internalTempUpdateInterval: number = 500; // Update UI every 500ms max
   
@@ -1042,7 +1043,7 @@ export default class OverseerEntity extends Entity {
   }
 
   /**
-   * Update internal temperature based on biodome temperature
+   * Update internal temperature based on internal regulation and biodome influence.
    * @param tickDeltaMs Time since last tick in milliseconds
    */
   private _updateInternalTemperature(tickDeltaMs: number): void {
@@ -1051,31 +1052,37 @@ export default class OverseerEntity extends Entity {
     const biodomeTemp = this._biodome.getCurrentTemperature();
     const normalBiodomeTemp = this._biodome.getNormalTemperature();
     const deltaSeconds = tickDeltaMs / 1000;
+    let totalChange = 0;
     
-    // If shield is open, cool down toward normal temperature
-    if (!this._shieldActive) { // Shield is open when _shieldActive is false
-      // Move temperature toward normal at cooling rate
-      const tempDiff = this._internalTemp - this._normalInternalTemp;
-      if (Math.abs(tempDiff) > 0.1) { // Only adjust if significantly different
-        this._internalTemp -= tempDiff * this._coolingRate * deltaSeconds;
-        this._logger.debug(`Shield open: Internal temp cooling to ${this._internalTemp.toFixed(1)}°F`);
-      }
-    } else {
-      // Calculate how extreme the biodome temperature is (0-1 scale)
-      const normalRange = 50; // How many degrees from normal is considered "full extremity"
-      const tempDifference = biodomeTemp - normalBiodomeTemp;
-      const extremityFactor = Math.min(Math.abs(tempDifference) / normalRange, 1);
-      
-      // Apply temperature change scaled by extremity
-      const changeAmount = tempDifference * this._tempChangeRate * extremityFactor * deltaSeconds;
-      this._internalTemp += changeAmount;
-      
-      if (Math.abs(changeAmount) > 0.01) {
-        this._logger.debug(`Internal temp changing by ${changeAmount.toFixed(3)} to ${this._internalTemp.toFixed(1)}°F (extremity: ${extremityFactor.toFixed(2)})`);
-      }
+    // 1. Internal Regulation: Always try to return to normal temp
+    const tempDifferenceFromNormal = this._internalTemp - this._normalInternalTemp;
+    if (Math.abs(tempDifferenceFromNormal) > 0.1) { // Only regulate if significantly different
+      const regulationRate = this._shieldActive ? this._tempRegulationRateClosed : this._tempRegulationRateOpen;
+      const regulationChange = -tempDifferenceFromNormal * regulationRate * deltaSeconds;
+      totalChange += regulationChange;
+      this._logger.debug(`Internal regulation change: ${regulationChange.toFixed(3)} (Rate: ${regulationRate}, ShieldClosed: ${this._shieldActive})`);
     }
     
-    // Update UI at regulated intervals to avoid flooding
+    // 2. Biodome Influence: External temperature pushes internal temp away from normal
+    const biodomeDifferenceFromNormal = biodomeTemp - normalBiodomeTemp;
+    if (Math.abs(biodomeDifferenceFromNormal) > 1.0) { // Only apply influence if biodome temp is notably different
+      const normalRange = 50; // How many degrees from normal is considered "full extremity"
+      const extremityFactor = Math.min(Math.abs(biodomeDifferenceFromNormal) / normalRange, 1);
+      const biodomeInfluenceChange = biodomeDifferenceFromNormal * this._biodomeInfluenceRate * extremityFactor * deltaSeconds;
+      totalChange += biodomeInfluenceChange;
+      this._logger.debug(`Biodome influence change: ${biodomeInfluenceChange.toFixed(3)} (Extremity: ${extremityFactor.toFixed(2)})`);
+    }
+    
+    // Apply the total change
+    if (Math.abs(totalChange) > 0.001) {
+      this._internalTemp += totalChange;
+      this._logger.debug(`Total internal temp change: ${totalChange.toFixed(3)} -> New temp: ${this._internalTemp.toFixed(1)}°F`);
+    }
+    
+    // Clamp temperature just in case (e.g., prevent extreme overshoot)
+    this._internalTemp = Math.max(-100, Math.min(300, this._internalTemp)); // Wider safety range
+    
+    // Update UI at regulated intervals
     const currentTime = Date.now();
     if (currentTime - this._lastInternalTempUpdate >= this._internalTempUpdateInterval) {
       this._updateInternalTempUI();
