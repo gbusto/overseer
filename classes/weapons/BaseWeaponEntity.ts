@@ -57,7 +57,7 @@ export default abstract class BaseWeaponEntity extends Entity {
             enabledRotations: { x: false, y: true, z: false },
             colliders: [{
                 shape: ColliderShape.BLOCK,
-                halfExtents: { x: 0.15, y: 0.15, z: 0.5 }, // Larger to prevent falling through
+                halfExtents: { x: 0.15, y: 0.5, z: 0.5 }, // Larger to prevent falling through
                 mass: 1,
                 friction: 0.9, // Higher friction to prevent sliding
                 restitution: 0.1, // Low bounciness
