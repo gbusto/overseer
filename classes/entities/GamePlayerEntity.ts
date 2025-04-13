@@ -130,24 +130,22 @@ export default class GamePlayerEntity extends PlayerEntity {
     if (!this.isSpawned || !this.world) return;
     
     // Only take damage if the game is active or player vulnerability is enabled
-    if (!GameManager.isPlayerVulnerable()) return;
+    if (!GameManager.isPlayerVulnerable()) {
+      this._logger.debug(`Damage ignored: Player not vulnerable (isPlayerVulnerable: ${GameManager.isPlayerVulnerable()})`);
+      return;
+    }
     
     // Play damage audio
     this._damageAudio.play(this.world, true);
     
-    // Flash player model red briefly
-    this.setTintColor({ r: 255, g: 0, b: 0 });
-    setTimeout(() => {
-      this.setTintColor({ r: 255, g: 255, b: 255 });
-    }, 100);
-    
     // Reduce health
+    const oldHealth = this.health;
     this.health -= amount;
     
     // Update health UI elements
     this._updateHealthUI();
     
-    this._logger.debug(`Player took ${amount} damage, health: ${this.health}`);
+    this._logger.debug(`Player took ${amount} damage, health: ${oldHealth} -> ${this.health}`);
   }
   
   /**
