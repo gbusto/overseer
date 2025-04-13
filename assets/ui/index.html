@@ -342,11 +342,6 @@
   let maxEnergy = 100;
   let isRecharging = false;
   let isCooldown = false;
-  let hasEnergyWeapon = false;
-  
-  // For smooth animation
-  let targetEnergyPercentage = 100;
-  let animationFrameId = null;
   
   // Handle incoming data from the server
   hytopia.onData(data => {
@@ -420,6 +415,15 @@
       // Handle status message
       if (data.message) {
         showStatus(data.message);
+      } else if (!data.isRecharging) {
+        // If no message is provided AND we are not recharging, hide the status.
+        // This clears "Recharging..." when isRecharging becomes false without a new message.
+        weaponStatus.style.visibility = 'hidden';
+        // Also clear any potential timeout for the status message
+        if (window.statusTimeout) {
+          clearTimeout(window.statusTimeout);
+          window.statusTimeout = null;
+        }
       }
     } else if (data.type === 'weapon-unequipped') {
       // Hide energy UI when weapon is unequipped
@@ -561,27 +565,26 @@
 
   // ENERGY BAR FUNCTIONS
   
-  // Update the energy bar with smoother animation
-  function updateEnergyBar(energy, max, isLow = false) {
-    // Set the target percentage
-    targetEnergyPercentage = (energy / max) * 100;
-    
+  // Update the energy bar - simplified for accurate display
+  function updateEnergyBar(energy, max) {
+    // Ensure energy doesn't go below 0 or above max visually
+    const clampedEnergy = Math.max(0, Math.min(energy, max));
+    // Calculate percentage, handle max=0 case
+    const targetEnergyPercentage = max > 0 ? (clampedEnergy / max) * 100 : 0;
+
     // Show low energy warning when below 25%
-    if (isLow || targetEnergyPercentage < 25) {
-      energyBarContainer.classList.add('low-energy');
+    if (targetEnergyPercentage < 25 && max > 0) { // Added check for max > 0
+        energyBarContainer.classList.add('low-energy');
     } else {
-      energyBarContainer.classList.remove('low-energy');
+        energyBarContainer.classList.remove('low-energy');
     }
-    
-    // If we're not in the middle of animating, directly set height
-    if (!animationFrameId) {
-      energyBarFill.style.height = `${targetEnergyPercentage}%`;
-    }
+
+    // Directly set the height to ensure 0% and 100% are accurate
+    energyBarFill.style.height = `${targetEnergyPercentage}%`;
   }
 
   // Show or hide energy bar based on weapon equipped state
   function setEnergyWeaponEquipped(isEquipped) {
-    hasEnergyWeapon = isEquipped;
     if (isEquipped) {
       // Show energy bar
       energyBarContainer.style.visibility = 'visible';
@@ -590,53 +593,25 @@
       // Hide energy bar
       energyBarContainer.style.visibility = 'hidden';
       energyBarContainer.style.opacity = '0';
+      // Hide status message when unequipped
+      weaponStatus.style.visibility = 'hidden';
+      if (window.statusTimeout) {
+        clearTimeout(window.statusTimeout);
+        window.statusTimeout = null;
+      }
     }
   }
 
-  // Show recharging animation
+  // Show recharging animation styling
   function setRecharging(recharging) {
-    isRecharging = recharging;
-    
+    isRecharging = recharging; // Update internal state
+
     if (recharging) {
       energyBarContainer.classList.add('recharging');
-      // Start the continuous recharge animation if needed
-      startContinuousRechargeAnimation();
     } else {
       energyBarContainer.classList.remove('recharging');
-      // If we're not in full recharge mode, we still want regular animation
+      // Message hiding is handled in the main onData listener now
     }
-  }
-  
-  // Continuous recharge animation that updates more smoothly
-  function startContinuousRechargeAnimation() {
-    // Cancel any existing animation
-    if (animationFrameId) {
-      cancelAnimationFrame(animationFrameId);
-    }
-    
-    // Only needed for full recharge animation
-    if (!isRecharging) return;
-    
-    // Use requestAnimationFrame for smooth animation
-    const animate = () => {
-      const currentHeight = parseFloat(energyBarFill.style.height || '0');
-      
-      // If we're close enough to the target, snap to it
-      if (Math.abs(currentHeight - targetEnergyPercentage) < 0.2) {
-        energyBarFill.style.height = `${targetEnergyPercentage}%`;
-        animationFrameId = null;
-        return;
-      }
-      
-      // Otherwise, animate smoothly
-      const newHeight = currentHeight + (targetEnergyPercentage - currentHeight) * 0.03;
-      energyBarFill.style.height = `${newHeight}%`;
-      
-      // Continue animation
-      animationFrameId = requestAnimationFrame(animate);
-    };
-    
-    animationFrameId = requestAnimationFrame(animate);
   }
 
   // Show cooldown indicator
@@ -666,25 +641,37 @@
     }
   }
 
-  // Show status message
+  // Show status message - updated logic
   function showStatus(message, duration = 3000) {
     if (!message) {
       weaponStatus.style.visibility = 'hidden';
+      // Clear timeout if message is explicitly empty
+      if (window.statusTimeout) {
+          clearTimeout(window.statusTimeout);
+          window.statusTimeout = null;
+      }
       return;
     }
-    
-    // Skip showing energy level messages (format: "Energy: X/Y")
-    if (message.startsWith('Energy:')) {
-      return;
-    }
-    
+
     weaponStatus.textContent = message;
     weaponStatus.style.visibility = 'visible';
-    
-    // Hide after duration if specified
-    if (duration > 0) {
-      setTimeout(() => {
-        weaponStatus.style.visibility = 'hidden';
+
+    // Clear previous timeout if a new message arrives
+    if (window.statusTimeout) {
+      clearTimeout(window.statusTimeout);
+      window.statusTimeout = null;
+    }
+
+    // Set a new timeout ONLY if duration > 0 AND it's NOT a recharging message
+    // Recharging messages are now cleared by the main listener when isRecharging becomes false
+    if (duration > 0 && !message.toLowerCase().includes('recharging')) {
+      window.statusTimeout = setTimeout(() => {
+        // Check if the *current* message is still the one we set the timeout for
+        // This prevents hiding a newer message if it arrived quickly
+        if (weaponStatus.textContent === message) {
+            weaponStatus.style.visibility = 'hidden';
+        }
+        window.statusTimeout = null; // Clear timeout reference
       }, duration);
     }
   }

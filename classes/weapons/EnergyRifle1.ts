@@ -29,7 +29,7 @@ const DEFAULT_ENERGY_RIFLE_OPTIONS = {
     // Item properties
     iconImageUri: 'icons/weapons/energy_rifle_1.png',
     // Energy weapon specific
-    cooldownMs: 1500, // 1.5 seconds between shots
+    cooldownMs: 500, // 1.5 seconds between shots
     maxEnergy: 100, // Maximum energy capacity
     energyPerShot: 12, // Energy consumed per shot
     energyRechargeRate: 3, // Energy units recharged per second
@@ -48,6 +48,8 @@ export default class EnergyRifle1 extends BaseWeaponEntity {
     protected _isFullRecharging: boolean = false;
     protected _rechargeStartTime: number = 0;
     protected _lastEnergyUpdateTime: number = 0;
+    protected _lastRechargeUpdateSent: number = 0; // Track last recharge status message time
+    protected _needsToStartFullRecharge: boolean = false; // Flag to defer recharge start
 
     constructor(options: Partial<EntityOptions & {
         damage?: number;
@@ -112,18 +114,57 @@ export default class EnergyRifle1 extends BaseWeaponEntity {
      * Handle energy recharge on tick
      */
     protected _onTick = ({ tickDeltaMs }: { tickDeltaMs: number }): void => {
-        // Don't recharge if not spawned or in full recharge mode
-        if (!this.isSpawned || this._isFullRecharging) return;
-        
+        const owner = this.getOwner(); // Get owner once for potential use
         const now = Date.now();
+
+        // --- Handle starting a full recharge deferred from fire() ---
+        if (this._needsToStartFullRecharge) {
+            this._isFullRecharging = true;
+            this._rechargeStartTime = now; // Start timer now
+            this._needsToStartFullRecharge = false; // Reset flag
+            this._logger.info(`Deferred start of full recharge initiated on tick.`);
+
+            // Send the initial depletion message from here now
+            if (owner && owner.player) {
+                owner.player.ui.sendData({
+                    type: 'weapon-status',
+                    message: `Energy depleted. Recharging...`,
+                    energyLevel: 0,
+                    maxEnergy: this._maxEnergy,
+                    isRecharging: true,
+                    rechargeProgress: 0
+                });
+            }
+            // We can now safely return or let the tick continue to process the first recharge step
+            // Let's let it continue to potentially call _processFullRecharge immediately.
+        }
+
+        // --- Main Tick Logic ---
+
+        // Don't do regular recharge or process full recharge if not spawned
+        if (!this.isSpawned) return;
+
+        // Handle processing the full recharge state (if active)
+        if (this._isFullRecharging) {
+            console.log("ON TICK: Processing Full Recharge");
+            this._processFullRecharge();
+            // Don't do regular recharge while full recharge is happening
+            return; 
+        }
         
-        // Update continuous energy recharge
-        if (!this._isFullRecharging && this._currentEnergy < this._maxEnergy) {
+        // --- Regular Continuous Energy Recharge ---
+        if (this._currentEnergy < this._maxEnergy) {
             const elapsedSec = tickDeltaMs / 1000;
             const rechargeAmount = this._energyRechargeRate * elapsedSec;
             
             this._currentEnergy = Math.min(this._maxEnergy, this._currentEnergy + rechargeAmount);
             
+            // Check if fully recharged during tick
+            if (this._currentEnergy === this._maxEnergy) {
+                // Ensure UI is updated when reaching max energy
+                this._updateOwnerEnergyUI(); 
+            }
+
             // Log energy level occasionally (once per second) to avoid spamming
             if (now - this._lastEnergyUpdateTime > 1000) {
                 this._logger.debug(`Energy level: ${this._currentEnergy.toFixed(1)}/${this._maxEnergy}`);
@@ -133,11 +174,8 @@ export default class EnergyRifle1 extends BaseWeaponEntity {
                 this._updateOwnerEnergyUI();
             }
         }
-        
-        // Check if full recharge is complete
-        if (this._isFullRecharging) {
-            this._processFullRecharge();
-        }
+
+        // NOTE: Full recharge check moved earlier in the function
     }
 
     /**
@@ -154,33 +192,53 @@ export default class EnergyRifle1 extends BaseWeaponEntity {
      */
     protected _processFullRecharge(): boolean {
         if (!this._isFullRecharging) return true;
-        
+
         const currentTime = Date.now();
         const rechargeElapsed = currentTime - this._rechargeStartTime;
-        
+        const owner = this.getOwner(); // Get owner once
+
         if (rechargeElapsed >= this._fullRechargeTimeMs) {
             // Recharge complete
             this._isFullRecharging = false;
             this._currentEnergy = this._maxEnergy;
             this._logger.info(`Energy Rifle fully recharged. Energy: ${this._currentEnergy.toFixed(1)}/${this._maxEnergy}`);
-            
-            // Notify player if the weapon has an owner
-            const owner = this.getOwner();
+
+            // Send final completion message
             if (owner && owner.player) {
                 owner.player.ui.sendData({
                     type: 'weapon-status',
                     message: 'Energy Rifle recharged',
-                    energyLevel: this._currentEnergy,
+                    energyLevel: this._currentEnergy, // Should be maxEnergy here
                     maxEnergy: this._maxEnergy,
                     isRecharging: false
                 });
             }
-            
+
             return true;
+        } else {
+            // Still recharging - send periodic updates (e.g., every second)
+            if (currentTime - (this._lastRechargeUpdateSent || 0) > 1000) {
+                 const remainingSecs = Math.ceil((this._fullRechargeTimeMs - rechargeElapsed) / 1000);
+                 const rechargeProgress = rechargeElapsed / this._fullRechargeTimeMs;
+                 this._logger.debug(`Recharging... ${remainingSecs}s remaining.`);
+
+                 // Calculate the visual energy level based on progress
+                 const visualEnergyLevel = this._maxEnergy * rechargeProgress;
+
+                 if (owner && owner.player) {
+                     owner.player.ui.sendData({
+                         type: 'weapon-status',
+                         message: `Recharging... ${remainingSecs}s`, // Use updated remaining time
+                         energyLevel: visualEnergyLevel, // Send calculated level for visual feedback
+                         maxEnergy: this._maxEnergy,
+                         isRecharging: true,
+                         rechargeProgress: rechargeProgress
+                     });
+                 }
+                 this._lastRechargeUpdateSent = currentTime; // Update timestamp
+            }
+            return false;
         }
-        
-        // Still recharging
-        return false;
     }
 
     /**
@@ -225,13 +283,26 @@ export default class EnergyRifle1 extends BaseWeaponEntity {
 
         // Calculate shots remaining (rounded down)
         const shotsRemaining = Math.floor(this._currentEnergy / this._energyPerShot);
-        
+
+        // Determine the message based on state
+        let statusMessage = ''; // Default empty message
+        if (this._isFullRecharging) {
+            // Message will be handled separately when recharge starts/ends
+        } else if (this.isInCooldown()) {
+            // Could add cooldown message here if needed
+        } else {
+            // Default message shows shots remaining if not recharging or cooling down
+            // statusMessage = `${shotsRemaining} shots remaining`; 
+            // Let's avoid sending a constant message for now unless specifically needed
+        }
+
         owner.player.ui.sendData({
             type: 'weapon-status',
             energyLevel: this._currentEnergy,
             maxEnergy: this._maxEnergy,
             shotsRemaining: shotsRemaining,
-            isRecharging: this._isFullRecharging
+            isRecharging: this._isFullRecharging,
+            message: statusMessage // Send the determined message or empty string
         });
     }
 
@@ -249,19 +320,8 @@ export default class EnergyRifle1 extends BaseWeaponEntity {
         // Check if weapon is in full recharge mode
         if (this._isFullRecharging) {
             if (!this._processFullRecharge()) {
-                const elapsed = Date.now() - this._rechargeStartTime;
-                const remainingSecs = Math.ceil((this._fullRechargeTimeMs - elapsed) / 1000);
-                this._logger.info(`Cannot fire: Energy Rifle is recharging. ${remainingSecs}s remaining.`);
-                
-                // Notify player about recharge status
-                if (owner.player) {
-                    owner.player.ui.sendData({
-                        type: 'weapon-status',
-                        message: `Recharging... ${remainingSecs}s remaining`,
-                        isRecharging: true,
-                        rechargeProgress: elapsed / this._fullRechargeTimeMs
-                    });
-                }
+                // Log that fire attempt failed, but periodic updates handle the UI message
+                this._logger.info(`Cannot fire: Energy Rifle is recharging.`);
                 return;
             }
         }
@@ -274,20 +334,26 @@ export default class EnergyRifle1 extends BaseWeaponEntity {
 
         // Check if we have enough energy for a shot
         if (this._currentEnergy < this._energyPerShot) {
-            // Start full recharging
-            this._isFullRecharging = true;
-            this._rechargeStartTime = Date.now();
+            // DEFER starting the recharge to the next tick
+            this._needsToStartFullRecharge = true; 
             this._logger.info(`Energy Rifle depleted. Full recharge started (${this._fullRechargeTimeMs / 1000}s).`);
             
+            // Temporarily comment out sendData to test if it stops ticking
+            /*
             // Notify player
-            if (owner.player) {
+            if (owner && owner.player) {
                 owner.player.ui.sendData({
                     type: 'weapon-status',
                     message: `Energy depleted. Recharging...`,
+                    energyLevel: 0,
+                    maxEnergy: this._maxEnergy,
                     isRecharging: true,
                     rechargeProgress: 0
                 });
             }
+            */
+
+            this._logger.debug("Depletion block reached, returning from fire(). Ticking should continue...");
             return;
         }
 
@@ -312,16 +378,8 @@ export default class EnergyRifle1 extends BaseWeaponEntity {
         const shotsRemaining = Math.floor(this._currentEnergy / this._energyPerShot);
         this._logger.info(`Energy Rifle fired. Energy: ${this._currentEnergy.toFixed(1)}/${this._maxEnergy} (${shotsRemaining} shots remaining)`);
         
-        // Notify player of remaining energy
-        if (owner.player) {
-            owner.player.ui.sendData({
-                type: 'weapon-status',
-                message: `Energy: ${Math.floor(this._currentEnergy)}/${this._maxEnergy}`,
-                energyLevel: this._currentEnergy,
-                maxEnergy: this._maxEnergy,
-                shotsRemaining: shotsRemaining
-            });
-        }
+        // Notify player of remaining energy - use _updateOwnerEnergyUI for consistency
+        this._updateOwnerEnergyUI(); 
 
         // Play firing animation on the owner (player)
         owner.startModelOneshotAnimations([this.mlAnimation]); 
