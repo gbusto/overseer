@@ -91,32 +91,31 @@ This plan follows a user-centric approach, building core interactions first and 
 *   **Focus:** `OverseerEntity`, `GamePlayerEntity`, Weapon classes (`EnergyGun`, `BFG`, `EnergyProjectile`).
 *   **Tasks:** (Use Hytopia MCP `physics`, `entities`, `events` helpers)
     *   **Vulnerability Windows:**
-        *   [ ] Implement KORO briefly opening barrier post-attack (`OverseerEntity.openBarrier(shortDuration)` called by Attack logic).
-        *   [ ] Implement KORO randomly opening barrier for longer (`OverseerEntity.openBarrier(longDuration)` called occasionally on tick).
-        *   [ ] Implement hitting KORO's *closed barrier* with BFG forcing it open (`OverseerEntity.openBarrier(longDuration)`).
+        *   [x] Implement KORO briefly opening barrier post-attack (`OverseerEntity.openBarrier(shortDuration)` called by Attack logic).
+        *   [x] Implement hitting KORO's *closed barrier* with BFG forcing it open (`OverseerEntity.openBarrier(longDuration)`).
         *   [ ] Implement "KORO EXPOSED!" alert (`UIManager` or `GameManager` broadcasts message).
     *   **Weapon Implementation:**
         *   [ ] Finalize **Energy Projectile Gun** logic (`EnergyGun.ts`, `EnergyProjectile.ts`):
-            *   [ ] Implement `EnergyGun.shoot()` to spawn `EnergyProjectile` if cooldowns/ammo allow.
-            *   [ ] Implement `EnergyProjectile` movement and lifespan.
-            *   [ ] Implement `EnergyProjectile` collision logic (hit Overseer? Barrier open? Hit other?).
-            *   [ ] Call `OverseerEntity.takeDamage(amount)` from projectile on valid hit. Damage configurable.
-            *   [ ] Implement ammo (e.g., 30 shots) and cooldowns (shot interval, recharge) in `EnergyGun`. Configurable.
-            *   [ ] Update weapon status UI (deferred).
-        *   [ ] Implement **BFG**:
+            *   [x] Implement `EnergyGun.shoot()` to spawn `EnergyProjectile` if cooldowns/ammo allow.
+            *   [x] Implement `EnergyProjectile` movement and lifespan.
+            *   [x] Implement `EnergyProjectile` collision logic (hit Overseer? Barrier open? Hit other?).
+            *   [x] Call `OverseerEntity.takeDamage(amount)` from projectile on valid hit. Damage configurable.
+            *   [x] Implement ammo (e.g., 30 shots) and cooldowns (shot interval, recharge) in `EnergyGun`. Configurable.
+            *   [x] Update weapon status UI (deferred).
+        *   [] Implement **BFG**:
             *   [x] Create `BFG.ts` weapon class.
             *   [ ] Spawn one BFG randomly on the map at match start.
             *   [x] Implement pickup logic (replaces Energy Gun? Or specific action? Simplest: replaces Energy Gun).
             *   [x] Implement `BFG.shoot()` to spawn a different projectile (or maybe use raycast for simplicity?).
-            *   [ ] Implement BFG collision/hit logic:
-                *   [ ] If hit `OverseerEntity` barrier closed -> `OverseerEntity.openBarrier(longDuration)`. (Utility)
-                *   [ ] If hit `OverseerEntity` core open -> `OverseerEntity.takeDamage(highAmount)`. Damage configurable.
+            *   [x] Implement BFG collision/hit logic:
+                *   [x] If hit `OverseerEntity` barrier closed -> `OverseerEntity.openBarrier(longDuration)`. (Utility)
+                *   [x] If hit `OverseerEntity` core open -> `OverseerEntity.takeDamage(highAmount)`. Damage configurable.
             *   [ ] Implement long reload (e.g., 90s). Configurable. Update UI.
     *   **KORO Damage & Defense:**
-        *   [ ] Implement `OverseerEntity.takeDamage(amount)` method.
+        *   [x] Implement `OverseerEntity.takeDamage(amount)` method.
         *   [x] Add health property to `OverseerEntity`.
-        *   [ ] Ensure `OverseerEntity` barrier has appropriate colliders to block projectiles.
-        *   [ ] Update Overseer health UI.
+        *   [x] Ensure `OverseerEntity` barrier has appropriate colliders to block projectiles.
+        *   [x] Update Overseer health UI.
 *   **Outcome Goal:** The core gameplay loop is functional. Players survive attacks, heal with pickups, wait for/force vulnerability windows, and shoot KORO's core with weapons (Energy Gun implemented, BFG basic logic) to deal damage.
 
 ## Phase 6: AI Integration & Polish
