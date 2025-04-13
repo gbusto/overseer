@@ -44,7 +44,7 @@ export default class OverseerEntity extends Entity {
   private _ttsAudio: Audio | null = null;
   
   // AI Brain
-  private _brain: KOROBrain;
+  private _brain: KOROBrain | null = null;
   
   // Biodome controller
   private _biodome: BiodomeController | null = null;
@@ -137,14 +137,6 @@ export default class OverseerEntity extends Entity {
     // Create logger
     this._logger = new Logger('OverseerEntity');
 
-    // Initialize the KORO brain
-    this._brain = new KOROBrain();
-    
-    // Start with the brain disabled until game starts
-    this._brain.toggle(false);
-    
-    this._logger.info('Overseer entity created - brain disabled until game starts');
-
     // Set up tick handler for animation
     this.on(EntityEvent.TICK, this._onTick);
     
@@ -156,9 +148,9 @@ export default class OverseerEntity extends Entity {
     
     // Check if TTS is configured
     if (!TTS_API_TOKEN) {
-      this._logger.warn('TTS_API_TOKEN not set - speech functionality will be disabled');
+      this._logger.warn('TTS_API_TOKEN not set - speech functionality may be limited.');
     } else {
-      this._logger.info('TTS configured - speech functionality enabled');
+      this._logger.info('TTS API token found - speech functionality potentially available.');
     }
   }
 
@@ -184,6 +176,14 @@ export default class OverseerEntity extends Entity {
     // Store the world reference
     this._world = world;
     
+    // Initialize the KORO brain now that we have the world context
+    // Pass 'this' (OverseerEntity), GameManager instance, and the world
+    this._brain = new KOROBrain(this, GameManager.instance, world);
+    
+    // Start with the brain processing disabled until game starts
+    this._brain.setBrainProcessingEnabled(true);
+    this._logger.info('KORO Brain initialized but processing disabled until game starts.');
+    
     // Initialize the biodome controller
     this._biodome = new BiodomeController(world);
     this._logger.info('Biodome controller initialized');
@@ -194,10 +194,6 @@ export default class OverseerEntity extends Entity {
     // Set up chat event listeners after spawn
     if (world) {
       this._setupEventListeners(world);
-      
-      // Update player count
-      const playerCount = world.entityManager.getAllPlayerEntities().length;
-      this._brain.setPlayerCount(playerCount);
       
       // Send initial health to all players
       this._updateAllPlayersWithHealth();
@@ -557,8 +553,8 @@ export default class OverseerEntity extends Entity {
    * @returns Current enabled state
    */
   public toggleKOROUpdates(enabled: boolean): boolean {
-    this._brain.toggle(enabled);
-    return this._brain.isEnabled();
+    this._brain?.setBrainProcessingEnabled(enabled);
+    return this._brain?.isBrainProcessingEnabled() || false;
   }
   
   /**
@@ -566,7 +562,14 @@ export default class OverseerEntity extends Entity {
    * @returns Current world state (player count and recent events)
    */
   public getKOROState(): {playerCount: number, recentEvents: any[]} {
-    return this._brain.getWorldState();
+    // Return a simplified state or use the new debug state
+    const debugState = this._brain?.getDebugState();
+    return {
+        // Use length of players array from snapshot if available, otherwise 0
+        playerCount: debugState?.recentEvents?.length || 0, // Placeholder - needs better logic if used
+        recentEvents: debugState?.recentEvents || []
+    };
+    // Alternatively, return basic info: return { brainEnabled: this.isKOROEnabled() };
   }
   
   /**
@@ -574,7 +577,7 @@ export default class OverseerEntity extends Entity {
    */
   public forceKOROUpdate(): void {
     this._logger.info('Forcing immediate KORO update');
-    this._generateBrainResponse();
+    this._brain?.generateUpdate();
   }
 
   /**
@@ -609,29 +612,30 @@ export default class OverseerEntity extends Entity {
    * Called when a player joins the world
    */
   private _onPlayerJoined = ({ player }: { player: any }): void => {
-    if (!this._world) return;
-    
-    // Update player count
-    const playerCount = this._world.entityManager.getAllPlayerEntities().length;
-    this._brain.setPlayerCount(playerCount);
-    
+    if (!this._world || !this._brain) return;
+
+    // Player count is now derived within KOROBrain snapshot
+    // const playerCount = this._world.entityManager.getAllPlayerEntities().length;
+    // this._brain?.setPlayerCount(playerCount);
+
     // Add player joined event with high priority
-    const needsImmediateResponse = this._brain.addEventWithPriority(
+    const needsImmediateResponse = this._brain?.addEventWithPriority(
       'player_join',
-      `Player ${player.username || player.id} entered the facility`, 
+      `Player ${player.username || player.id} entered the facility`,
       'high',
-      { 
+      {
         playerId: player.id,
         playerName: player.username || player.id,
         position: player.position
       }
     );
-    
-    this._logger.info(`Player joined: ${player.username || player.id}, new count: ${playerCount}`);
-    
+
+    this._logger.info(`Player joined: ${player.username || player.id}`);
+
     // Only trigger immediate response if the event is high priority
     if (needsImmediateResponse) {
-      this._generateBrainResponse();
+       this._logger.info('High priority player join event, triggering brain update.');
+       this._brain?.generateUpdate(); // Trigger update if needed
     }
   }
   
@@ -639,32 +643,34 @@ export default class OverseerEntity extends Entity {
    * Called when a player leaves the world
    */
   private _onPlayerLeft = ({ player }: { player: any }): void => {
-    if (!this._world) return;
-    
-    // Update player count - subtract 1 as the player is still counted at this point
-    const playerCount = this._world.entityManager.getAllPlayerEntities().length - 1;
-    this._brain.setPlayerCount(playerCount);
-    
-    // Priority is high if it's the last player leaving
-    const priority = playerCount === 0 ? 'high' : 'medium';
-    
+    if (!this._world || !this._brain) return;
+
+    // Player count is now derived within KOROBrain snapshot
+    // const playerCount = this._world.entityManager.getAllPlayerEntities().length - 1;
+    // this._brain?.setPlayerCount(playerCount);
+
+    // Determine priority (high if it was the last player)
+    const remainingPlayers = this._world.entityManager.getAllPlayerEntities().length -1;
+    const priority = remainingPlayers === 0 ? 'high' : 'medium';
+
     // Add player left event
-    const needsImmediateResponse = this._brain.addEventWithPriority(
+    const needsImmediateResponse = this._brain?.addEventWithPriority(
       'player_leave',
-      `Player ${player.username || player.id} left the facility`, 
+      `Player ${player.username || player.id} left the facility`,
       priority,
-      { 
+      {
         playerId: player.id,
         playerName: player.username || player.id,
-        remainingPlayers: playerCount
+        remainingPlayers: remainingPlayers
       }
     );
-    
-    this._logger.info(`Player left: ${player.username || player.id}, new count: ${playerCount}`);
-    
+
+    this._logger.info(`Player left: ${player.username || player.id}, remaining: ${remainingPlayers}`);
+
     // Only respond immediately if high priority
     if (needsImmediateResponse) {
-      this._generateBrainResponse();
+      this._logger.info('High priority player leave event, triggering brain update.');
+      this._brain?.generateUpdate(); // Trigger update if needed
     }
   }
 
@@ -719,7 +725,7 @@ export default class OverseerEntity extends Entity {
     if (!player || !message) return;
     
     // Add the chat message to the brain's events with priority check
-    const needsImmediateResponse = this._brain.addChatMessage(player.username || player.id, message);
+    const needsImmediateResponse = this._brain?.addChatMessage(player.username || player.id, message);
     
     this._logger.debug(`Chat message from ${player.username || player.id}: ${message}`);
     
@@ -734,9 +740,9 @@ export default class OverseerEntity extends Entity {
    * Check if the brain should generate a new response
    */
   private _checkForBrainUpdate(): void {
-    if (this._brain.shouldUpdate()) {
-      this._logger.debug('Regular KORO update check triggered');
-      this._generateBrainResponse();
+    if (this._brain && this._brain.shouldUpdate()) {
+      this._logger.debug('KORO update check triggered');
+      this._brain.generateUpdate();
     }
   }
   
@@ -744,84 +750,19 @@ export default class OverseerEntity extends Entity {
    * Generate and handle an AI response
    */
   private async _generateBrainResponse(): Promise<void> {
-    if (!this._brain.isEnabled()) {
-      this._logger.info('KORO is disabled - skipping update');
+    if (!this._brain || !this._brain.isBrainProcessingEnabled()) {
+      this._logger.info('KORO brain processing is disabled - skipping update');
       return;
     }
-    
+
     if (!this._world) {
       this._logger.error('No world - cannot generate response');
       return;
     }
-    
+
     try {
-      // Only add match time information occasionally (1 in 5 chance)
-      // This prevents the overseer from being too fixated on the timer
-      if (GameManager.instance.gameState === GameState.ACTIVE && Math.random() < 0.2) {
-        // Get remaining time from game manager
-        const gameManager = GameManager.instance;
-        
-        // Get a user-friendly time remaining
-        let timeRemaining = "unknown";
-        if (gameManager.isGameActive) {
-          const elapsedTime = Date.now() - gameManager['_gameStartTime']; // Access using bracket notation
-          const totalDuration = 10 * 60 * 1000; // 10 minutes in ms
-          const remainingMs = Math.max(0, totalDuration - elapsedTime);
-          
-          // Format as MM:SS
-          const minutes = Math.floor(remainingMs / 60000);
-          const seconds = Math.floor((remainingMs % 60000) / 1000);
-          timeRemaining = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-        }
-        
-        // Add a very low-priority event about the remaining time
-        this._brain.addEventWithPriority(
-          'match_status',
-          `Match time: ${timeRemaining} remaining`,
-          'low',
-          { 
-            gameState: 'ACTIVE',
-            timeRemaining: timeRemaining
-          }
-        );
-      }
-      
-      const response = await this._brain.generateUpdate();
-      
-      if (!response) {
-        this._logger.warn('No response generated');
-        return;
-      }
-      
-      this._logger.info(`KORO response generated: ${response.message || '(no message)'}, action: ${response.action}`);
-      
-      // Don't display anything if no message and action is none
-      if (!response.message && response.action === 'none') {
-        this._broadcastOverseerMessage('', 'none');
-        return;
-      }
-      
-      // Broadcast the message to all players' UIs
-      this._broadcastOverseerMessage(response.message || '', response.action);
-      
-      // Only generate audio if there's a message
-      if (response.message && process.env.NODE_ENV === 'production') {
-        await this._generateTTS(response.message);
-      }
-      
-      // Clear any existing timeout
-      if (this._messageDisplayTimeoutId) {
-        clearTimeout(this._messageDisplayTimeoutId);
-        this._messageDisplayTimeoutId = null;
-      }
-      
-      // Set a timeout to clear the message after the display duration
-      this._messageDisplayTimeoutId = setTimeout(() => {
-        // Clear the message
-        this._broadcastOverseerMessage('', 'none');
-        this._messageDisplayTimeoutId = null;
-      }, this._messageDisplayDuration);
-      
+      // Trigger the update in KOROBrain
+      await this._brain.generateUpdate();
     } catch (error) {
       this._logger.error('Error generating brain response', error);
     }
@@ -919,7 +860,7 @@ export default class OverseerEntity extends Entity {
    * @returns True if automatic updates are enabled, false otherwise
    */
   public isKOROEnabled(): boolean {
-    return this._brain.isEnabled();
+    return this._brain?.isBrainProcessingEnabled() || false;
   }
 
   /**
@@ -1021,7 +962,7 @@ export default class OverseerEntity extends Entity {
    * Get current biodome temperature
    */
   public getBiodomeTemperature(): number {
-    return this._biodome ? this._biodome.getCurrentTemperature() : 74; // Default if not initialized
+    return this._biodome ? this._biodome.getCurrentTemperature() : this._normalInternalTemp;
   }
 
   /**
@@ -1077,7 +1018,7 @@ export default class OverseerEntity extends Entity {
       const regulationRate = this._shieldActive ? this._tempRegulationRateClosed : this._tempRegulationRateOpen;
       const regulationChange = -tempDifferenceFromNormal * regulationRate * deltaSeconds;
       totalChange += regulationChange;
-      this._logger.debug(`Internal regulation change: ${regulationChange.toFixed(3)} (Rate: ${regulationRate}, ShieldClosed: ${this._shieldActive})`);
+      // this._logger.debug(`Internal regulation change: ${regulationChange.toFixed(3)} (Rate: ${regulationRate}, ShieldClosed: ${this._shieldActive})`);
     }
     
     // 2. Biodome Influence: External temperature pushes internal temp away from normal
@@ -1087,13 +1028,13 @@ export default class OverseerEntity extends Entity {
       const extremityFactor = Math.min(Math.abs(biodomeDifferenceFromNormal) / normalRange, 1);
       const biodomeInfluenceChange = biodomeDifferenceFromNormal * this._biodomeInfluenceRate * extremityFactor * deltaSeconds;
       totalChange += biodomeInfluenceChange;
-      this._logger.debug(`Biodome influence change: ${biodomeInfluenceChange.toFixed(3)} (Extremity: ${extremityFactor.toFixed(2)})`);
+      // this._logger.debug(`Biodome influence change: ${biodomeInfluenceChange.toFixed(3)} (Extremity: ${extremityFactor.toFixed(2)})`);
     }
     
     // Apply the total change
     if (Math.abs(totalChange) > 0.001) {
       this._internalTemp += totalChange;
-      this._logger.debug(`Total internal temp change: ${totalChange.toFixed(3)} -> New temp: ${this._internalTemp.toFixed(1)}°F`);
+      // this._logger.debug(`Total internal temp change: ${totalChange.toFixed(3)} -> New temp: ${this._internalTemp.toFixed(1)}°F`);
     }
     
     // Clamp temperature just in case (e.g., prevent extreme overshoot)
@@ -1291,4 +1232,90 @@ export default class OverseerEntity extends Entity {
       );
     }
   }
+
+  // --- AI Integration Methods ---
+
+  /**
+   * Placeholder method for generating TTS - Actual logic will be moved here.
+   * Called by KOROBrain.
+   */
+  public async generateTTSForMessage(message: string): Promise<void> {
+    this._logger.info(`(Placeholder) Received request to generate TTS for: "${message}"`);
+    // TODO: Move the TTS generation logic from _generateTTS to here.
+    // Ensure it uses TTS_API_URL, TTS_API_TOKEN, this._health, this._world, this._ttsAudio
+    await this._generateTTS(message); // Calling old method for now
+  }
+
+  /**
+   * Placeholder method for broadcasting UI messages - Actual logic will be moved here.
+   * Called by KOROBrain.
+   */
+  public broadcastOverseerUIMessage(message: string, action: string): void {
+    this._logger.info(`(Placeholder) Received request to broadcast UI message: "${message}" (Action: ${action})`);
+    // TODO: Move the UI broadcast logic from _broadcastOverseerMessage to here.
+    this._broadcastOverseerMessage(message, action); // Calling old method for now
+
+    // Clear any existing message timeout if Koro is now silent
+    if (!message && action === 'none') {
+        if (this._messageDisplayTimeoutId) {
+            clearTimeout(this._messageDisplayTimeoutId);
+            this._messageDisplayTimeoutId = null;
+        }
+    } else if (message) {
+        // If there is a message, set a timeout to clear it
+        if (this._messageDisplayTimeoutId) {
+            clearTimeout(this._messageDisplayTimeoutId);
+        }
+        this._messageDisplayTimeoutId = setTimeout(() => {
+            // Clear the message after duration by calling again with empty values
+            this._broadcastOverseerMessage('', 'none'); // Uses old method for now
+            this._messageDisplayTimeoutId = null;
+        }, this._messageDisplayDuration);
+    }
+  }
+
+  // --- Getters for Status and Thresholds ---
+
+  /**
+   * Get the internal temperature threshold for high-temp auto-venting.
+   * @returns Critical high temperature in Fahrenheit
+   */
+  public getAutoVentHighThreshold(): number {
+      return this.AUTO_VENT_HIGH_THRESHOLD;
+  }
+
+  /**
+   * Get the internal temperature threshold for low-temp auto-venting.
+   * @returns Critical low temperature in Fahrenheit
+   */
+  public getAutoVentLowThreshold(): number {
+      return this.AUTO_VENT_LOW_THRESHOLD;
+  }
+
+  /**
+   * Get the normal biodome temperature baseline via the controller
+   * @returns Normal biodome temperature in Fahrenheit
+   */
+   public getBiodomeNormalTemperature(): number {
+       // Use the BiodomeController's constant or a default
+       return this._biodome?.getNormalTemperature() ?? 74;
+   }
+
+   /**
+    * Get the biodome temperature threshold for heat danger via the controller
+    * @returns Heat danger temperature in Fahrenheit
+    */
+   public getBiodomeHeatDangerThreshold(): number {
+       // Use the BiodomeController's constant or a default
+       return this._biodome?.getHeatDangerThreshold() ?? 104;
+   }
+
+   /**
+    * Get the biodome temperature threshold for cold danger via the controller
+    * @returns Cold danger temperature in Fahrenheit
+    */
+   public getBiodomeColdDangerThreshold(): number {
+       // Use the BiodomeController's constant or a default
+       return this._biodome?.getColdDangerThreshold() ?? 32;
+   }
 }
