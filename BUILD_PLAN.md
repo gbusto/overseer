@@ -143,7 +143,7 @@ This plan follows a user-centric approach, building core interactions first and 
         *   [ ] Implement Event Logging (Calls to `_brain.addEventWithPriority(...)`):
             *   [x] Log `koro_damage` (medium priority) in `OverseerEntity.takeDamage`.
             *   [ ] Log `player_damage` (low priority) in `GamePlayerEntity.takeDamage`.
-            *   [ ] Log `player_death` (high priority) from `GameManager` / death logic.
+            *   [x] Log `player_death` (medium priority) from `GameManager.handlePlayerDeath`.
             *   [ ] Log `bfg_pickup` (high priority) from `GameManager` / pickup logic.
             *   [ ] Log `healthpack_pickup` (low priority) in `GamePlayerEntity._handleInteract`.
             *   [ ] Log `attack_end` / `attack_cooldown_start` (low priority) - Ensure `recordEnvironmentalAttackEnd` is called correctly (e.g., from `BiodomeController` or `OverseerEntity` when temp normalizes). (NOTE: I don't think we'll actually want or need this one)

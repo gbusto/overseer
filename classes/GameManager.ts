@@ -275,6 +275,35 @@ export default class GameManager {
   }
 
   /**
+   * Handles logic when a player entity dies.
+   * @param playerEntity The GamePlayerEntity instance that died.
+   */
+  public handlePlayerDeath(playerEntity: GamePlayerEntity): void {
+    if (!this._world) return;
+    
+    this._logger.info(`Handling death for player: ${playerEntity.player.username || playerEntity.player.id}`);
+    
+    // Report the event to the Overseer (KORO)
+    const overseer = this.getOverseerEntity();
+    if (overseer) {
+      overseer.reportSignificantEvent(
+        'player_death', // Event type
+        `Detected cessation of intruder biosign: ${playerEntity.player.username || playerEntity.player.id}`, // Content for LLM
+        'medium', // Priority
+        { // Optional structured data
+          playerId: playerEntity.player.id,
+          playerName: playerEntity.player.username || playerEntity.player.id
+        }
+      );
+    } else {
+      this._logger.warn('Could not report player death to Overseer: Overseer entity not found.');
+    }
+    
+    // TODO: Add any other game logic needed when a player dies, 
+    // e.g., check if all players are dead to end the game.
+  }
+
+  /**
    * Register custom chat commands
    */
   private _registerCommands(): void {

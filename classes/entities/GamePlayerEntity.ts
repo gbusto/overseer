@@ -402,6 +402,10 @@ export default class GamePlayerEntity extends PlayerEntity {
         
         this._logger.info(`Player died: ${this.player.username || this.player.id}`);
 
+        // Inform the GameManager about the player's death
+        GameManager.instance.handlePlayerDeath(this); 
+        
+        // Update camera to spectator mode
         this.updateCameraToSpectate();
       }
     }

@@ -1332,4 +1332,28 @@ export default class OverseerEntity extends Entity {
        // Use the BiodomeController's constant or a default
        return this._biodome?.getColdDangerThreshold() ?? 32;
    }
+
+  /**
+   * Allows external systems (like GameManager) to report significant
+   * game events to KORO's brain.
+   * @param type A string identifying the event type (e.g., 'player_death', 'bfg_pickup')
+   * @param content A descriptive string summarizing the event for the LLM context.
+   * @param priority The importance level for potential immediate reaction.
+   * @param data Optional structured data about the event.
+   */
+  public reportSignificantEvent(
+      type: string,
+      content: string,
+      priority: 'low' | 'medium' | 'high',
+      data: Record<string, any> = {}
+  ): void {
+      if (this._brain) {
+          // Let the brain handle adding the event with the provided details.
+          // The brain determines if an immediate update is needed based on priority.
+          this._brain.addEventWithPriority(type, content, priority, data);
+          this._logger.info(`Reported significant event to KORO Brain: [${priority}] ${type} - ${content}`);
+      } else {
+          this._logger.warn(`Attempted to report event "${type}" but KORO Brain is not initialized.`);
+      }
+  }
 }
