@@ -104,17 +104,17 @@ This plan follows a user-centric approach, building core interactions first and 
             *   [ ] Implement ammo (e.g., 30 shots) and cooldowns (shot interval, recharge) in `EnergyGun`. Configurable.
             *   [ ] Update weapon status UI (deferred).
         *   [ ] Implement **BFG**:
-            *   [ ] Create `BFG.ts` weapon class.
+            *   [x] Create `BFG.ts` weapon class.
             *   [ ] Spawn one BFG randomly on the map at match start.
-            *   [ ] Implement pickup logic (replaces Energy Gun? Or specific action? Simplest: replaces Energy Gun).
-            *   [ ] Implement `BFG.shoot()` to spawn a different projectile (or maybe use raycast for simplicity?).
+            *   [x] Implement pickup logic (replaces Energy Gun? Or specific action? Simplest: replaces Energy Gun).
+            *   [x] Implement `BFG.shoot()` to spawn a different projectile (or maybe use raycast for simplicity?).
             *   [ ] Implement BFG collision/hit logic:
                 *   [ ] If hit `OverseerEntity` barrier closed -> `OverseerEntity.openBarrier(longDuration)`. (Utility)
                 *   [ ] If hit `OverseerEntity` core open -> `OverseerEntity.takeDamage(highAmount)`. Damage configurable.
             *   [ ] Implement long reload (e.g., 90s). Configurable. Update UI.
     *   **KORO Damage & Defense:**
         *   [ ] Implement `OverseerEntity.takeDamage(amount)` method.
-        *   [ ] Add health property to `OverseerEntity`.
+        *   [x] Add health property to `OverseerEntity`.
         *   [ ] Ensure `OverseerEntity` barrier has appropriate colliders to block projectiles.
         *   [ ] Update Overseer health UI.
 *   **Outcome Goal:** The core gameplay loop is functional. Players survive attacks, heal with pickups, wait for/force vulnerability windows, and shoot KORO's core with weapons (Energy Gun implemented, BFG basic logic) to deal damage.

@@ -46,6 +46,9 @@ export default class GameManager {
     return GameManager._instance;
   }
 
+  // Static flag to control whether players can take damage outside of active game
+  private static _playerVulnerable: boolean = false;
+  
   // Properties
   private _world?: World;
   private _gameState: GameState = GameState.IDLE;
@@ -56,6 +59,17 @@ export default class GameManager {
   public get world(): World | undefined { return this._world; }
   public get gameState(): GameState { return this._gameState; }
   public get isGameActive(): boolean { return this._gameState === GameState.ACTIVE; }
+
+  // Check if players are vulnerable to damage
+  public static isPlayerVulnerable(): boolean {
+    return GameManager._playerVulnerable || GameManager.instance.gameState === GameState.ACTIVE;
+  }
+
+  // Toggle player vulnerability
+  public static setPlayerVulnerable(vulnerable: boolean): void {
+    GameManager._playerVulnerable = vulnerable;
+    GameManager.instance._logger.info(`Player vulnerability set to ${vulnerable}`);
+  }
 
   private constructor() {
     // Private constructor to enforce singleton pattern
@@ -792,6 +806,84 @@ export default class GameManager {
         'Toggled biodome status display.', 
         '00FF00'
       );
+    });
+    
+    // Command: /biodome-damage - Toggle biodome environmental damage
+    chatManager.registerCommand('/biodome-damage', (player, args) => {
+      const overseer = this.getOverseerEntity();
+      if (!overseer) {
+        chatManager.sendPlayerMessage(player, 'Overseer not found.', 'FF0000');
+        return;
+      }
+      
+      // If no argument is provided, toggle the current state
+      let enabled: boolean;
+      if (args.length === 0) {
+        enabled = !overseer.isBiodomeEnvironmentalDamageEnabled();
+      } else {
+        // Otherwise, set to specified state
+        const argValue = args[0] || '';
+        enabled = argValue.toLowerCase() === 'true' || argValue === '1';
+      }
+      
+      // Toggle the damage
+      overseer.setBiodomeEnvironmentalDamageEnabled(enabled);
+      
+      // Notify the player
+      chatManager.sendPlayerMessage(
+        player, 
+        `Biodome environmental damage ${enabled ? 'enabled' : 'disabled'}.`, 
+        '00FF00'
+      );
+      
+      // If enabling damage, warn all players
+      if (enabled) {
+        chatManager.sendBroadcastMessage(
+          'WARNING: Biodome life support systems failing - environmental effects now hazardous.',
+          'FF3300'
+        );
+      } else {
+        chatManager.sendBroadcastMessage(
+          'Biodome life support systems recalibrated - environmental effects neutralized.',
+          '00FF00'
+        );
+      }
+    });
+    
+    // Command: /toggledamage - Toggle player vulnerability to damage
+    chatManager.registerCommand('/toggledamage', (player, args) => {
+      // If no argument is provided, toggle the current state
+      let enabled: boolean;
+      if (args.length === 0) {
+        enabled = !GameManager._playerVulnerable;
+      } else {
+        // Otherwise, set to specified state
+        const argValue = args[0] || '';
+        enabled = argValue.toLowerCase() === 'true' || argValue === '1';
+      }
+      
+      // Toggle the vulnerability
+      GameManager.setPlayerVulnerable(enabled);
+      
+      // Notify the player
+      chatManager.sendPlayerMessage(
+        player, 
+        `Player vulnerability to damage ${enabled ? 'enabled' : 'disabled'}.`, 
+        '00FF00'
+      );
+      
+      // If enabling damage, warn all players
+      if (enabled) {
+        chatManager.sendBroadcastMessage(
+          'WARNING: Player damage protection disabled. Players can now take damage at any time.',
+          'FF3300'
+        );
+      } else {
+        chatManager.sendBroadcastMessage(
+          'Player damage protection enabled. Players cannot take damage unless a game is active.',
+          '00FF00'
+        );
+      }
     });
     
     this._logger.info('Registered custom chat commands.');

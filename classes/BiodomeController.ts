@@ -27,6 +27,13 @@ export default class BiodomeController {
   private _defaultAmbientLightIntensity: number = 1; // Default ambient light intensity
   private _defaultDirectionalLightIntensity: number = 1; // Default directional light intensity
   
+  // Damage constants
+  private readonly MIN_HEAT_DAMAGE: number = 0.2; // Minimum damage per second at threshold
+  private readonly MAX_HEAT_DAMAGE: number = 2.0; // Maximum damage per second at max temp
+  private readonly MIN_COLD_DAMAGE: number = 0.2; // Minimum damage per second at threshold
+  private readonly MAX_COLD_DAMAGE: number = 2.0; // Maximum damage per second at min temp
+  private readonly DAMAGE_INTERVAL_MS: number = 1000; // Apply damage every second
+  
   // Temperature properties
   private _currentTemp: number = 74; // Default temperature (F)
   private _targetTemp: number = 74;
@@ -36,6 +43,10 @@ export default class BiodomeController {
   private _autoResetEnabled: boolean = false;
   private _autoResetDelay: number = 30000; // 30 seconds
   private _autoResetTimer: NodeJS.Timeout | null = null;
+  
+  // Damage control
+  private _environmentalDamageEnabled: boolean = false; // Off by default for development
+  private _lastDamageTime: number = 0; // Track when damage was last applied
   
   // Logger
   private _logger: Logger;
@@ -52,6 +63,8 @@ export default class BiodomeController {
       this._defaultAmbientLightIntensity = world.ambientLightIntensity || this.DEFAULT_LIGHT_INTENSITY;
       this._defaultDirectionalLightIntensity = world.directionalLightIntensity || this.DEFAULT_LIGHT_INTENSITY;
     }
+    
+    this._logger.info(`Environmental damage is ${this._environmentalDamageEnabled ? 'enabled' : 'disabled'} by default`);
   }
 
   /**
@@ -61,7 +74,7 @@ export default class BiodomeController {
   public onTick(tickDeltaMs: number): void {
     this._updateTemperature(tickDeltaMs);
     this._updateLighting();
-    this._applyEnvironmentalEffects();
+    this._applyEnvironmentalEffects(tickDeltaMs);
     this._updateUI();
   }
 
@@ -175,34 +188,86 @@ export default class BiodomeController {
 
   /**
    * Apply effects based on current temperature
+   * @param tickDeltaMs Time since last tick in milliseconds
    */
-  private _applyEnvironmentalEffects(): void {
+  private _applyEnvironmentalEffects(tickDeltaMs: number): void {
     if (!this._world) return;
 
+    // Skip damage application if disabled
+    if (!this._environmentalDamageEnabled) return;
+
+    // Track time to apply damage at the correct interval
+    this._lastDamageTime += tickDeltaMs;
+    if (this._lastDamageTime < this.DAMAGE_INTERVAL_MS) return;
+    
+    // Get time factor (for scaling damage if interval isn't exactly 1 second)
+    const timeFactor = this._lastDamageTime / 1000; // Convert to seconds
+    this._lastDamageTime = 0; // Reset timer
+    
     // Get all player entities
     const players = this._world.entityManager.getAllPlayerEntities();
     
-    // Apply damage for extreme temperatures
-    if (this._currentTemp >= 100) {
-      // Heat damage scales with temperature
-      const heatDamage = (this._currentTemp - 100) * 0.01;
+    // Apply heat damage
+    if (this._currentTemp > this.HEAT_DANGER_THRESHOLD) {
+      // Calculate damage scaling based on how far above threshold we are
+      const tempProgress = Math.min(
+        (this._currentTemp - this.HEAT_DANGER_THRESHOLD) / 
+        (this.MAX_TEMP - this.HEAT_DANGER_THRESHOLD),
+        1.0
+      );
       
+      // Interpolate between min and max damage
+      const damage = this.MIN_HEAT_DAMAGE + 
+        (this.MAX_HEAT_DAMAGE - this.MIN_HEAT_DAMAGE) * tempProgress;
+      
+      // Apply scaled damage to all players
       players.forEach(player => {
-        // Check if the player entity has a takeDamage method
         if (player && typeof (player as any).takeDamage === 'function') {
-          (player as any).takeDamage(heatDamage, "heat");
+          (player as any).takeDamage(damage * timeFactor);
+          
+          // Send visual feedback to player UI if damage is significant
+          if (damage * timeFactor >= 0.1 && player.player && player.player.ui) {
+            player.player.ui.sendData({
+              type: 'environmental-damage-effect',
+              damageType: 'heat',
+              amount: damage * timeFactor
+            });
+          }
         }
       });
-    } else if (this._currentTemp <= 32) {
-      // Cold damage scales with temperature
-      const coldDamage = (32 - this._currentTemp) * 0.01;
       
+      this._logger.debug(`Applied heat damage: ${(damage * timeFactor).toFixed(2)} to ${players.length} players at temp ${this._currentTemp.toFixed(1)}°F`);
+    } 
+    // Apply cold damage
+    else if (this._currentTemp < this.COLD_DANGER_THRESHOLD) {
+      // Calculate damage scaling based on how far below threshold we are
+      const tempProgress = Math.min(
+        (this.COLD_DANGER_THRESHOLD - this._currentTemp) / 
+        (this.COLD_DANGER_THRESHOLD - this.MIN_TEMP),
+        1.0
+      );
+      
+      // Interpolate between min and max damage
+      const damage = this.MIN_COLD_DAMAGE + 
+        (this.MAX_COLD_DAMAGE - this.MIN_COLD_DAMAGE) * tempProgress;
+      
+      // Apply scaled damage to all players
       players.forEach(player => {
-        // Check if the player entity has a takeDamage method
         if (player && typeof (player as any).takeDamage === 'function') {
-          (player as any).takeDamage(coldDamage, "cold");
+          (player as any).takeDamage(damage * timeFactor);
+          
+          // Send visual feedback to player UI if damage is significant
+          if (damage * timeFactor >= 0.1 && player.player && player.player.ui) {
+            player.player.ui.sendData({
+              type: 'environmental-damage-effect',
+              damageType: 'cold',
+              amount: damage * timeFactor
+            });
+          }
         }
       });
+      
+      this._logger.debug(`Applied cold damage: ${(damage * timeFactor).toFixed(2)} to ${players.length} players at temp ${this._currentTemp.toFixed(1)}°F`);
     }
   }
 
@@ -349,7 +414,7 @@ export default class BiodomeController {
     // Also send the current status to ensure data is up-to-date
     this._updateUI();
   }
-
+  
   /**
    * Reset all lighting to defaults
    */
@@ -360,5 +425,21 @@ export default class BiodomeController {
     this._world.setDirectionalLightColor(this._defaultDirectionalLightColor);
     this._world.setAmbientLightIntensity(this._defaultAmbientLightIntensity);
     this._world.setDirectionalLightIntensity(this._defaultDirectionalLightIntensity);
+  }
+  
+  /**
+   * Enable or disable environmental damage effects
+   * @param enabled Whether damage should be applied
+   */
+  public setEnvironmentalDamageEnabled(enabled: boolean): void {
+    this._environmentalDamageEnabled = enabled;
+    this._logger.info(`Environmental damage ${enabled ? 'enabled' : 'disabled'}`);
+  }
+
+  /**
+   * Check if environmental damage is enabled
+   */
+  public isEnvironmentalDamageEnabled(): boolean {
+    return this._environmentalDamageEnabled;
   }
 } 

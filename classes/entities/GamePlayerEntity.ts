@@ -129,8 +129,8 @@ export default class GamePlayerEntity extends PlayerEntity {
   public takeDamage(amount: number): void {
     if (!this.isSpawned || !this.world) return;
     
-    // Only take damage if the game is active
-    if (GameManager.instance.gameState !== GameState.ACTIVE) return;
+    // Only take damage if the game is active or player vulnerability is enabled
+    if (!GameManager.isPlayerVulnerable()) return;
     
     // Play damage audio
     this._damageAudio.play(this.world, true);
@@ -313,7 +313,7 @@ export default class GamePlayerEntity extends PlayerEntity {
     // Update player's UI with health data
     this.player.ui.sendData({
       type: 'health-update',
-      health: this._health,
+      health: Math.round(this._health),
       maxHealth: this._maxHealth
     });
   }

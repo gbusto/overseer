@@ -998,4 +998,27 @@ export default class OverseerEntity extends Entity {
       this._logger.error('Cannot toggle biodome UI: Biodome controller not initialized');
     }
   }
+
+  /**
+   * Enable or disable biodome environmental damage effects
+   * @param enabled Whether damage should be applied
+   * @returns Current enabled state
+   */
+  public setBiodomeEnvironmentalDamageEnabled(enabled: boolean): boolean {
+    if (this._biodome) {
+      this._biodome.setEnvironmentalDamageEnabled(enabled);
+      return this._biodome.isEnvironmentalDamageEnabled();
+    } else {
+      this._logger.error('Cannot toggle biodome environmental damage: Biodome controller not initialized');
+      return false;
+    }
+  }
+
+  /**
+   * Check if biodome environmental damage is enabled
+   * @returns True if environmental damage is enabled, false otherwise
+   */
+  public isBiodomeEnvironmentalDamageEnabled(): boolean {
+    return this._biodome ? this._biodome.isEnvironmentalDamageEnabled() : false;
+  }
 }

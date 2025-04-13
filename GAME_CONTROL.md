@@ -74,6 +74,8 @@ The biodome environment is controlled via the `BiodomeController` class:
 | `biodome.setTemperature(temperature, changeRate?, autoReset?)` | Sets target biodome temperature with configurable change rate | Temperature (°F), optional change rate (°/sec), auto-reset (boolean, default true) |
 | `biodome.resetTemperature()` | Immediately resets temperature to normal (74°F) | None |
 | `biodome.resetLighting()` | Immediately resets all lighting colors and intensities to default values | None |
+| `biodome.setEnvironmentalDamageEnabled(enabled)` | Enable or disable environmental damage effects | Boolean |
+| `biodome.isEnvironmentalDamageEnabled()` | Check if environmental damage is enabled | None |
 | `biodome.getCurrentTemperature()` | Gets current temperature in Fahrenheit | None |
 | `biodome.getNormalTemperature()` | Gets normal temperature baseline (74°F) | None |
 | `biodome.getHeatDangerThreshold()` | Gets heat danger threshold (104°F) | None |
@@ -97,7 +99,14 @@ Environmental effects:
 - Directional lighting (sunlight) becomes more bluish as temperature falls below 32°F
 - Light intensities increase gradually from default (1) to maximum (5) as temperature approaches either extreme
 - The intensity of color and brightness changes is proportional to how close the temperature is to MIN_TEMP or MAX_TEMP
-- Environmental damage is automatically applied when temperature exceeds 100°F (heat damage) or drops below 32°F (cold damage)
+
+Environmental damage (when enabled):
+- Heat damage begins at 104°F (HEAT_DANGER_THRESHOLD) and scales up to MAX_TEMP (200°F)
+- Cold damage begins at 32°F (COLD_DANGER_THRESHOLD) and scales down to MIN_TEMP (-50°F)
+- Damage ranges from 0.2/second (at threshold) to 2.0/second (at extreme temperatures)
+- Damage is applied once per second and scales based on how extreme the temperature is
+- Visual damage indicators appear on screen when taking damage
+- Disabled by default for development/testing
 
 ## UI Controls
 
@@ -138,6 +147,13 @@ These commands can be used in the game chat for testing and debugging:
 | `/rifle` | Spawns an energy rifle in front of the player |
 | `/rocket` | Launches player into the air (testing) |
 | `/getpos` | Gets player's current position |
+| `/togglebiodome` | Toggles biodome status display visibility |
+| `/biodome-temp <temperature> [rate]` | Sets biodome temperature with optional change rate |
+| `/biodome-heat` | Triggers a heat attack (high temperature) |
+| `/biodome-cold` | Triggers a cold attack (low temperature) |
+| `/biodome-reset` | Resets biodome temperature to normal |
+| `/biodome-status` | Shows current biodome temperature |
+| `/biodome-damage [true/false]` | Toggles biodome environmental damage, or sets to specified value |
 
 ## Weapon System
 

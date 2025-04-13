@@ -412,6 +412,41 @@
     50% { opacity: 1; }
     100% { opacity: 0.7; }
   }
+
+  /* Environmental damage effect styles */
+  .environmental-damage {
+    position: fixed;
+    color: white;
+    font-weight: bold;
+    font-size: 24px;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+    pointer-events: none;
+    z-index: 1000;
+    animation: damage-float 2s ease-out forwards;
+    opacity: 0;
+  }
+
+  .environmental-damage.heat {
+    color: #ff5500;
+  }
+
+  .environmental-damage.cold {
+    color: #00ccff;
+  }
+
+  @keyframes damage-float {
+    0% {
+      opacity: 0;
+      transform: translateY(0);
+    }
+    10% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-100px);
+    }
+  }
 </style>
 
 <script>
@@ -592,6 +627,31 @@
       
       case 'fade-from-white':
         fadeFromWhite(data.duration);
+        break;
+
+      case 'environmental-damage-effect':
+        // Create damage indicator at random position near the center of the screen
+        const effect = document.createElement('div');
+        effect.className = `environmental-damage ${data.damageType}`;
+        
+        // Format the damage amount
+        effect.textContent = `-${parseFloat(data.amount).toFixed(1)}`;
+        
+        // Position randomly within central area of screen
+        const centerX = window.innerWidth / 2;
+        const centerY = window.innerHeight / 2;
+        const randomX = centerX + (Math.random() * 200 - 100); // ±100px from center
+        const randomY = centerY + (Math.random() * 200 - 100); // ±100px from center
+        
+        effect.style.left = `${randomX}px`;
+        effect.style.top = `${randomY}px`;
+        
+        document.body.appendChild(effect);
+        
+        // Remove the element after animation completes
+        setTimeout(() => {
+          effect.remove();
+        }, 2000);
         break;
     }
   });
