@@ -361,6 +361,16 @@ export default class GamePlayerEntity extends PlayerEntity {
     }
   }
 
+  private updateCameraToSpectate(): void {
+    if (this.player.camera) {
+      this.player.camera.setAttachedToPosition(
+        { x: -47, y: 20, z: 10 }
+      );
+      this.player.camera.setMode(PlayerCameraMode.SPECTATOR);
+      this.player.camera.setModelHiddenNodes([]);
+    }
+  }
+
   /**
    * Check if player has died and handle death state
    */
@@ -390,6 +400,8 @@ export default class GamePlayerEntity extends PlayerEntity {
         this.world.chatManager.sendBroadcastMessage(`${this.player.username || this.player.id} has been eliminated!`, 'FF0000');
         
         this._logger.info(`Player died: ${this.player.username || this.player.id}`);
+
+        this.updateCameraToSpectate();
       }
     }
   }
