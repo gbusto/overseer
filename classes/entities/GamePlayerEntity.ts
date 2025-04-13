@@ -331,7 +331,10 @@ export default class GamePlayerEntity extends PlayerEntity {
       // Unequip previous weapon if exists
       if (this._activeWeapon && this._activeWeapon !== weapon) {
           this._logger.info(`Unequipping previous weapon ${this._activeWeapon.name}`);
-          this._activeWeapon.unequip();
+          // Call unequip directly - this should handle detaching and resetting animations
+          this._activeWeapon.unequip(); 
+          // Do NOT call drop() here, as that starts the despawn timer and applies physics.
+          // The weapon should just float where it was detached until picked up again or despawns.
       }
 
       // Set as active weapon

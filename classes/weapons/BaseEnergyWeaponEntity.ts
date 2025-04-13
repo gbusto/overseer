@@ -208,7 +208,8 @@ export default abstract class BaseEnergyWeaponEntity extends BaseWeaponEntity {
     }
 
     /**
-     * Get the weapon's current state
+     * Gets the current state of the weapon for UI updates.
+     * @returns An object containing energy level, max energy, recharging status, and cooldown progress.
      */
     public getWeaponState(): { 
         energyLevel: number, 
@@ -218,152 +219,141 @@ export default abstract class BaseEnergyWeaponEntity extends BaseWeaponEntity {
         cooldownProgress?: number,
         energyBarColor: string
     } {
-        const currentTime = Date.now();
-        let rechargeProgress;
-        let cooldownProgress;
+        const now = Date.now();
+        let cooldownProgress = 0;
+        let rechargeProgress = 0;
         
-        if (this._isFullRecharging) {
-            const elapsed = currentTime - this._rechargeStartTime;
-            rechargeProgress = Math.min(1, elapsed / this._fullRechargeTimeMs);
+        // Calculate cooldown progress
+        if (this.isInCooldown()) {
+            cooldownProgress = 1 - (now - this._lastFireTime) / this._cooldownMs;
         }
         
-        if (this.isInCooldown()) {
-            const elapsed = currentTime - this._lastFireTime;
-            cooldownProgress = Math.min(1, elapsed / this._cooldownMs);
+        // Calculate full recharge progress
+        if (this._isFullRecharging) {
+            rechargeProgress = (now - this._rechargeStartTime) / this._fullRechargeTimeMs;
+            rechargeProgress = Math.max(0, Math.min(1, rechargeProgress)); // Clamp between 0 and 1
         }
         
         return {
             energyLevel: this._currentEnergy,
             maxEnergy: this._maxEnergy,
             isRecharging: this._isFullRecharging,
-            rechargeProgress,
-            cooldownProgress,
+            rechargeProgress: this._isFullRecharging ? rechargeProgress : undefined,
+            cooldownProgress: this.isInCooldown() ? cooldownProgress : undefined,
             energyBarColor: this._energyBarColor
         };
     }
 
     /**
-     * Update the owner's UI with current energy status
+     * Sends the current weapon energy status to the owner's UI.
      */
     protected _updateOwnerEnergyUI(): void {
         const owner = this.getOwner();
-        if (!owner || !owner.player) return;
-
-        // Calculate shots remaining (rounded down)
-        const shotsRemaining = Math.floor(this._currentEnergy / this._energyPerShot);
-
-        // Determine the message based on state
-        let statusMessage = ''; // Default empty message
-        if (this._isFullRecharging) {
-            // Message will be handled separately when recharge starts/ends
-        } else if (this.isInCooldown()) {
-            // Could add cooldown message here if needed
-        } else {
-            // Default message shows shots remaining if not recharging or cooling down
-            // statusMessage = `${shotsRemaining} shots remaining`; 
-            // Let's avoid sending a constant message for now unless specifically needed
+        if (owner && owner.player) {
+            const state = this.getWeaponState();
+            
+            // Construct the message based on state
+            let message = '';
+            if (state.isRecharging) {
+                const remainingSecs = Math.ceil((this._fullRechargeTimeMs * (1 - (state.rechargeProgress ?? 0))) / 1000);
+                message = `Recharging... ${remainingSecs}s`;
+            } else if (state.cooldownProgress !== undefined && state.cooldownProgress > 0) {
+                // Optional: Add a cooldown message if needed
+                // message = `Cooldown...`;
+            }
+            
+            owner.player.ui.sendData({
+                type: 'weapon-status',
+                message: message,
+                energyLevel: state.energyLevel,
+                maxEnergy: state.maxEnergy,
+                isRecharging: state.isRecharging,
+                rechargeProgress: state.rechargeProgress,
+                cooldownProgress: state.cooldownProgress,
+                energyBarColor: state.energyBarColor
+            });
+            
+            // Log the update sent
+            // this._logger.debug(`Sent UI update: Energy=${state.energyLevel.toFixed(1)}, Recharging=${state.isRecharging}, Cooldown=${state.cooldownProgress?.toFixed(2)}, Message='${message}'`);
         }
-
-        owner.player.ui.sendData({
-            type: 'weapon-status',
-            energyLevel: this._currentEnergy,
-            maxEnergy: this._maxEnergy,
-            shotsRemaining: shotsRemaining,
-            isRecharging: this._isFullRecharging,
-            message: statusMessage, // Send the determined message or empty string
-            energyBarColor: this._energyBarColor
-        });
     }
 
     /**
-     * Fires the energy weapon.
+     * Perform the firing action if possible.
      */
     public fire(): void {
         const owner = this.getOwner();
-
-        // Ensure the weapon is owned, the owner is spawned, and cooldown is ready
-        if (!owner || !owner.isSpawned || !owner.world) {
+        if (!owner || !owner.world || this._isFullRecharging || this.isInCooldown()) {
+            // Send UI update even if fire fails due to cooldown/recharge
+            if (owner) this._updateOwnerEnergyUI();
             return;
         }
 
-        // Check if weapon is in full recharge mode
-        if (this._isFullRecharging) {
-            if (!this._processFullRecharge()) {
-                // Log that fire attempt failed, but periodic updates handle the UI message
-                this._logger.info(`Cannot fire: Energy weapon is recharging.`);
-                return;
-            }
-        }
-
-        // Check cooldown
-        if (this.isInCooldown()) {
-            this._logger.info(`Cannot fire: Energy weapon is in cooldown.`);
-            return;
-        }
-
-        // Check if we have enough energy for a shot
         if (this._currentEnergy < this._energyPerShot) {
-            // DEFER starting the recharge to the next tick
-            this._needsToStartFullRecharge = true; 
-            this._logger.info(`Energy weapon depleted. Full recharge started (${this._fullRechargeTimeMs / 1000}s).`);
+            // Not enough energy
+            this._logger.debug(`Not enough energy to fire. Required: ${this._energyPerShot}, Has: ${this._currentEnergy.toFixed(1)}`);
+            // Start full recharge if completely empty
+            if (this._currentEnergy <= 0 && !this._isFullRecharging) {
+                this._logger.info(`Energy depleted. Initiating full recharge.`);
+                // Defer starting the recharge to the next tick to avoid issues
+                this._needsToStartFullRecharge = true;
+            }
+            this._updateOwnerEnergyUI(); // Send status (e.g., low energy)
             return;
         }
 
-        // Perform basic fire processing
-        if (!this.processFire()) {
-            return;
-        }
-
-        const world = owner.world;
-
+        // Consume energy
+        this._currentEnergy -= this._energyPerShot;
+        this._lastFireTime = Date.now(); // Set cooldown start time
+        this._logger.debug(`Fired weapon. Energy left: ${this._currentEnergy.toFixed(1)}/${this._maxEnergy}`);
+        
         // Get camera details for aiming
         const camera = owner.player?.camera;
         if (!camera) {
             this._logger.error('Cannot fire: Owner has no camera reference.');
             return;
         }
-
-        // Update cooldown and energy tracking
-        this._lastFireTime = Date.now();
-        this._currentEnergy -= this._energyPerShot;
-        
-        const shotsRemaining = Math.floor(this._currentEnergy / this._energyPerShot);
-        this._logger.info(`Energy weapon fired. Energy: ${this._currentEnergy.toFixed(1)}/${this._maxEnergy} (${shotsRemaining} shots remaining)`);
-        
-        // Notify player of remaining energy - use _updateOwnerEnergyUI for consistency
-        this._updateOwnerEnergyUI(); 
-
-        // Play firing animation on the owner (player)
-        owner.startModelOneshotAnimations([this.mlAnimation]); 
         
         const facingDirection = camera.facingDirection;
         const ownerPosition = owner.position;
-
+        
         // Calculate a starting position slightly in front of the player's camera
-        const eyeLevelOffset = camera.offset.y || 0.6; 
-        const spawnOffsetDist = 0.5;
+        // Use the camera offset if available, otherwise default eye level
+        const eyeLevelOffset = camera.offset?.y ?? 0.6; 
+        const spawnOffsetDist = 0.5; // Distance in front of player
         const spawnPosition: Vector3Like = {
             x: ownerPosition.x + facingDirection.x * spawnOffsetDist,
             y: ownerPosition.y + eyeLevelOffset + facingDirection.y * spawnOffsetDist,
             z: ownerPosition.z + facingDirection.z * spawnOffsetDist,
         };
-
-        // Create and spawn the projectile using the createProjectile method
-        const projectile = this.createProjectile(owner);
-        projectile.spawn(world, spawnPosition, facingDirection);
-    }
-
-    public override equip(): void {
-        // Call the parent equip method first
-        super.equip();
         
-        // Update the UI immediately to show the energy bar when equipped
+        // Create and spawn projectile using the correct direction
+        const projectile = this.createProjectile(owner);
+        projectile.spawn(owner.world, spawnPosition, facingDirection);
+        this._logger.debug(`Spawned projectile ${projectile.name}`);
+        
+        // Play firing animation on the owner (player)
+        if (this.mlAnimation) {
+            owner.startModelOneshotAnimations([this.mlAnimation]); 
+        }
+        
+        // TODO: Play fire sound and muzzle flash effect here if needed
+        
+        // Update UI with new energy level and cooldown
         this._updateOwnerEnergyUI();
     }
-
+    
     /**
-     * Gets the position and rotation for muzzle flash 
-     * Implement in child classes.
+     * Overrides the base equip method to send initial energy state.
      */
+    public override equip(): void {
+        super.equip(); // Call the base equip logic (positioning, animations)
+        
+        // Send the initial energy state to the UI when equipped
+        this._updateOwnerEnergyUI(); 
+        this._logger.info(`${this.name} equipped. Sent initial UI state.`);
+    }
+
+    // Abstract method that must be implemented by subclasses
     public abstract getMuzzleFlashPositionRotation(): { position: Vector3Like, rotation: QuaternionLike };
 } 

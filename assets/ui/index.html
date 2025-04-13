@@ -51,7 +51,6 @@
       <div class="energy-bar-fill"></div>
     </div>
     <div class="weapon-status"></div>
-    <div class="cooldown-indicator"></div>
   </div>
 
   <!-- Crosshair overlay -->
@@ -318,17 +317,6 @@
     white-space: nowrap;
   }
 
-  .cooldown-indicator {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    border: 2px solid rgba(255, 255, 255, 0.4);
-    background: rgba(0, 0, 0, 0.6);
-    position: relative;
-    overflow: hidden;
-    visibility: hidden;
-  }
-
   /* Recharging animation - improved with more fluid animation */
   @keyframes gentle-pulse {
     0% { opacity: 0.7; }
@@ -496,7 +484,53 @@
     background-color: #888;
     transition: width 0.3s, background-color 0.3s;
   }
+
+  /* Styles for the weapon label SceneUI */
+  .weapon-label {
+    background-color: rgba(0, 0, 0, 0.7);
+    padding: 8px 15px;
+    border-radius: 4px;
+    text-align: center;
+    color: #ffffff;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+    font-family: Arial, sans-serif;
+    position: relative;
+    max-width: 180px;
+    margin: 0 auto;
+    font-size: 14px;
+  }
+
+  .weapon-label-name {
+    font-weight: bold;
+    margin-bottom: 4px;
+  }
+
+  .weapon-label-prompt {
+    font-size: 12px;
+    opacity: 0.8;
+  }
+
+  .weapon-label-caret {
+    position: absolute;
+    bottom: -6px; /* Adjusted for smaller size */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 6px solid rgba(0, 0, 0, 0.7);
+  }
 </style>
+
+<!-- Template for weapon labels -->
+<template id="weapon-label-template">
+  <div class="weapon-label">
+    <div class="weapon-label-name">Weapon Name</div>
+    <div class="weapon-label-prompt">[E] Pickup</div>
+    <div class="weapon-label-caret"></div>
+  </div>
+</template>
 
 <script>
   // Get UI elements
@@ -510,7 +544,6 @@
   // Energy bar elements
   const energyBarFill = document.querySelector('.energy-bar-fill');
   const weaponStatus = document.querySelector('.weapon-status');
-  const cooldownIndicator = document.querySelector('.cooldown-indicator');
   const energyBarContainer = document.querySelector('.weapon-energy-container');
   const crosshair = document.getElementById('crosshair');
 
@@ -518,11 +551,29 @@
   let currentEnergy = 100;
   let maxEnergy = 100;
   let isRecharging = false;
-  let isCooldown = false;
   
   // Add a flag to track player death state in the UI
   let isPlayerDead = false;
   
+  // --- Scene UI Template Registration ---
+  // Register the weapon label template
+  hytopia.registerSceneUITemplate('weapon-label', (id, onState) => {
+    const template = document.getElementById('weapon-label-template');
+    const clone = template.content.cloneNode(true);
+    const nameElement = clone.querySelector('.weapon-label-name');
+    
+    // Update the name based on the state sent from the server
+    onState(state => {
+      if (state.name && nameElement) {
+        nameElement.textContent = state.name;
+      }
+      // Note: Visibility is controlled by loading/unloading the SceneUI on the server
+    });
+    
+    return clone;
+  });
+  
+  // --- Event Handlers ---
   // Handle incoming data from the server
   hytopia.onData(data => {
     // Check if this is an overseer message
@@ -611,24 +662,19 @@
         setRecharging(data.isRecharging);
       }
       
-      // Handle cooldown
-      if (data.cooldownProgress !== undefined) {
-        setCooldown(true, data.cooldownProgress);
-      } else {
-        setCooldown(false);
-      }
-      
-      // Handle status message
-      if (data.message) {
+      // Handle status message - PRIORITIZE RECHARGING MESSAGE
+      if (data.isRecharging && data.message) {
+        // If recharging and a message exists (likely the recharging message), show it
+        showStatus(data.message);
+      } else if (data.message) {
+        // If not recharging, but another message exists, show it
         showStatus(data.message);
       } else if (!data.isRecharging) {
-        // If no message is provided AND we are not recharging, hide the status.
-        // This clears "Recharging..." when isRecharging becomes false without a new message.
+        // If no message provided AND not recharging, explicitly hide the status
         weaponStatus.style.visibility = 'hidden';
-        // Also clear any potential timeout for the status message
         if (window.statusTimeout) {
-          clearTimeout(window.statusTimeout);
-          window.statusTimeout = null;
+            clearTimeout(window.statusTimeout);
+            window.statusTimeout = null;
         }
       }
     } else if (data.type === 'weapon-unequipped') {
@@ -885,33 +931,6 @@
     } else {
       energyBarContainer.classList.remove('recharging');
       // Message hiding is handled in the main onData listener now
-    }
-  }
-
-  // Show cooldown indicator
-  function setCooldown(active, progress = 0) {
-    isCooldown = active;
-    cooldownIndicator.style.visibility = active ? 'visible' : 'hidden';
-    
-    if (active) {
-      // Create inner element if it doesn't exist
-      let innerElement = cooldownIndicator.querySelector('.cooldown-inner');
-      if (!innerElement) {
-        innerElement = document.createElement('div');
-        innerElement.className = 'cooldown-inner';
-        innerElement.style.position = 'absolute';
-        innerElement.style.top = '0';
-        innerElement.style.left = '0';
-        innerElement.style.width = '100%';
-        innerElement.style.height = '100%';
-        innerElement.style.background = '#ff3333';
-        innerElement.style.transformOrigin = 'center';
-        innerElement.style.borderRadius = '50%';
-        innerElement.style.transition = 'transform 0.1s linear';
-        cooldownIndicator.appendChild(innerElement);
-      }
-      
-      innerElement.style.transform = `scale(${1 - progress})`;
     }
   }
 

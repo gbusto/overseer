@@ -9,7 +9,8 @@ import {
     PlayerEntity,
     PlayerEntityController,
     CollisionGroup,
-    Collider
+    Collider,
+    SceneUI
 } from 'hytopia';
 
 import type {
@@ -23,9 +24,6 @@ import type GamePlayerEntity from '../entities/GamePlayerEntity';
 
 import { Logger } from '../../utils/logger';
 
-// Constants from Hygrounds
-const INVENTORIED_POSITION = { x: 0, y: -300, z: 0 };
-
 export default abstract class BaseWeaponEntity extends Entity {
     protected _logger: Logger;
     protected _damage: number;
@@ -36,6 +34,9 @@ export default abstract class BaseWeaponEntity extends Entity {
     // Weapon item properties
     public readonly iconImageUri: string;
     private _despawnTimer: NodeJS.Timeout | undefined;
+    
+    // SceneUI for the label
+    private _labelSceneUI: SceneUI | null = null;
 
     // Animation Names (using Hygrounds conventions)
     public idleAnimation: string = 'idle_gun_both'; 
@@ -53,7 +54,8 @@ export default abstract class BaseWeaponEntity extends Entity {
         // Create physics setup similar to Hygrounds
         // We'll use a simple physics setup that keeps weapons from falling through the ground
         const rigidBodyOptions = {
-            type: RigidBodyType.DYNAMIC,
+            // Start as DYNAMIC, allowing it to be placed in the world initially
+            type: RigidBodyType.DYNAMIC, 
             enabledRotations: { x: false, y: true, z: false },
             colliders: [{
                 shape: ColliderShape.BLOCK,
@@ -137,22 +139,31 @@ export default abstract class BaseWeaponEntity extends Entity {
     public abstract fire(): void;
 
     /**
-     * Drops the weapon from the player's hand to the world
+     * Drops the weapon from the player's hand to the world (Intentional throw)
      */
     public drop(fromPosition: Vector3Like, direction: Vector3Like): void {
         if (!this.world) return;
-
+        
+        // 1. Detach from parent AT the player's position
+        this.setParent(undefined, undefined, fromPosition); 
+        
+        // 2. Load the label SceneUI
+        this._labelSceneUI?.load(this.world);
+        
+        // 3. Start the despawn timer
         this.startDespawnTimer();
-        this.setParent(undefined, undefined, fromPosition);
 
-        // Apply impulse in next tick to avoid physics issues
+        // 4. Apply impulse (since it's DYNAMIC, it will fall/react)
         setTimeout(() => {
-            this.applyImpulse({
-                x: direction.x * this.mass * 7,
-                y: direction.y * this.mass * 15,
-                z: direction.z * this.mass * 7,
-            });
+            if (this.isSpawned) { 
+                this.applyImpulse({
+                    x: direction.x * this.mass * 7,
+                    y: direction.y * this.mass * 15,
+                    z: direction.z * this.mass * 7,
+                });
+            }
         }, 0);
+        this._logger.info(`${this.name} dropped at world position.`);
     }
 
     /**
@@ -165,16 +176,17 @@ export default abstract class BaseWeaponEntity extends Entity {
         }
 
         this._logger.info(`Pickup starting - stopping despawn timer`);
+        // 1. Stop any existing despawn timer
         this.stopDespawnTimer();
         
-        // Set parent to player but keep at current position temporarily
-        // We'll set final position in equip() which is called immediately after
-        this._logger.info(`Setting parent to player at current relative position`);
-        this.setParent(player, 'hand_right_anchor');
+        // 2. Unload the label SceneUI 
+        this._labelSceneUI?.unload();
         
+        // 3. Set parent ONLY (positioning happens in equip)
+        this.setParent(player, 'hand_right_anchor'); 
+                
         this._logger.info(`Calling player.equipWeapon()`);
-        // Call the equipWeapon method using type assertion
-        // This is safe since we've already checked the method exists
+        // 4. Tell the player to equip (handles relative positioning)
         (player as any).equipWeapon(this);
     }
 
@@ -197,19 +209,13 @@ export default abstract class BaseWeaponEntity extends Entity {
     }
 
     /**
-     * Called when the weapon is equipped.
+     * Called when the weapon is equipped (after pickup and setParent).
+     * Sets relative position/rotation and parent animations.
      */
     public equip(): void {
-        this._logger.info(`Equip called - positioning weapon and rotating`);
-        
-        // Debug: Check if still attached to parent
-        if (!this.parent) {
-            this._logger.error(`ERROR: No parent in equip() - weapon detached!`);
-        } else {
-            this._logger.info(`Parent in equip(): ${this.parent.name}, parentNodeName: ${this.parentNodeName}`);
-        }
-        
-        // Set position and rotation - uses virtual methods that subclasses can override
+        this._logger.info(`Equip called - setting relative position/rotation`);
+       
+        // Set position relative to the hand anchor node
         this.setPosition(this.getEquippedPosition());
         this.setRotation(this.getEquippedRotation());
         
@@ -236,47 +242,88 @@ export default abstract class BaseWeaponEntity extends Entity {
     }
 
     /**
-     * Called when the weapon is unequipped.
+     * Called when the weapon is unequipped (e.g., replaced by another weapon).
+     * Resets owner animations and leaves the weapon on the ground where it was.
      */
     public unequip(): void {
         const owner = this.getOwner();
+        
+        // Get the OWNER'S current world position before detaching
+        const ownerWorldPos = owner ? owner.position : this.position; // Fallback just in case
+        
         if (owner && typeof (owner as any).resetAnimations === 'function') {
-            // Call resetAnimations using type assertion
             (owner as any).resetAnimations();
+            this._logger.info(`Reset parent (${owner.name}) animations.`);
         }
-        this.setPosition(INVENTORIED_POSITION);
+        
+        // 1. Detach and place at the owner's world position
+        this.setParent(undefined, undefined, ownerWorldPos); 
+        
+        // 2. Load the label UI because it's now on the ground
+        // Check if world exists before loading UI
+        if (this.world) {
+            this._labelSceneUI?.load(this.world); 
+        } else {
+            this._logger.warn(`Cannot load label UI in unequip for ${this.name}: this.world is undefined.`);
+        }
+        
+        // 3. Start the despawn timer because it's now in the world
+        this.startDespawnTimer(); 
+
+        this._logger.info(`${this.name} unequipped (left at owner's position).`);
     }
 
     /**
      * Starts a despawn timer for weapons dropped in the world
      */
     public startDespawnTimer(): void {
-        if (this._despawnTimer) return;
-
+      this.stopDespawnTimer();
+      
+      // Only start despawn if the weapon is *not* attached to a player
+      if (!this.parent) {
+        this._logger.info(`Starting despawn timer for ${this.name}`);
         this._despawnTimer = setTimeout(() => {
-            if (this.isSpawned) {
-                this.despawn();
-            }
-        }, 30000); // 30 seconds before despawn
+            this.despawn();
+        }, 30000); // Despawn after 30 seconds
+      } else {
+          this._logger.debug(`Skipping despawn timer for ${this.name} as it has a parent.`);
+      }
     }
-
-    /**
-     * Stops the despawn timer when weapon is picked up
-     */
+    
     public stopDespawnTimer(): void {
-        if (!this._despawnTimer) return;
-
-        clearTimeout(this._despawnTimer);
-        this._despawnTimer = undefined;
+        if (this._despawnTimer) {
+            this._logger.info(`Stopping despawn timer for ${this.name}`);
+            clearTimeout(this._despawnTimer);
+            this._despawnTimer = undefined;
+        }
     }
 
-    // Spawn method remains simple
-    public spawn(world: World, position: Vector3Like, rotation?: QuaternionLike): void {
+    public override spawn(world: World, position: Vector3Like, rotation?: QuaternionLike): void {
         super.spawn(world, position, rotation);
-        if (!this.parent) {
-             this._logger.info(`Spawned standalone at ${JSON.stringify(position)}`);
-        } else {
-             this._logger.info(`Spawned attached to ${this.parent.name} with relative pos ${JSON.stringify(position)}`);
+        
+        // Create and load the SceneUI for the label
+        if (!this._labelSceneUI) {
+            this._labelSceneUI = new SceneUI({
+                attachedToEntity: this,
+                templateId: 'weapon-label',
+                state: { name: this.name }, // Set initial name state
+                viewDistance: 8, // Adjust as needed
+                offset: { x: 0, y: 0.75, z: 0 }, // Position label above the weapon
+            });
         }
+        
+        // Only load the label if the weapon is spawned standalone (not attached to player initially)
+        if (!this.parent) {
+            this._labelSceneUI.load(world);
+            this.startDespawnTimer();
+        } else {
+            this._labelSceneUI.unload(); // Ensure it's unloaded if spawned attached
+        }
+    }
+    
+    public override despawn(): void {
+        this.stopDespawnTimer();
+        this._labelSceneUI?.unload(); // Unload SceneUI on despawn
+        super.despawn();
     }
 }
