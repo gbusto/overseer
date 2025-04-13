@@ -160,4 +160,10 @@ This plan follows a user-centric approach, building core interactions first and 
         *   [ ] Finalize UI layout.
         *   [ ] Ensure Overseer health, weapon status/cooldowns are clear.
         *   [ ] Add visual indicator for BFG availability/location?
+    *   **Misc**
+        *   [ ] Handle player death; should stop *all* input via keyboard and mouse; player does *not* respawn until after the match ends. This is not a deathmatch style game
+        *   [ ] Handle KORO death; need some kind of final goodbye from KORO or minor celebration if the players win
+        *   [ ] Handle all players die / lose; need some kind of event to happen
+        *   [ ] Implement smooth transition after players win or lose before transitioning back to IDLE state
+        *   [ ] Program out the actual main game loop in GameManager.ts
 *   **Outcome Goal:** KORO dynamically chooses actions based on game state via LLM, speaking occasionally with degraded voice. Core loop feels responsive with simplified AI updates and planned event logging. Visuals and audio are polished.
