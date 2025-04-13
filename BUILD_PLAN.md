@@ -125,6 +125,7 @@ This plan follows a user-centric approach, building core interactions first and 
     *   **AI Core:**
         *   [ ] Create AI Manager class.
         *   [ ] Define data structure for game state snapshot (simpler now: player healths, KORO health, BFG status/location, current attack state).
+        *   [ ] Finalize LLM context structure (ensure it includes: KORO health/temp/shield_status, biodome_temp, health_pack_count, BFG_held_status, player_count/healths, recent KORO responses, recent game events, recent attacks).
         *   [ ] Implement function(s) to gather snapshot data.
         *   [ ] Set up Gemini API connection.
         *   [ ] Implement the main AI loop: Get snapshot -> Format prompt -> Send to LLM -> Parse response.
