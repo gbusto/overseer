@@ -882,19 +882,46 @@ export default class OverseerEntity extends Entity {
     // FIXED: If invulnerable or shield is active (closed), ignore damage
     if (this._invulnerable || this._shieldActive) {
       this._logger.info(`Damage ignored: ${amount} (invulnerable: ${this._invulnerable}, shield closed: ${this._shieldActive})`);
+      // Maybe log a 'shield_hit' event?
+      // this._brain?.addEventWithPriority('shield_hit', `Shield blocked ${amount} damage`, 'low');
       return false;
     }
 
     // Calculate new health value
     const newHealth = Math.max(0, this._health - amount);
-    
+
     // Only update if health actually changed
     if (newHealth !== this._health) {
-      this._logger.info(`Taking damage: ${amount}, health: ${this._health} -> ${newHealth}`);
-      this.setHealth(newHealth);
+      const oldHealth = this._health;
+      this._logger.info(`Taking damage: ${amount}, health: ${oldHealth} -> ${newHealth}`);
+      this.setHealth(newHealth); // This updates UI
+
+      // Log the damage event to the brain
+      this._brain?.addEventWithPriority(
+          'koro_damage',
+          `KORO took ${amount} damage.`,
+          'medium', // Medium priority - notable, but maybe not worth immediate interrupt
+          { amount: amount, oldHealth: oldHealth, newHealth: newHealth }
+      );
+
+      // Check if health dropped below critical threshold
+      const criticalThreshold = 10; // Example threshold
+      if (oldHealth >= criticalThreshold && newHealth < criticalThreshold) {
+          this._logger.warn('KORO health critical!');
+          this._brain?.addEventWithPriority(
+              'koro_health_critical',
+              `KORO health dropped below ${criticalThreshold}%`,
+              'high', // High priority - this IS a significant state change
+              { health: newHealth }
+          );
+      }
+
+      // TODO: Play non-verbal damage sound effect here
+      // Example: AudioManager.instance.playAttachedSound(this, 'koro_damage_sfx', { volume: 0.8 });
+
       return true;
     }
-    
+
     return false;
   }
 
@@ -1125,10 +1152,18 @@ export default class OverseerEntity extends Entity {
     this.openShield(); // Open shield indefinitely
     this._logger.warn(`KORO Auto-Venting triggered due to ${reason}! Internal Temp: ${this._internalTemp.toFixed(1)}°F. Shield forced open.`);
 
+    // Log event
+    this._brain?.addEventWithPriority(
+        'shield_vent_start',
+        `Auto-venting started due to ${reason}. Shield open.`,
+        'low',
+        { reason: reason, internalTemp: this._internalTemp }
+    );
+
     // Broadcast warning
     if (this._world) {
       this._world.chatManager.sendBroadcastMessage(
-        `WARNING: Overseer core ${reason}! Shield integrity failing - venting initiated.`, 
+        `WARNING: Overseer core ${reason}! Shield integrity failing - venting initiated.`,
         'FF0000' // Red color
       );
     }
@@ -1145,10 +1180,18 @@ export default class OverseerEntity extends Entity {
     this._autoVentCooldownUntil = Date.now() + this.AUTO_VENT_COOLDOWN_MS; // Start cooldown
     this._logger.info(`KORO Auto-Venting complete. Internal Temp: ${this._internalTemp.toFixed(1)}°F. Shield closed. Cooldown started.`);
 
+    // Log event
+    this._brain?.addEventWithPriority(
+        'shield_vent_stop',
+        `Auto-venting stopped. Shield closed.`,
+        'low',
+        { internalTemp: this._internalTemp }
+    );
+
     // Broadcast stabilization message
     if (this._world) {
       this._world.chatManager.sendBroadcastMessage(
-        'Overseer core temperature stabilized. Shield integrity restored.', 
+        'Overseer core temperature stabilized. Shield integrity restored.',
         '00FF00' // Green color
       );
     }
@@ -1181,16 +1224,24 @@ export default class OverseerEntity extends Entity {
         this._logger.info(`forceOpenShield ignored: Shield already open or auto-venting.`);
         return;
     }
-    
+
     this._logger.warn(`Shield forced open by external force (BFG?) for ${duration / 1000}s!`);
-    
+
+    // Log the event FIRST
+    this._brain?.addEventWithPriority(
+        'shield_breach_bfg',
+        `Shield breached by external force!`,
+        'high', // High priority - direct player action bypassing defense
+        { duration: duration }
+    );
+
     // Use the existing openShield method with the specified duration
     this.openShield(duration);
 
     // Broadcast a specific message
     if (this._world) {
       this._world.chatManager.sendBroadcastMessage(
-        `ALERT: Overseer shield integrity compromised! Forced venting initiated!`, 
+        `ALERT: Overseer shield integrity compromised! Forced venting initiated!`,
         'FFA500' // Orange color for malfunction
       );
     }
