@@ -41,12 +41,13 @@ export default class BiodomeController {
   
   // Auto reset properties
   private _autoResetEnabled: boolean = false;
-  private _autoResetDelay: number = 30000; // 30 seconds
+  private _autoResetDelay: number = 5000; // 5 seconds
   private _autoResetTimer: NodeJS.Timeout | null = null;
   
   // Damage control
   private _environmentalDamageEnabled: boolean = false; // Off by default for development
   private _lastDamageTime: number = 0; // Track when damage was last applied
+  private _isAutoResetting: boolean = false; // Flag to indicate if currently in auto-reset phase
   
   // Logger
   private _logger: Logger;
@@ -88,6 +89,11 @@ export default class BiodomeController {
     
     // Skip updates if we're already at target temperature
     if (this._currentTemp === this._targetTemp) {
+      // If we reached the normal temp during an auto-reset, clear the flag
+      if (this._isAutoResetting && this._targetTemp === this.NORMAL_TEMP) {
+        this._isAutoResetting = false;
+        this._logger.info('Biodome auto-reset complete.');
+      }
       return;
     }
     
@@ -102,6 +108,11 @@ export default class BiodomeController {
       // schedule a reset to normal temperature
       if (this._autoResetEnabled && this._targetTemp !== this.NORMAL_TEMP) {
         this._scheduleResetToNormal();
+      }
+      // If we reached the normal temp target during an auto-reset, clear the flag
+      else if (this._isAutoResetting && this._targetTemp === this.NORMAL_TEMP) {
+        this._isAutoResetting = false;
+        this._logger.info('Biodome auto-reset complete.');
       }
     } else if (this._currentTemp < this._targetTemp) {
       // Increase temperature
@@ -337,6 +348,7 @@ export default class BiodomeController {
     // Create new timer
     this._autoResetTimer = setTimeout(() => {
       this._logger.info('Auto-resetting biodome temperature to normal');
+      this._isAutoResetting = true; // Set flag just before starting the reset
       this.setTemperature(this.NORMAL_TEMP, undefined, false);
       this._autoResetTimer = null;
     }, this._autoResetDelay);
@@ -435,5 +447,36 @@ export default class BiodomeController {
    */
   public isEnvironmentalDamageEnabled(): boolean {
     return this._environmentalDamageEnabled;
+  }
+
+  /**
+   * Enable or disable the automatic reset of biodome temperature to normal after a delay.
+   * @param enabled Whether auto-reset should be enabled.
+   */
+  public setAutoResetEnabled(enabled: boolean): void {
+    this._autoResetEnabled = enabled;
+    this._logger.info(`Biodome Auto-Reset ${enabled ? 'Enabled' : 'Disabled'}.`);
+    // If disabling, clear any pending reset timer
+    if (!enabled && this._autoResetTimer) {
+      clearTimeout(this._autoResetTimer);
+      this._autoResetTimer = null;
+      this._logger.info('Cleared pending biodome auto-reset timer.');
+    }
+  }
+
+  /**
+   * Check if the automatic temperature reset feature is enabled.
+   * @returns True if auto-reset is enabled, false otherwise.
+   */
+  public isAutoResetEnabled(): boolean {
+    return this._autoResetEnabled;
+  }
+
+  /**
+   * Check if the biodome is currently in the process of auto-resetting its temperature.
+   * @returns True if currently auto-resetting, false otherwise.
+   */
+  public isAutoResetting(): boolean {
+    return this._isAutoResetting;
   }
 } 

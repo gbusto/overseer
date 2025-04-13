@@ -160,7 +160,7 @@ These commands can be used in the game chat for testing and debugging:
 | `/togglebiodome` | Toggles biodome status display visibility |
 | `/toggleui` | Toggles visibility of ALL UI elements (player health, KORO health, biodome status, overseer temperature, crosshair) |
 | `/togglealldamage` | Toggles ALL damage systems (player vulnerability, KORO vulnerability, environmental damage) |
-| `/togglebiodomeeffects` | Toggles biodome environmental effects and resets temperature if disabled |
+| `/toggleautoreg` | Toggles Auto-Regulation Systems (Biodome auto-reset temp & KORO auto-vent shield) |
 | `/koro openshield` | Opens KORO's shield |
 | `/koro closeshield` | Closes KORO's shield |
 | `/healthpack` | Spawns a health pack in front of the player |

@@ -58,6 +58,16 @@ export default class OverseerEntity extends Entity {
   private _lastInternalTempUpdate: number = 0; // Throttle UI updates
   private _internalTempUpdateInterval: number = 500; // Update UI every 500ms max
   
+  // Auto-venting properties
+  private _autoVentEnabled: boolean = false; // Is the auto-vent feature active?
+  private _isAutoVenting: boolean = false; // Is KORO currently venting due to temperature?
+  private readonly AUTO_VENT_HIGH_THRESHOLD: number = 105; // Temp above which auto-vent triggers
+  private readonly AUTO_VENT_LOW_THRESHOLD: number = 45;  // Temp below which auto-vent triggers
+  private readonly AUTO_VENT_SAFE_HIGH: number = 100; // Venting stops when temp is below this
+  private readonly AUTO_VENT_SAFE_LOW: number = 50;   // Venting stops when temp is above this
+  private _autoVentCooldownUntil: number = 0; // Timestamp until next auto-vent is allowed
+  private readonly AUTO_VENT_COOLDOWN_MS: number = 20000; // Cooldown between auto-vents (20s)
+  
   // Next update check
   private _nextUpdateCheck: number = 0;
   private _updateCheckInterval: number = 5000; // Check every 5 seconds
@@ -488,6 +498,9 @@ export default class OverseerEntity extends Entity {
     
     // Update internal temperature
     this._updateInternalTemperature(tickDeltaMs);
+    
+    // Check if auto-venting needs to start or stop
+    this._checkAutoVenting();
     
     // Check for AI updates periodically to avoid checking every tick
     if (time > this._nextUpdateCheck) {
@@ -1130,5 +1143,106 @@ export default class OverseerEntity extends Entity {
     this._internalTemp = Math.max(0, Math.min(200, temp)); // Clamp to reasonable range
     this._updateInternalTempUI();
     this._logger.debug(`Internal temperature set to ${this._internalTemp.toFixed(1)}°F`);
+  }
+
+  /**
+   * Enable or disable the automatic shield venting mechanism based on internal temperature.
+   * @param enabled Whether auto-venting should be enabled.
+   */
+  public setAutoVentEnabled(enabled: boolean): void {
+    this._autoVentEnabled = enabled;
+    this._logger.info(`KORO Auto-Venting ${enabled ? 'Enabled' : 'Disabled'}.`);
+    // If disabling while venting, stop the vent immediately
+    if (!enabled && this._isAutoVenting) {
+      this._stopAutoVenting();
+    }
+  }
+
+  /**
+   * Check if the automatic shield venting mechanism is enabled.
+   * @returns True if auto-venting is enabled, false otherwise.
+   */
+  public isAutoVentEnabled(): boolean {
+    return this._autoVentEnabled;
+  }
+
+  /**
+   * Check if KORO is currently auto-venting due to temperature.
+   * @returns True if currently auto-venting, false otherwise.
+   */
+  public isCurrentlyAutoVenting(): boolean {
+    return this._isAutoVenting;
+  }
+
+  /**
+   * Check conditions and potentially trigger or stop auto-venting.
+   * Called from the main tick update.
+   */
+  private _checkAutoVenting(): void {
+    if (!this._autoVentEnabled) return; // Feature disabled
+
+    const currentTime = Date.now();
+
+    // Check if we need to START venting
+    // Conditions: Auto-vent enabled, not currently venting, not on cooldown, 
+    //             AND biodome is actively auto-resetting, AND internal temp is critical.
+    if (!this._isAutoVenting && 
+        currentTime >= this._autoVentCooldownUntil &&
+        this._biodome?.isAutoResetting()) 
+    {
+      const isTooHot = this._internalTemp > this.AUTO_VENT_HIGH_THRESHOLD;
+      const isTooCold = this._internalTemp < this.AUTO_VENT_LOW_THRESHOLD;
+      
+      if (isTooHot || isTooCold) {
+        this._startAutoVenting(isTooHot ? 'overheating' : 'freezing');
+      }
+    }
+    // Check if we need to STOP venting
+    else if (this._isAutoVenting) {
+      const tempIsSafe = this._internalTemp < this.AUTO_VENT_SAFE_HIGH && this._internalTemp > this.AUTO_VENT_SAFE_LOW;
+      if (tempIsSafe) {
+        this._stopAutoVenting();
+      }
+    }
+  }
+
+  /**
+   * Force the shield open for auto-venting without a duration.
+   * @param reason Reason for venting ('overheating' or 'freezing')
+   */
+  private _startAutoVenting(reason: string): void {
+    if (this._isAutoVenting) return; // Already venting
+
+    this._isAutoVenting = true;
+    this.openShield(); // Open shield indefinitely
+    this._logger.warn(`KORO Auto-Venting triggered due to ${reason}! Internal Temp: ${this._internalTemp.toFixed(1)}°F. Shield forced open.`);
+
+    // Broadcast warning
+    if (this._world) {
+      this._world.chatManager.sendBroadcastMessage(
+        `WARNING: Overseer core ${reason}! Shield integrity failing - venting initiated.`, 
+        'FF0000' // Red color
+      );
+    }
+  }
+
+  /**
+   * Close the shield after auto-venting is complete and start cooldown.
+   */
+  private _stopAutoVenting(): void {
+    if (!this._isAutoVenting) return; // Not venting
+
+    this._isAutoVenting = false;
+    this.closeShield(); // Close the shield
+    this._autoVentCooldownUntil = Date.now() + this.AUTO_VENT_COOLDOWN_MS; // Start cooldown
+    this._logger.info(`KORO Auto-Venting complete. Internal Temp: ${this._internalTemp.toFixed(1)}°F. Shield closed. Cooldown started.`);
+
+    // Broadcast stabilization message
+    if (this._world) {
+      this._world.chatManager.sendBroadcastMessage(
+        'Overseer core temperature stabilized. Shield integrity restored.', 
+        '00FF00' // Green color
+      );
+    }
   }
 }

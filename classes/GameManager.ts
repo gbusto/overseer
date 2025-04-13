@@ -14,6 +14,7 @@ import HealthPackItem from './items/HealthPackItem';
 import OverseerEntity from './entities/OverseerEntity';
 import EnergyRifle1 from './weapons/EnergyRifle1';
 import BFG from './weapons/BFG';
+import BiodomeController from './BiodomeController';
 
 // Game states enum
 export enum GameState {
@@ -986,39 +987,41 @@ export default class GameManager {
       }
     });
     
-    // Command: /togglebiodomeeffects - Toggle all biodome environmental effects
-    chatManager.registerCommand('/togglebiodomeeffects', (player) => {
+    // Command: /toggleautoreg - Toggle Auto-Regulation (Biodome Temp Reset & KORO Temp Venting)
+    chatManager.registerCommand('/toggleautoreg', (player) => {
       const overseer = this.getOverseerEntity();
-      if (!overseer) {
-        chatManager.sendPlayerMessage(player, 'Overseer not found.', 'FF0000');
+      if (!overseer || !overseer['_biodome']) { // Ensure biodome controller exists too
+        chatManager.sendPlayerMessage(player, 'Overseer or Biodome Controller not found.', 'FF0000');
         return;
       }
       
-      // Toggle environmental damage
-      const envDamageEnabled = !overseer.isBiodomeEnvironmentalDamageEnabled();
-      overseer.setBiodomeEnvironmentalDamageEnabled(envDamageEnabled);
+      // Get current state (use KORO auto-vent as the primary toggle)
+      const currentlyEnabled = overseer.isAutoVentEnabled();
+      const newState = !currentlyEnabled;
       
-      // Reset temperature to normal if disabling effects
-      if (!envDamageEnabled) {
-        overseer.resetBiodomeTemperature();
-      }
+      // Toggle KORO auto-vent
+      overseer.setAutoVentEnabled(newState);
       
+      // Toggle Biodome auto-reset
+      const biodome = overseer['_biodome'] as BiodomeController;
+      biodome.setAutoResetEnabled(newState);
+            
       // Notify the player
       chatManager.sendPlayerMessage(
         player, 
-        `Biodome environmental effects ${envDamageEnabled ? 'enabled' : 'disabled'}.`,
+        `Auto-Regulation Systems (Biodome Reset & KORO Venting) ${newState ? 'Enabled' : 'Disabled'}.`,
         '00FF00'
       );
       
       // Broadcast to all players
-      if (envDamageEnabled) {
+      if (newState) {
         chatManager.sendBroadcastMessage(
-          'WARNING: Biodome environmental effects enabled. Temperature extremes can cause damage.',
-          'FF3300'
+          'Overseer Auto-Regulation Systems Activated. Expect automatic temperature resets and potential core venting.',
+          '00CCFF'
         );
       } else {
         chatManager.sendBroadcastMessage(
-          'Biodome environmental effects disabled. Temperature extremes are harmless.',
+          'Overseer Auto-Regulation Systems Deactivated. Manual control required.',
           '00FF00'
         );
       }
