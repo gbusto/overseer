@@ -68,6 +68,10 @@ export default class OverseerEntity extends Entity {
   private _autoVentCooldownUntil: number = 0; // Timestamp until next auto-vent is allowed
   private readonly AUTO_VENT_COOLDOWN_MS: number = 20000; // Cooldown between auto-vents (20s)
   
+  // BFG Shield Break properties
+  private _bfgShieldBreakEnabled: boolean = false; // Can the BFG force the shield open?
+  private readonly BFG_SHIELD_BREAK_DURATION_MS: number = 5000; // How long shield stays open after BFG hit
+  
   // Next update check
   private _nextUpdateCheck: number = 0;
   private _updateCheckInterval: number = 5000; // Check every 5 seconds
@@ -1242,6 +1246,48 @@ export default class OverseerEntity extends Entity {
       this._world.chatManager.sendBroadcastMessage(
         'Overseer core temperature stabilized. Shield integrity restored.', 
         '00FF00' // Green color
+      );
+    }
+  }
+
+  /**
+   * Enable or disable the BFG shield break mechanic.
+   * @param enabled Whether the BFG should be able to break the shield.
+   */
+  public setBFGShieldBreakEnabled(enabled: boolean): void {
+    this._bfgShieldBreakEnabled = enabled;
+    this._logger.info(`BFG Shield Break Mechanic ${enabled ? 'Enabled' : 'Disabled'}.`);
+  }
+
+  /**
+   * Check if the BFG shield break mechanic is enabled.
+   * @returns True if enabled, false otherwise.
+   */
+  public isBFGShieldBreakEnabled(): boolean {
+    return this._bfgShieldBreakEnabled;
+  }
+
+  /**
+   * Force the shield open, typically due to a BFG hit.
+   * @param duration Optional duration to keep the shield open (defaults to BFG_SHIELD_BREAK_DURATION_MS).
+   */
+  public forceOpenShield(duration: number = this.BFG_SHIELD_BREAK_DURATION_MS): void {
+    // Don't force open if already open or auto-venting
+    if (!this._shieldActive || this._isAutoVenting) {
+        this._logger.info(`forceOpenShield ignored: Shield already open or auto-venting.`);
+        return;
+    }
+    
+    this._logger.warn(`Shield forced open by external force (BFG?) for ${duration / 1000}s!`);
+    
+    // Use the existing openShield method with the specified duration
+    this.openShield(duration);
+
+    // Broadcast a specific message
+    if (this._world) {
+      this._world.chatManager.sendBroadcastMessage(
+        `ALERT: Overseer shield integrity compromised! Forced venting initiated!`, 
+        'FFA500' // Orange color for malfunction
       );
     }
   }

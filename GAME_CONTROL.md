@@ -60,6 +60,18 @@ The Overseer's internal temperature is affected by the biodome temperature setti
 - When KORO's shield is open, its internal temperature gradually returns to normal
 - Temperature changes are automatically reflected in the UI for players to see
 
+### BFG Shield Break Mechanic
+
+| Method | Description | Parameters |
+|--------|-------------|------------|
+| `overseer.setBFGShieldBreakEnabled(enabled)` | Enable/disable the BFG shield break mechanic | Boolean |
+| `overseer.isBFGShieldBreakEnabled()` | Check if BFG shield break is enabled | None |
+| `overseer.forceOpenShield(duration?)` | Forces the shield open, typically by BFG | Optional duration in ms (defaults to 5s) |
+
+When enabled via `/togglebfgbreak`:
+- Hitting KORO's closed shield with a BFG projectile will force the shield to open for 5 seconds.
+- This provides a way for players with the BFG to create vulnerability windows.
+
 ### AI Behavior
 
 | Method | Description | Parameters |
@@ -161,6 +173,7 @@ These commands can be used in the game chat for testing and debugging:
 | `/toggleui` | Toggles visibility of ALL UI elements (player health, KORO health, biodome status, overseer temperature, crosshair) |
 | `/togglealldamage` | Toggles ALL damage systems (player vulnerability, KORO vulnerability, environmental damage) |
 | `/toggleautoreg` | Toggles Auto-Regulation Systems (Biodome auto-reset temp & KORO auto-vent shield) |
+| `/togglebfgbreak` | Toggles whether hitting KORO's closed shield with the BFG forces it open |
 | `/koro openshield` | Opens KORO's shield |
 | `/koro closeshield` | Closes KORO's shield |
 | `/healthpack` | Spawns a health pack in front of the player |

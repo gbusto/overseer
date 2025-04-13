@@ -1027,6 +1027,40 @@ export default class GameManager {
       }
     });
     
+    // Command: /togglebfgbreak - Toggle BFG shield break mechanic
+    chatManager.registerCommand('/togglebfgbreak', (player) => {
+      const overseer = this.getOverseerEntity();
+      if (!overseer) {
+        chatManager.sendPlayerMessage(player, 'Overseer not found.', 'FF0000');
+        return;
+      }
+      
+      // Get current state and toggle it
+      const currentState = overseer.isBFGShieldBreakEnabled();
+      const newState = !currentState;
+      overseer.setBFGShieldBreakEnabled(newState);
+      
+      // Notify the player
+      chatManager.sendPlayerMessage(
+        player, 
+        `BFG Shield Break Mechanic ${newState ? 'Enabled' : 'Disabled'}.`,
+        '00FF00'
+      );
+      
+      // Broadcast to all players
+      if (newState) {
+        chatManager.sendBroadcastMessage(
+          'ALERT: Overseer shield is vulnerable to BFG impacts!',
+          'FFA500' // Orange
+        );
+      } else {
+        chatManager.sendBroadcastMessage(
+          'Overseer shield has been reinforced against BFG impacts.',
+          '00FF00' // Green
+        );
+      }
+    });
+    
     this._logger.info('Registered custom chat commands.');
   }
 } 
