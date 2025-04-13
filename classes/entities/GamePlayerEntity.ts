@@ -33,6 +33,9 @@ export default class GamePlayerEntity extends PlayerEntity {
   private _damageAudio: Audio;
   private _logger = new Logger('GamePlayerEntity');
   
+  // Track player death state
+  private _dead: boolean = false;
+  
   // Active weapon state
   private _activeWeapon: BaseWeaponEntity | null = null;
   
@@ -40,6 +43,9 @@ export default class GamePlayerEntity extends PlayerEntity {
   public get playerController(): PlayerEntityController {
     return this.controller as PlayerEntityController;
   }
+  
+  // Getter for death state
+  public get isDead(): boolean { return this._dead; }
   
   constructor(player: Player) {
     super({
@@ -127,7 +133,7 @@ export default class GamePlayerEntity extends PlayerEntity {
    * Take damage from sources
    */
   public takeDamage(amount: number): void {
-    if (!this.isSpawned || !this.world) return;
+    if (!this.isSpawned || !this.world || this._dead) return;
     
     // Only take damage if the game is active or player vulnerability is enabled
     if (!GameManager.isPlayerVulnerable()) {
@@ -146,6 +152,11 @@ export default class GamePlayerEntity extends PlayerEntity {
     this._updateHealthUI();
     
     this._logger.debug(`Player took ${amount} damage, health: ${oldHealth} -> ${this.health}`);
+    
+    // Check if player died from this damage
+    if (this.health <= 0) {
+      this.checkDeath();
+    }
   }
   
   /**
@@ -198,6 +209,15 @@ export default class GamePlayerEntity extends PlayerEntity {
    */
   private _onTickWithPlayerInput = (payload: any): void => {
     const { input } = payload;
+    
+    // If player is dead, ignore all inputs
+    if (this._dead) {
+      // Clear all inputs to prevent any actions
+      Object.keys(input).forEach(key => {
+        input[key] = false;
+      });
+      return;
+    }
     
     // Handle healing with 'h' key (for testing)
     if (input.h) {
@@ -339,5 +359,66 @@ export default class GamePlayerEntity extends PlayerEntity {
     if (this._health !== previousHealth && this.world) { // Check if health changed and world exists (UI should be loaded if world exists)
        this._updateHealthUI();
     }
+  }
+
+  /**
+   * Check if player has died and handle death state
+   */
+  public checkDeath(): void {
+    if (this.health <= 0 && !this._dead) {
+      this._dead = true;
+      
+      if (this.isSpawned && this.world) {
+        // Reset player inputs to prevent any movement
+        Object.keys(this.player.input).forEach(key => {
+          this.player.input[key] = false;
+        });
+        
+        // Set the player to "sleep" animation to look dead
+        this.playerController.idleLoopedAnimations = ['sleep'];
+        this.playerController.walkLoopedAnimations = [];
+        this.playerController.runLoopedAnimations = [];
+        
+        // Notify the player
+        this.world.chatManager.sendPlayerMessage(
+          this.player, 
+          'You have been eliminated! You will remain in spectator mode until the game ends.', 
+          'FF0000'
+        );
+        
+        // Broadcast to all players
+        this.world.chatManager.sendBroadcastMessage(`${this.player.username || this.player.id} has been eliminated!`, 'FF0000');
+        
+        this._logger.info(`Player died: ${this.player.username || this.player.id}`);
+      }
+    }
+  }
+  
+  /**
+   * Respawn a dead player (for testing purposes only)
+   */
+  public respawn(): void {
+    if (!this.world) return;
+    
+    this._dead = false;
+    this.health = this._maxHealth;
+    
+    // Reset animations
+    this.resetAnimations();
+    
+    // Reset camera
+    this._setupPlayerCamera();
+    
+    // Update UI
+    this._updatePlayerUI();
+    
+    // Notify player
+    this.world.chatManager.sendPlayerMessage(
+      this.player,
+      'You have been respawned for testing purposes.',
+      '00FF00'
+    );
+    
+    this._logger.info(`Player respawned: ${this.player.username || this.player.id}`);
   }
 } 

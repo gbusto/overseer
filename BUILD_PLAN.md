@@ -102,7 +102,7 @@ This plan follows a user-centric approach, building core interactions first and 
             *   [x] Call `OverseerEntity.takeDamage(amount)` from projectile on valid hit. Damage configurable.
             *   [x] Implement ammo (e.g., 30 shots) and cooldowns (shot interval, recharge) in `EnergyGun`. Configurable.
             *   [x] Update weapon status UI (deferred).
-        *   [] Implement **BFG**:
+        *   [ ] Implement **BFG**:
             *   [x] Create `BFG.ts` weapon class.
             *   [ ] Spawn one BFG randomly on the map at match start.
             *   [x] Implement pickup logic (replaces Energy Gun? Or specific action? Simplest: replaces Energy Gun).
@@ -116,6 +116,11 @@ This plan follows a user-centric approach, building core interactions first and 
         *   [x] Add health property to `OverseerEntity`.
         *   [x] Ensure `OverseerEntity` barrier has appropriate colliders to block projectiles.
         *   [x] Update Overseer health UI.
+    *   **Player Death Mechanics:**
+        *   [x] Implement player death handling in `GamePlayerEntity.checkDeath()`.
+        *   [x] Add sleep animation for dead players using `playerController.idleLoopedAnimations = ['sleep']`.
+        *   [x] Disable all player input when dead by checking `this._dead` flag in `_onTickWithPlayerInput`.
+        *   [x] Add `/respawn` command for testing purposes.
 *   **Outcome Goal:** The core gameplay loop is functional. Players survive attacks, heal with pickups, wait for/force vulnerability windows, and shoot KORO's core with weapons (Energy Gun implemented, BFG basic logic) to deal damage.
 
 ## Phase 6: AI Integration & Polish
@@ -161,7 +166,7 @@ This plan follows a user-centric approach, building core interactions first and 
         *   [ ] Ensure Overseer health, weapon status/cooldowns are clear.
         *   [ ] Add visual indicator for BFG availability/location?
     *   **Misc**
-        *   [ ] Handle player death; should stop *all* input via keyboard and mouse; player does *not* respawn until after the match ends. This is not a deathmatch style game
+        *   [x] Handle player death; should stop *all* input via keyboard and mouse; player does *not* respawn until after the match ends. This is not a deathmatch style game
         *   [ ] Handle KORO death; need some kind of final goodbye from KORO or minor celebration if the players win
         *   [ ] Handle all players die / lose; need some kind of event to happen
         *   [ ] Implement smooth transition after players win or lose before transitioning back to IDLE state

@@ -1061,6 +1061,28 @@ export default class GameManager {
       }
     });
     
+    // Command: /respawn - Respawn a dead player (Testing only)
+    chatManager.registerCommand('/respawn', (player) => {
+      // Get all player entities controlled by this player
+      const playerEntities = entityManager.getPlayerEntitiesByPlayer(player);
+      const playerEntity = playerEntities.length > 0 ? playerEntities[0] as GamePlayerEntity : null;
+      
+      if (!playerEntity) {
+        chatManager.sendPlayerMessage(player, 'Could not find your player entity.', 'FF0000');
+        return;
+      }
+      
+      // Check if player is dead
+      if (!playerEntity.isDead) {
+        chatManager.sendPlayerMessage(player, 'You are not dead! This command is only for respawning dead players.', 'FFFF00');
+        return;
+      }
+      
+      // Respawn the player
+      playerEntity.respawn();
+      chatManager.sendPlayerMessage(player, 'You have been respawned for testing purposes.', '00FF00');
+    });
+    
     this._logger.info('Registered custom chat commands.');
   }
 } 
