@@ -43,6 +43,9 @@ export default class OverseerEntity extends Entity {
   
   // Sound effects
   private _ttsAudio: Audio | null = null;
+  private _shieldRicochetAudio: Audio | null = null;
+  private _shieldMalfunctionAudio: Audio | null = null;
+  private _directHitAudio: Audio | null = null;
   
   // AI Brain
   private _brain: KOROBrain | null = null;
@@ -153,6 +156,34 @@ export default class OverseerEntity extends Entity {
     
     // Set up despawn handler for cleanup
     this.on(EntityEvent.DESPAWN, this._onDespawned);
+    
+    // --- Initialize Shield Hit Audio Components --- START
+    this._shieldRicochetAudio = new Audio({
+      // attachedToEntity: undefined, // Play at specified position
+      uri: 'audio/sfx/weapons/laser-ricochet.mp3',
+      loop: false,
+      volume: 0.7,
+      referenceDistance: 20 // Adjust falloff
+    });
+
+    this._shieldMalfunctionAudio = new Audio({
+      // attachedToEntity: undefined, // Play at specified position
+      uri: 'audio/sfx/overseer/shield-malfunction.mp3',
+      loop: false,
+      volume: 0.9, // Louder for BFG impact
+      referenceDistance: 25 // Adjust falloff
+    });
+    // --- Initialize Shield Hit Audio Components --- END
+    
+    // --- Initialize Direct Hit Audio Component --- START
+    this._directHitAudio = new Audio({
+        attachedToEntity: this, // Sound comes from KORO
+        uri: 'audio/sfx/overseer/direct-hit.mp3',
+        loop: false,
+        volume: 1.0, // Make it noticeable
+        referenceDistance: 30 // Adjust falloff
+    });
+    // --- Initialize Direct Hit Audio Component --- END
     
     // Check if TTS is configured
     if (!TTS_API_TOKEN) {
@@ -943,6 +974,12 @@ export default class OverseerEntity extends Entity {
       this._logger.info(`Taking damage: ${amount}, health: ${oldHealth} -> ${newHealth}`);
       this.setHealth(newHealth); // This updates UI
 
+      // --- Play Direct Hit Sound --- START
+      if (this._directHitAudio && this.world) {
+          this._directHitAudio.play(this.world, true); // Play and restart if needed
+      }
+      // --- Play Direct Hit Sound --- END
+
       // Log the damage event to the brain
       this._brain?.addEventWithPriority(
           'koro_damage',
@@ -962,9 +999,6 @@ export default class OverseerEntity extends Entity {
               { health: newHealth }
           );
       }
-
-      // TODO: Play non-verbal damage sound effect here
-      // Example: AudioManager.instance.playAttachedSound(this, 'koro_damage_sfx', { volume: 0.8 });
 
       // Check if Overseer died
       if (newHealth <= 0) {
@@ -1648,5 +1682,32 @@ export default class OverseerEntity extends Entity {
    */
   public getMaxHealth(): number {
       return this._maxHealth;
+  }
+
+  /**
+   * Plays a specific shield hit sound effect at a given position.
+   * @param type The type of sound to play ('ricochet' or 'malfunction').
+   * @param position The world position where the sound should originate.
+   */
+  public playShieldHitSound(type: 'ricochet' | 'malfunction', position: Vector3Like): void {
+    if (!this.world || !this.isSpawned) return; // Ensure world context exists
+
+    let audioToPlay: Audio | null = null;
+
+    if (type === 'ricochet' && this._shieldRicochetAudio) {
+      audioToPlay = this._shieldRicochetAudio;
+    } else if (type === 'malfunction' && this._shieldMalfunctionAudio) {
+      audioToPlay = this._shieldMalfunctionAudio;
+    }
+
+    if (audioToPlay) {
+      this._logger.debug(`Playing shield hit sound (${type}) at position: ${JSON.stringify(position)}`);
+      // Set the position of the sound source just before playing
+      audioToPlay.setPosition(position);
+      // Play the sound in the world, restarting if needed
+      audioToPlay.play(this.world, true); 
+    } else {
+      this._logger.warn(`Could not find audio component for shield hit type: ${type}`);
+    }
   }
 }

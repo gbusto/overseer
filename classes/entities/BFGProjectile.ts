@@ -50,15 +50,23 @@ export default class BFGProjectile extends BaseEnergyProjectile {
       const overseerEntity = this.world?.entityManager.getEntitiesByTag('overseer')[0] as OverseerEntity | undefined;
       
       if (overseerEntity) {
-        // Check if the shield break mechanic is enabled and the shield is closed
-        if (overseerEntity.isBFGShieldBreakEnabled() && !overseerEntity.isShieldOpen()) {
-          this._logger.info('BFG Shield Break enabled and shield is closed. Forcing shield open.');
-          overseerEntity.forceOpenShield(); // Use the default duration
+        // Check if the shield break mechanic is enabled AND the shield is closed
+        if (!overseerEntity.isShieldOpen()) {
+          // Play malfunction sound at the projectile's current position
+          overseerEntity.playShieldHitSound('malfunction', this.position);
+          
+          // Now check if the shield break should trigger
+          if (overseerEntity.isBFGShieldBreakEnabled()) {
+            this._logger.info('BFG Shield Break enabled. Forcing shield open.');
+            overseerEntity.forceOpenShield(); // Use the default duration
+          } else {
+            this._logger.info(`BFG Shield Break not triggered (Mechanic Disabled).`);
+          }
         } else {
-          this._logger.info(`BFG Shield Break not triggered (Enabled: ${overseerEntity.isBFGShieldBreakEnabled()}, Shield Open: ${overseerEntity.isShieldOpen()}).`);
+           this._logger.info(`BFG hit shield, but it was already open.`);
         }
       } else {
-        this._logger.warn('Could not find Overseer entity to apply shield break logic.');
+        this._logger.warn('Could not find Overseer entity to apply shield hit logic.');
       }
     }
     

@@ -11,6 +11,7 @@ import type {
 } from 'hytopia';
 
 import BaseEnergyProjectile from './BaseEnergyProjectile';
+import OverseerEntity from './OverseerEntity';
 
 /**
  * Standard energy projectile for the EnergyRifle1 weapon
@@ -44,8 +45,23 @@ export default class EnergyProjectile extends BaseEnergyProjectile {
    * Standard impact behavior for energy projectile
    */
   protected override onImpact(hitEntity: Entity): void {
+    // Check if we hit a shield piece
+    if (hitEntity.name === 'OverseerShieldTop' || hitEntity.name === 'OverseerShieldBottom') {
+      this._logger.info('Energy Projectile hit Overseer Shield.');
+      
+      // Attempt to find the Overseer entity
+      const overseerEntity = this.world?.entityManager.getEntitiesByTag('overseer')[0] as OverseerEntity | undefined;
+      
+      if (overseerEntity) {
+        // Play ricochet sound regardless of shield state when hitting a shield piece
+        overseerEntity.playShieldHitSound('ricochet', this.position);
+      } else {
+        this._logger.warn('Could not find Overseer entity to play shield hit sound.');
+      }
+    }
+    
     // Standard energy projectile just despawns on impact
-    // Future: Could add specific visual or audio effects here
+    // Call the base class implementation AFTER our custom logic
     super.onImpact(hitEntity);
   }
 } 
