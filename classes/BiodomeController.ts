@@ -458,8 +458,8 @@ export default class BiodomeController {
   public resetLighting(): void {
     if (!this._world) return;
     
-    this._world.setAmbientLightColor(this._defaultAmbientLightColor);
-    this._world.setDirectionalLightColor(this._defaultDirectionalLightColor);
+    // this._world.setAmbientLightColor(this._defaultAmbientLightColor);
+    // this._world.setDirectionalLightColor(this._defaultDirectionalLightColor);
     this._world.setAmbientLightIntensity(this._defaultAmbientLightIntensity);
     this._world.setDirectionalLightIntensity(this._defaultDirectionalLightIntensity);
   }
@@ -535,13 +535,17 @@ export default class BiodomeController {
           }
 
           if (dark) {
-              this._world.setAmbientLightColor({ r: 0, g: 0, b: 0 });
-              this._world.setDirectionalLightColor({ r: 0, g: 0, b: 0 });
+              // --- Only set intensities to 0 --- 
+              // this._world.setAmbientLightColor({ r: 0, g: 0, b: 0 }); // Keep existing color
+              // this._world.setDirectionalLightColor({ r: 0, g: 0, b: 0 }); // Keep existing color
               this._world.setAmbientLightIntensity(0);
               this._world.setDirectionalLightIntensity(0);
-              console.log("SHOULD BE DARK RIGHT NOW");
+              // console.log("SHOULD BE DARK RIGHT NOW"); // Optional debug log
           } else {
-              this.resetLighting(); // Restore defaults
+              // Restore lighting using the existing reset method
+              // This resets colors AND intensities to defaults.
+              // The next onTick call will update intensity based on temp if needed.
+              this.resetLighting(); 
           }
       };
 

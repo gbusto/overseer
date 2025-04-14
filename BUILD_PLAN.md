@@ -186,7 +186,8 @@ This plan follows a user-centric approach, building core interactions first and 
         *   [x] Tweak attack damage, KORO damage, BFG damage, Rifle damage, and weapon cooldown / recharge speeds so the game is challeging but fun
         *   [x] Fix the voice location for KORO on the map; it fades away when you're far away
         *   [x] New targeted UV attack. Can attack up to 3 players at a time
-        *   [ ] Blackout attack should just adjust light intensity; not actual light coloring
+        *   [x] Warn UV attack target to keep moving!
+        *   [x] Blackout attack should just adjust light intensity; not actual light coloring
         *   [ ] Try and figure out how to use Grok instead of Gemini
         *   [ ] Try to make the personality even more quirky
         *   [ ] New skybox
