@@ -18,19 +18,19 @@ const DEFAULT_BFG_OPTIONS = {
     name: 'BFG',
     modelUri: 'models/weapons/bfg.glb',
     modelScale: 3.0,
-    damage: 20,
-    fireRate: 1,
+    damage: 25, // Baseline damage
+    fireRate: 1, // Low fire rate, doesn't really matter with energy depletion
     // Animation names using Hygrounds conventions
     idleAnimation: 'idle_gun_both',
     mlAnimation: 'shoot_gun_both',
     // Item properties
     iconImageUri: 'icons/weapons/bfg.png',
     // Energy weapon specific
-    cooldownMs: 500, // 1.5 seconds between shots
+    cooldownMs: 500, // Can fire quickly if energy allows (but it won't)
     maxEnergy: 100, // Maximum energy capacity
-    energyPerShot: 12, // Energy consumed per shot
-    energyRechargeRate: 3, // Energy units recharged per second
-    fullRechargeTimeMs: 15000, // Time for a full recharge when depleted
+    energyPerShot: 100, // Consume all energy in one shot
+    energyRechargeRate: 100 / 90, // Recharge rate: maxEnergy / 90 seconds
+    fullRechargeTimeMs: 90000, // Time for a full recharge when depleted (90 seconds)
     energyBarColor: 'yellow' // Energy bar color in UI - yellow for BFG
 };
 

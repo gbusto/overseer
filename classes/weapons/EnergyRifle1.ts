@@ -18,7 +18,7 @@ const DEFAULT_ENERGY_RIFLE_OPTIONS = {
     name: 'Energy Rifle',
     modelUri: 'models/weapons/energy_rifle_1.glb',
     modelScale: 1.3,
-    damage: 15,
+    damage: 5, // Baseline damage
     fireRate: 8,
     // Animation names using Hygrounds conventions
     idleAnimation: 'idle_gun_both',

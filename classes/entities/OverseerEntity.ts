@@ -79,6 +79,7 @@ export default class OverseerEntity extends Entity {
   
   // Health - will affect TTS voice
   private _health: number = 100;
+  private _maxHealth: number = 100; // Add max health property
   
   // Flag to control whether entity takes damage
   private _invulnerable: boolean = true;
@@ -597,8 +598,8 @@ export default class OverseerEntity extends Entity {
       players.forEach(player => {
         player.ui.sendData({
           type: 'overseer-health-update',
-          health: this._health,
-          maxHealth: 100
+          health: Math.round(this._health), // Send rounded health
+          maxHealth: this._maxHealth
         });
       });
     }
@@ -845,8 +846,8 @@ export default class OverseerEntity extends Entity {
     players.forEach(player => {
       player.ui.sendData({
         type: 'overseer-health-update',
-        health: this._health,
-        maxHealth: 100
+        health: Math.round(this._health), // Send rounded health
+        maxHealth: this._maxHealth
       });
     });
   }
@@ -1467,7 +1468,8 @@ export default class OverseerEntity extends Entity {
       this._logger.info('Resetting Overseer state...');
       
       // Reset health
-      this.setHealth(100);
+      this.setMaxHealth(100);
+      this.setHealth(this._maxHealth);
       
       // Set mode to disabled
       this.setKoroMode('disabled');
@@ -1509,5 +1511,25 @@ export default class OverseerEntity extends Entity {
       }
       
       this._logger.info('Overseer state reset complete.');
+  }
+
+  /**
+   * Set KORO's maximum health level.
+   * @param maxHealth The new maximum health value.
+   */
+  public setMaxHealth(maxHealth: number): void {
+      this._maxHealth = Math.max(1, maxHealth); // Ensure max health is at least 1
+      // Optionally clamp current health if it exceeds the new max
+      this._health = Math.min(this._health, this._maxHealth);
+      this._logger.info(`KORO max health set to ${this._maxHealth}`);
+      // Update UI immediately after changing max health
+      this.setHealth(this._health); 
+  }
+
+  /**
+   * Get KORO's current maximum health level.
+   */
+  public getMaxHealth(): number {
+      return this._maxHealth;
   }
 }

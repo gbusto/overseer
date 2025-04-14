@@ -1240,6 +1240,14 @@ export default class GameManager {
       const defaultMode: KoroMode = process.env.NODE_ENV === 'production' ? 'prod' : 'dev-with-llm';
       overseer.setKoroMode(defaultMode);
       this._logger.info(`Set KORO mode to default: ${defaultMode}`);
+      
+      // Calculate and set scaled KORO health
+      const baseHealth = 100;
+      const playerCount = this._world.entityManager.getAllPlayerEntities().length;
+      const scaledHealth = baseHealth * (1 + 0.5 * (playerCount - 1));
+      overseer.setMaxHealth(scaledHealth);
+      overseer.setHealth(scaledHealth);
+      this._logger.info(`Set KORO health based on ${playerCount} players: ${scaledHealth}`);
     }
 
     // Equip players with Energy Rifle
