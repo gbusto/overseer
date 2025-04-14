@@ -458,8 +458,6 @@ export default class BiodomeController {
   public resetLighting(): void {
     if (!this._world) return;
     
-    // this._world.setAmbientLightColor(this._defaultAmbientLightColor);
-    // this._world.setDirectionalLightColor(this._defaultDirectionalLightColor);
     this._world.setAmbientLightIntensity(this._defaultAmbientLightIntensity);
     this._world.setDirectionalLightIntensity(this._defaultDirectionalLightIntensity);
   }

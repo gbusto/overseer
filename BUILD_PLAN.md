@@ -201,12 +201,12 @@ This plan follows a user-centric approach, building core interactions first and 
             *   [x] When player rifle hits shield
             *   [x] When BFG hits and disrupts shield (maybe electrecution sound or something?)
             *   [x] When KORO gets a direct hit
-            *   [ ] When players tack damage from attacks
+            *   [x] When players take damage from attacks
             *   [ ] When a heat attack is ongoing and in the critical temp, have a fire burning sound effect
             *   [ ] When a freeze attack is ongoing and in the critical temp, have some kind of cold (?) sound effect
             *   [ ] When a player is being hit by a UV attack, have another burning sound
             *   [ ] When a UV attack is active, have some kind of high pitched noise like some bright lights make
-        *   [ ] Have KORO light up red briefly when hit for visual cue that it was injured
+        *   [x] Have KORO light up red briefly when hit for visual cue that it was injured
         *   [ ] On shield malfunction, warn all users to start shooting at KORO *now*
         *   [ ] Better music when match is active
         *   [ ] Better end state transition

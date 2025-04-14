@@ -18,6 +18,8 @@ import EnergyRifle1 from '../weapons/EnergyRifle1'; // Import specific weapon en
 // Constants
 const MAX_HEALTH = 100;
 const BASE_HEALTH = 100;
+const MIN_INJURED_SOUND_INTERVAL_MS = 1000; // Minimum 1 second between injured sounds
+const MAX_INJURED_SOUND_INTERVAL_MS = 2500; // Maximum 2.5 seconds between injured sounds
 // BACKPACK_SIZE is no longer needed
 
 // Simple interface for sending item data to UI
@@ -30,7 +32,6 @@ interface UIInventoryItem {
 export default class GamePlayerEntity extends PlayerEntity {
   private _health: number = BASE_HEALTH;
   private _maxHealth: number = MAX_HEALTH;
-  private _damageAudio: Audio;
   private _logger = new Logger('GamePlayerEntity');
   
   // Track player death state
@@ -47,6 +48,16 @@ export default class GamePlayerEntity extends PlayerEntity {
   // Getter for death state
   public get isDead(): boolean { return this._dead; }
   
+  // --- NEW Injured Sound Properties --- START
+  private readonly _injuredSoundUris: string[] = [
+    'audio/sfx/player/player-injured-1.mp3',
+    'audio/sfx/player/player-injured-2.mp3',
+    'audio/sfx/player/player-injured-3.mp3',
+    'audio/sfx/player/player-injured-4.mp3'
+  ];
+  private _nextInjuredSoundTime: number = 0; // Timestamp when the next sound can play
+  // --- NEW Injured Sound Properties --- END
+  
   constructor(player: Player) {
     super({
       player,
@@ -54,14 +65,6 @@ export default class GamePlayerEntity extends PlayerEntity {
       modelUri: 'models/players/soldier-player.gltf',
       modelLoopedAnimations: ['idle'],
       modelScale: 0.5,
-    });
-    
-    // Set up audio for damage
-    this._damageAudio = new Audio({
-      attachedToEntity: this,
-      uri: 'audio/sfx/player-hurt.mp3',
-      loop: false,
-      volume: 0.7,
     });
     
     // Set up player controller events
@@ -142,12 +145,36 @@ export default class GamePlayerEntity extends PlayerEntity {
       return;
     }
     
-    // Play damage audio
-    this._damageAudio.play(this.world, true);
-    
     // Reduce health
     const oldHealth = this.health;
     this.health -= amount;
+    
+    // --- NEW Periodic Injured Sound Logic --- START
+    const now = Date.now();
+    if (now >= this._nextInjuredSoundTime && this.health > 0) { // Only play if still alive
+        // Select random sound URI
+        const randomIndex = Math.floor(Math.random() * this._injuredSoundUris.length);
+        const selectedUri = this._injuredSoundUris[randomIndex];
+        
+        if (selectedUri && this.world) { 
+            // Create and play the audio instance
+            const injuredAudio = new Audio({
+                attachedToEntity: this,
+                uri: selectedUri,
+                loop: false,
+                volume: 0.75, // Adjust volume as needed
+                referenceDistance: 15 // Adjust falloff
+            });
+            injuredAudio.play(this.world);
+            
+            // Calculate next play time
+            const delay = Math.random() * (MAX_INJURED_SOUND_INTERVAL_MS - MIN_INJURED_SOUND_INTERVAL_MS) + MIN_INJURED_SOUND_INTERVAL_MS;
+            this._nextInjuredSoundTime = now + delay;
+            
+            this._logger.debug(`Played injured sound: ${selectedUri}, next play in ${(delay / 1000).toFixed(1)}s`);
+        }
+    }
+    // --- NEW Periodic Injured Sound Logic --- END
     
     // Update health UI elements
     this._updateHealthUI();
