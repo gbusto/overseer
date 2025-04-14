@@ -18,7 +18,7 @@ const DEFAULT_BFG_OPTIONS = {
     name: 'BFG',
     modelUri: 'models/weapons/bfg.glb',
     modelScale: 3.0,
-    damage: 25, // Baseline damage
+    damage: 10, // Baseline damage
     fireRate: 1, // Low fire rate, doesn't really matter with energy depletion
     // Animation names using Hygrounds conventions
     idleAnimation: 'idle_gun_both',
