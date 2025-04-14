@@ -208,7 +208,7 @@ This plan follows a user-centric approach, building core interactions first and 
             *   [ ] When a UV attack is active, have some kind of high pitched noise like some bright lights make
         *   [x] Have KORO light up red briefly when hit for visual cue that it was injured
         *   [ ] On shield malfunction, warn all users to start shooting at KORO *now*
-        *   [ ] Better music when match is active
+        *   [x] Better music when match is active
         *   [ ] Better end state transition
         *   [ ] Add mobile support
         *   [ ] When KORO is defeated, its shields fall to the floor with a loud bang (if possible) and it also falls to the floor

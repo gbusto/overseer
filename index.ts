@@ -291,11 +291,14 @@ startServer(world => {
    * set the mood!
    */
   
+  // Removed: Music is now handled by GameManager
+  /*
   new Audio({
     uri: 'audio/music/hytopia-main.mp3',
     loop: true,
     volume: 0.1,
   }).play(world);
+  */
   
   logger.info('Server initialization complete');
 });

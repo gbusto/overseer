@@ -65,6 +65,10 @@ export default class GameManager {
   private _healthPackSpawnTimer: NodeJS.Timeout | null = null;
   private _gameOverTimer: NodeJS.Timeout | null = null;
 
+  // Music Audio instances
+  private _calmMusic: Audio | null = null;
+  private _rockMusic: Audio | null = null;
+
   // Getters
   public get world(): World | undefined { return this._world; }
   public get gameState(): GameState { return this._gameState; }
@@ -92,6 +96,22 @@ export default class GameManager {
     this._world = world;
     this._gameState = GameState.IDLE;
     this._logger.info('GameManager initialized');
+
+    // Initialize music
+    this._calmMusic = new Audio({
+      uri: 'audio/music/ambient-music.mp3',
+      loop: true,
+      volume: 0.1,
+    });
+    this._rockMusic = new Audio({
+      uri: 'audio/music/tense-music.mp3',
+      loop: true,
+      volume: 0.1, // Adjust volume as needed
+    });
+
+    // Start playing calm music initially
+    this._calmMusic.play(world);
+    this._logger.info('Started playing calm background music.');
 
     // Register the /start command
     world.chatManager.registerCommand('/start', (player) => {
@@ -145,6 +165,11 @@ export default class GameManager {
     if (!this._world) return;
 
     this._logger.info('Resetting game...');
+
+    // Stop active music and start idle music
+    this._rockMusic?.pause();
+    this._calmMusic?.play(this._world);
+    this._logger.info('Switched back to calm background music.');
 
     // Reset all players (restore health, position, etc.)
     this._world.entityManager.getAllPlayerEntities().forEach(entity => {
@@ -1288,6 +1313,11 @@ export default class GameManager {
 
     this._logger.info('Transitioning to COUNTDOWN state...');
     this._gameState = GameState.COUNTDOWN;
+
+    // Switch music
+    this._calmMusic?.pause();
+    this._rockMusic?.play(this._world);
+    this._logger.info('Switched to rock background music.');
 
     let countdownValue = COUNTDOWN_DURATION_S;
 
