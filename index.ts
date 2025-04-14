@@ -47,8 +47,9 @@ import worldMap from './assets/hytopia_map.json';
 import { Logger, LogLevel } from './utils/logger';
 import GamePlayerEntity from './classes/entities/GamePlayerEntity';
 import HealthPackItem from './classes/items/HealthPackItem';
+import type { WorldMap } from 'hytopia';
 
-ModelRegistry.instance.optimize = false;
+// ModelRegistry.instance.optimize = false;
 
 // Initialize logger
 // If ENVIRONMENT is development, set the log level to DEBUG
@@ -91,7 +92,7 @@ startServer(world => {
    * After building, hit export and drop the .json file in
    * the assets folder as map.json.
    */
-  world.loadMap(worldMap);
+  world.loadMap(worldMap as WorldMap);
   logger.info('Map loaded');
 
   /**
