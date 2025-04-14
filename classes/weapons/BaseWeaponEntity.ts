@@ -10,7 +10,8 @@ import {
     PlayerEntityController,
     CollisionGroup,
     Collider,
-    SceneUI
+    SceneUI,
+    Audio
 } from 'hytopia';
 
 import type {
@@ -38,11 +39,14 @@ export default abstract class BaseWeaponEntity extends Entity {
     // SceneUI for the label
     private _labelSceneUI: SceneUI | null = null;
 
+    // Firing Sound
+    protected _fireSoundAudio: Audio | null = null;
+
     // Animation Names (using Hygrounds conventions)
     public idleAnimation: string = 'idle_gun_both'; 
     public mlAnimation: string = 'shoot_gun_both'; 
 
-    // Updated constructor options to include parent details
+    // Updated constructor options to include parent details and fire sound
     constructor(options: Partial<EntityOptions & {
         damage?: number;
         fireRate?: number;
@@ -50,6 +54,8 @@ export default abstract class BaseWeaponEntity extends Entity {
         // Animation options using Hygrounds names
         idleAnimation?: string;
         mlAnimation?: string;
+        // Audio options
+        fireSoundUri?: string; 
     }> = {}) {
         // Create physics setup similar to Hygrounds
         // We'll use a simple physics setup that keeps weapons from falling through the ground
@@ -72,7 +78,7 @@ export default abstract class BaseWeaponEntity extends Entity {
 
         super({
             name: 'BaseWeapon',
-            rigidBodyOptions: rigidBodyOptions,
+            rigidBodyOptions: options.rigidBodyOptions ?? rigidBodyOptions,
             // Pass parent and parentNodeName if provided in options
             parent: options.parent,
             parentNodeName: options.parentNodeName || 'hand_right_anchor',
@@ -89,6 +95,17 @@ export default abstract class BaseWeaponEntity extends Entity {
         // Store animation names from options, falling back to defaults
         this.idleAnimation = options.idleAnimation ?? this.idleAnimation;
         this.mlAnimation = options.mlAnimation ?? this.mlAnimation;
+
+        // Create Audio instance if URI is provided
+        if (options.fireSoundUri) {
+            this._fireSoundAudio = new Audio({
+                attachedToEntity: this,
+                uri: options.fireSoundUri,
+                loop: false,
+                volume: 0.8, // Default volume
+                referenceDistance: 15 // Adjust for desired falloff
+            });
+        }
 
         if (this.parent && this.parentNodeName) {
              this._logger.info(`Created and attached to parent ${this.parent.name} at node ${this.parentNodeName}`);

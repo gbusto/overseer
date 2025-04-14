@@ -196,8 +196,8 @@ This plan follows a user-centric approach, building core interactions first and 
             *   [ ] When KORO shields fall from the sky, metal bang like a heav, hollow metal ball falling on the ground
             *   [ ] A thud sound when KORO entity hits the ground
             *   [ ] An alarm when a new attack is being launched (also show warning on screen); alarm remains active during attack
-            *   [ ] When player shoots energy rifle
-            *   [ ] When player shoots BFG
+            *   [x] When player shoots energy rifle
+            *   [x] When player shoots BFG
             *   [ ] When player rifle hits shield
             *   [ ] When BFG hits and disrupts shield (maybe electrecution sound or something?)
             *   [ ] When KORO gets a direct hit

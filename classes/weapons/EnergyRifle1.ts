@@ -47,10 +47,12 @@ export default class EnergyRifle1 extends BaseEnergyWeaponEntity {
         energyRechargeRate?: number;
         fullRechargeTimeMs?: number;
         energyBarColor?: string;
+        fireSoundUri?: string;
     }> = {}) {
         // Merge default options with provided options
         super({
             ...DEFAULT_ENERGY_RIFLE_OPTIONS,
+            fireSoundUri: 'audio/sfx/weapons/laser-shot.mp3',
             ...options
         });
     }

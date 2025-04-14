@@ -47,10 +47,12 @@ export default class BFG extends BaseEnergyWeaponEntity {
         energyRechargeRate?: number;
         fullRechargeTimeMs?: number;
         energyBarColor?: string;
+        fireSoundUri?: string;
     }> = {}) {
         // Merge default options with provided options
         super({
             ...DEFAULT_BFG_OPTIONS,
+            fireSoundUri: 'audio/sfx/weapons/bfg-shot.mp3',
             ...options
         });
     }

@@ -344,7 +344,12 @@ export default abstract class BaseEnergyWeaponEntity extends BaseWeaponEntity {
             owner.startModelOneshotAnimations([this.mlAnimation]); 
         }
         
-        // TODO: Play fire sound and muzzle flash effect here if needed
+        // Play fire sound if available (using the property from BaseWeaponEntity)
+        if (this._fireSoundAudio && owner.world) { // Check world exists on owner
+            this._fireSoundAudio.play(owner.world, true);
+        }
+        
+        // TODO: Implement muzzle flash effect
         
         // Update UI with new energy level and cooldown
         this._updateOwnerEnergyUI();
