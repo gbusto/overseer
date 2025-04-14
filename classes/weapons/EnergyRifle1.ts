@@ -88,4 +88,13 @@ export default class EnergyRifle1 extends BaseEnergyWeaponEntity {
     protected override getEquippedRotation(): QuaternionLike {
         return Quaternion.fromEuler(-100, 5, -90);
     }
+
+    /**
+     * Override startDespawnTimer to prevent the Energy Rifle from despawning automatically.
+     * Note: It will still be despawned manually during game reset.
+     */
+    public override startDespawnTimer(): void {
+        this._logger.info('Energy Rifle despawn timer explicitly prevented.');
+        // Do nothing, rely on GameManager reset for cleanup
+    }
 } 
