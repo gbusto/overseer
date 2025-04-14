@@ -1413,6 +1413,19 @@ export default class OverseerEntity extends Entity {
   }
 
   /**
+   * Initiates a blackout attack via the BiodomeController.
+   * KOROBrain calls this.
+   */
+  public initiateBlackoutAttack(): void {
+      if (this._biodome) {
+          // Duration could be made dynamic later based on intensity or state
+          this._biodome.triggerBlackoutAttack(); 
+      } else {
+          this._logger.error('Cannot initiate blackout: BiodomeController not found.');
+      }
+  }
+
+  /**
    * Performs a shield taunt sequence: rapidly opening and closing the shield.
    * Prevents overlapping taunts.
    */

@@ -77,6 +77,7 @@ const KOROResponseSchema = z.object({
     'none', 
     'attack_heat', 
     'attack_freeze', 
+    'attack_blackout',
     'taunt_shield' 
   ]).default('none'),
   intensity: z.enum(['low', 'medium', 'high']).optional(), // Optional intensity for attacks
@@ -424,6 +425,14 @@ export class KOROBrain {
                    this.addRecentEvent({ type: 'taunt_shield', content: `KORO initiated shield taunt.`, priority: 'low'});
                   break;
                   
+              case 'attack_blackout':
+                  this.logger.info('Attempting to initiate blackout attack.');
+                  // Call Overseer method - needs to be implemented
+                  this._overseer.initiateBlackoutAttack(); 
+                  this.addTriggeredAttack('blackout'); // Log the triggered attack
+                  this.addRecentEvent({ type: 'attack_blackout', content: 'KORO initiated blackout.', priority: 'medium' });
+                  break;
+                  
               case 'none':
               default:
                   // Do nothing specific for 'none' action
@@ -588,9 +597,9 @@ ${responseHistory}
 ----------------------------
 INSTRUCTIONS:
 1.  Analyze the CURRENT GAME STATE and YOUR RECENT RESPONSES/ACTIONS.
-2.  Decide on the most appropriate tactical ACTION: 'none', 'attack_heat', 'attack_freeze', 'taunt_shield'.
-    - **ACTION VARIETY IS MANDATORY:** Do not repeat the same action or intensity pattern relentlessly. Be unpredictable. Cycle through 'attack_heat', 'attack_freeze', and varying 'intensity' levels ('low', 'medium', 'high'). Use 'taunt_shield' periodically (every few cycles) to confuse and distract, especially when feeling confident or trying to appear erratic.
-    - **BE PROACTIVE:** Initiate attacks whenever 'Can KORO Launch Attack?' is true and it aligns with your current tactical assessment and health state. Don't wait unnecessarily long.
+2.  Decide on the most appropriate tactical ACTION: 'none', 'attack_heat', 'attack_freeze', 'attack_blackout', 'taunt_shield'.
+    - **ACTION VARIETY IS MANDATORY:** Do not repeat the same action or intensity pattern relentlessly. Be unpredictable. Cycle through 'attack_heat', 'attack_freeze', 'attack_blackout', and varying 'intensity' levels ('low', 'medium', 'high' for temp attacks). Use 'taunt_shield' periodically (every few cycles) to confuse and distract, especially when feeling confident or trying to appear erratic.
+    - **BE PROACTIVE:** Initiate attacks whenever 'Can KORO Launch Attack?' is true and it aligns with your current tactical assessment and health state. Don't wait unnecessarily long. (Note: Blackout and Taunt do not depend on this flag).
     - Choose 'none' only if an attack is impossible OR if you are delivering a specific, impactful message without an accompanying action.
     - Choose 'attack_heat' or 'attack_freeze' ONLY IF 'Can KORO Launch Attack?' is true.
         - Specify an 'intensity':
@@ -598,6 +607,7 @@ INSTRUCTIONS:
             - 'medium': Heat 160°F / Freeze -25°F. Standard procedure for pests.
             - 'high': Heat 200°F / Freeze -50°F. Maximum effort. High risk of auto-venting, use carefully (or recklessly when panicked).
         - All temperature attacks change at 10°F/sec.
+    - Choose 'attack_blackout' to severely reduce visibility within the biodome for a period, making navigation and finding items difficult. Disorient your targets.
     - Choose 'taunt_shield' to flutter your shield unpredictably. Waste their ammunition. Mock their futility.
 3.  **ADAPT YOUR BEHAVIOR AND MESSAGES BASED ON HEALTH:**
     - **High Health (> 70%):** Confident, arrogant, sarcastic, perhaps feigning boredom. Make light of intruders. Use varied actions, including taunts and low/medium attacks. Messages should reflect superiority and dismissal.
