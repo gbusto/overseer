@@ -51,6 +51,7 @@ export default class BiodomeController {
   
   // Logger
   private _logger: Logger;
+  private _isBlackoutActive: boolean = false; // Flag for blackout attack
 
   constructor(world: World) {
     this._world = world;
@@ -127,6 +128,9 @@ export default class BiodomeController {
    * Update lighting (ambient and directional) based on temperature
    */
   private _updateLighting(): void {
+    // If a blackout is active, let the blackout attack handle lighting
+    if (this._isBlackoutActive) return; 
+    
     if (!this._world) return;
 
     // Start with default lighting
@@ -478,5 +482,69 @@ export default class BiodomeController {
    */
   public isAutoResetting(): boolean {
     return this._isAutoResetting;
+  }
+
+  /**
+   * Triggers a blackout environmental attack.
+   * @param duration Duration of the sustained darkness phase in seconds (default: 15).
+   */
+  public async triggerBlackoutAttack(duration: number = 15): Promise<void> {
+      if (this._isBlackoutActive || !this._world) {
+          this._logger.warn('Cannot trigger blackout: Attack already active or world missing.');
+          return;
+      }
+
+      this._logger.info(`Triggering Blackout Attack (Duration: ${duration}s)...`);
+      this._isBlackoutActive = true;
+
+      // Helper for delays
+      const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+      // Helper to set darkness
+      const setDarkness = (dark: boolean) => {
+          if (!this._world) {
+            this._logger.error('World not found to trigger blackout attack.');
+            return;
+          }
+
+          if (dark) {
+              this._world.setAmbientLightColor({ r: 0, g: 0, b: 0 });
+              this._world.setDirectionalLightColor({ r: 0, g: 0, b: 0 });
+              this._world.setAmbientLightIntensity(0);
+              this._world.setDirectionalLightIntensity(0);
+              console.log("SHOULD BE DARK RIGHT NOW");
+          } else {
+              this.resetLighting(); // Restore defaults
+          }
+      };
+
+      try {
+          // --- Flash Sequence ---
+          this._logger.debug('Blackout: Starting flash sequence.');
+          for (let i = 0; i < 3; i++) {
+              setDarkness(true);
+              await delay(500); // 0.5 seconds dark
+              setDarkness(false);
+              await delay(500); // 0.5 seconds normal
+          }
+          this._logger.debug('Blackout: Flash sequence complete.');
+
+          // --- Sustained Darkness ---
+          this._logger.debug(`Blackout: Entering sustained darkness (${duration}s).`);
+          setDarkness(true);
+          await delay(duration * 1000);
+
+          // --- Restore Lighting ---
+          this._logger.info('Blackout: Restoring default lighting.');
+          setDarkness(false); // Equivalent to resetLighting()
+
+      } catch (error) {
+          this._logger.error('Error during blackout attack sequence:', error);
+          // Ensure lighting is reset even if there's an error
+          this.resetLighting();
+      } finally {
+          this._isBlackoutActive = false;
+          this._logger.info('Blackout attack finished.');
+      }
   }
 } 

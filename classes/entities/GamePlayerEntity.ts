@@ -216,7 +216,9 @@ export default class GamePlayerEntity extends PlayerEntity {
           return;
       }
       this.player.camera.setMode(PlayerCameraMode.FIRST_PERSON);
-      this.player.camera.setAttachedToEntity(this);
+      if (this.isSpawned) {
+        this.player.camera.setAttachedToEntity(this);
+      }
       // Match Hygrounds exactly - only hide head, neck, torso, and legs
       // Importantly, keep arms and hands visible
       this.player.camera.setModelHiddenNodes(['head', 'neck', 'torso', 'leg_right', 'leg_left']);

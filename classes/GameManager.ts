@@ -1180,6 +1180,42 @@ export default class GameManager {
 
     // --- End KORO Mode Commands ---
     
+    // Command: /blackout [duration] - Trigger a blackout attack
+    chatManager.registerCommand('/blackout', (player, args) => {
+      const overseer = this.getOverseerEntity();
+      if (!overseer || !overseer['_biodome']) {
+          chatManager.sendPlayerMessage(player, 'Overseer or Biodome Controller not found.', 'FF0000');
+          return;
+      }
+
+      const biodome = overseer['_biodome'] as BiodomeController;
+      let duration = 15; // Default duration
+
+      if (args[0]) {
+          const parsedDuration = parseInt(args[0], 10);
+          if (!isNaN(parsedDuration) && parsedDuration > 0) {
+              duration = parsedDuration;
+          } else {
+              chatManager.sendPlayerMessage(player, 'Invalid duration. Using default (15s).', 'FFFF00');
+          }
+      }
+
+      // Trigger the blackout - no need to await here
+      biodome.triggerBlackoutAttack(duration);
+
+      // Notify the player
+      chatManager.sendPlayerMessage(
+          player,
+          `Blackout attack triggered (Sustained darkness duration: ${duration}s).`,
+          '00FF00'
+      );
+      // Broadcast a warning
+       chatManager.sendBroadcastMessage(
+           'WARNING: Emergency lighting failure detected!',
+           'FFA500' // Orange
+       );
+    });
+    
     this._logger.info('Registered custom chat commands.');
   }
 
