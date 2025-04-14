@@ -415,6 +415,10 @@ export class KOROBrain {
                       }
                       
                       this.logger.info(`Attempting to initiate ${intensity} ${response.action} (Target: ${targetTemp}°F, Rate: ${changeRate}°/s)`);
+                      
+                      // <<< Play Alarm Sound >>>
+                      this._overseer.playAttackAlarm();
+                      
                       // Call Overseer method - needs to be implemented in OverseerEntity.ts
                       // This method should internally check cooldowns/state again for safety
                       const attackInitiated = this._overseer.initiateTemperatureAttack(targetTemp, changeRate); 
@@ -434,14 +438,16 @@ export class KOROBrain {
                   
               case 'taunt_shield':
                   this.logger.info(`Attempting to perform shield taunt.`);
-                  // Call Overseer method - needs to be implemented in OverseerEntity.ts
+                  // Taunt doesn't trigger alarm
                   this._overseer.performShieldTaunt(); 
                    this.addRecentEvent({ type: 'taunt_shield', content: `KORO initiated shield taunt.`, priority: 'low'});
                   break;
                   
               case 'attack_blackout':
                   this.logger.info('Attempting to initiate blackout attack.');
-                  // Call Overseer method - needs to be implemented
+                  // <<< Play Alarm Sound >>>
+                  this._overseer.playAttackAlarm();
+                  // Call Overseer method
                   this._overseer.initiateBlackoutAttack(); 
                   this.addTriggeredAttack('blackout'); // Log the triggered attack
                   this.addRecentEvent({ type: 'attack_blackout', content: 'KORO initiated blackout.', priority: 'medium' });
@@ -449,7 +455,9 @@ export class KOROBrain {
                   
               case 'attack_uv_light':
                   this.logger.info('Attempting to initiate UV light attack.');
-                  // Call Overseer method - needs to be implemented
+                  // <<< Play Alarm Sound >>>
+                  this._overseer.playAttackAlarm();
+                  // Call Overseer method
                   this._overseer.initiateUVLightAttack(); 
                   this.addTriggeredAttack('uv_light'); // Log the triggered attack
                   this.addRecentEvent({ type: 'attack_uv_light', content: 'KORO initiated UV light attack.', priority: 'medium' });

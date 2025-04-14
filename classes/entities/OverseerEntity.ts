@@ -47,6 +47,7 @@ export default class OverseerEntity extends Entity {
   private _shieldRicochetAudio: Audio | null = null;
   private _shieldMalfunctionAudio: Audio | null = null;
   private _directHitAudio: Audio | null = null;
+  private _attackAlarmAudio: Audio | null = null;
   
   // AI Brain
   private _brain: KOROBrain | null = null;
@@ -189,6 +190,15 @@ export default class OverseerEntity extends Entity {
         referenceDistance: 100 // Adjust falloff
     });
     // --- Initialize Direct Hit Audio Component --- END
+    
+    // --- Initialize Attack Alarm Audio Component --- START
+    this._attackAlarmAudio = new Audio({
+        // No attachedToEntity for global playback
+        uri: 'audio/sfx/overseer/alarm.mp3',
+        loop: false,
+        volume: 0.6 // Slightly lower volume for ambient alarm
+    });
+    // --- Initialize Attack Alarm Audio Component --- END
     
     // Check if TTS is configured
     if (!TTS_API_TOKEN) {
@@ -1744,6 +1754,21 @@ export default class OverseerEntity extends Entity {
       audioToPlay.play(this.world, true); 
     } else {
       this._logger.warn(`Could not find audio component for shield hit type: ${type}`);
+    }
+  }
+
+  /**
+   * Plays the global attack alarm sound effect.
+   */
+  public playAttackAlarm(): void {
+    if (!this.world || !this.isSpawned) return; // Ensure world context exists
+
+    if (this._attackAlarmAudio) {
+      this._logger.debug('Playing global attack alarm sound.');
+      // Play the sound globally, restarting if needed
+      this._attackAlarmAudio.play(this.world, true); 
+    } else {
+      this._logger.warn('Could not find audio component for attack alarm.');
     }
   }
 }
