@@ -192,6 +192,22 @@ This plan follows a user-centric approach, building core interactions first and 
         *   [ ] Try to make the personality even more quirky
         *   [ ] New skybox
         *   [ ] More sound effects
+            *   [ ] When KORO shields open (venting noise)
+            *   [ ] When KORO shields close (heavy metal bang like a steel door closing)
+            *   [ ] When KORO shields fall from the sky, metal bang like a heav, hollow metal ball falling on the ground
+            *   [ ] A thud sound when KORO entity hits the ground
+            *   [ ] An alarm when a new attack is being launched (also show warning on screen); alarm remains active during attack
+            *   [ ] When player shoots energy rifle
+            *   [ ] When player shoots BFG
+            *   [ ] When player rifle hits shield
+            *   [ ] When BFG hits and disrupts shield (maybe electrecution sound or something?)
+            *   [ ] When KORO gets a direct hit
+            *   [ ] When players tack damage from attacks
+            *   [ ] When a heat attack is ongoing and in the critical temp, have a fire burning sound effect
+            *   [ ] When a freeze attack is ongoing and in the critical temp, have some kind of cold (?) sound effect
+            *   [ ] When a player is being hit by a UV attack, have another burning sound
+            *   [ ] When a UV attack is active, have some kind of high pitched noise like some bright lights make
+        *   [ ] On shield malfunction, warn all users to start shooting at KORO *now*
         *   [ ] Better music when match is active
         *   [ ] Better end state transition
         *   [ ] Add mobile support
