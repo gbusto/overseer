@@ -168,7 +168,7 @@ export default class OverseerEntity extends Entity {
       uri: 'audio/sfx/weapons/laser-ricochet.mp3',
       loop: false,
       volume: 0.7,
-      referenceDistance: 20 // Adjust falloff
+      // referenceDistance: 20 // Adjust falloff
     });
 
     this._shieldMalfunctionAudio = new Audio({
@@ -176,7 +176,7 @@ export default class OverseerEntity extends Entity {
       uri: 'audio/sfx/overseer/shield-malfunction.mp3',
       loop: false,
       volume: 0.9, // Louder for BFG impact
-      referenceDistance: 25 // Adjust falloff
+      // referenceDistance: 25 // Adjust falloff
     });
     // --- Initialize Shield Hit Audio Components --- END
     
@@ -186,7 +186,7 @@ export default class OverseerEntity extends Entity {
         uri: 'audio/sfx/overseer/direct-hit.mp3',
         loop: false,
         volume: 1.0, // Make it noticeable
-        referenceDistance: 30 // Adjust falloff
+        referenceDistance: 100 // Adjust falloff
     });
     // --- Initialize Direct Hit Audio Component --- END
     
@@ -1740,8 +1740,6 @@ export default class OverseerEntity extends Entity {
 
     if (audioToPlay) {
       this._logger.debug(`Playing shield hit sound (${type}) at position: ${JSON.stringify(position)}`);
-      // Set the position of the sound source just before playing
-      audioToPlay.setPosition(position);
       // Play the sound in the world, restarting if needed
       audioToPlay.play(this.world, true); 
     } else {
