@@ -73,6 +73,11 @@
     <div id="uv-warning-content" class="uv-warning-content"></div>
   </div>
 
+  <!-- Environmental Attack Warning Panel (Heat/Cold) -->
+  <div id="attack-warning-panel" class="attack-warning-panel">
+    <div id="attack-warning-content" class="attack-warning-content"></div>
+  </div>
+
   <!-- Fade overlay for transitions -->
   <div id="fade-overlay" class="fade-overlay"></div>
 </div>
@@ -610,6 +615,49 @@
     from { opacity: 0.7; transform: translateX(-50%) scale(0.98); }
     to { opacity: 1; transform: translateX(-50%) scale(1.02); }
   }
+
+  /* Environmental Attack Warning Panel Styles */
+  .attack-warning-panel {
+    position: fixed;
+    top: 50%; /* Changed from 10% */
+    left: 50%;
+    transform: translate(-50%, -50%); /* Changed from translateX(-50%) */
+    background-color: rgba(0, 0, 0, 0.75); 
+    color: #ffffff; /* Default white text */
+    padding: 15px 25px;
+    border-radius: 6px;
+    border: 2px solid #ffffff;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
+    text-align: center;
+    font-size: 22px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    max-width: 70%;
+    margin: 0 auto;
+    text-shadow: 0 0 5px rgba(0, 0, 0, 1);
+    z-index: 1001; /* Above overseer message */
+    display: none; /* Hidden by default */
+    transition: opacity 0.3s ease-out; /* Add fade out transition */
+  }
+
+  .attack-warning-panel.heat-warning {
+      border-color: #FF5500;
+      color: #FF5500;
+      box-shadow: 0 0 15px rgba(255, 85, 0, 0.6);
+      text-shadow: 0 0 5px rgba(255, 85, 0, 0.8);
+  }
+
+  .attack-warning-panel.cold-warning {
+      border-color: #00ccff;
+      color: #00ccff;
+      box-shadow: 0 0 15px rgba(0, 204, 255, 0.6);
+      text-shadow: 0 0 5px rgba(0, 204, 255, 0.8);
+  }
+
+  .attack-warning-content {
+    margin: 0;
+  }
 </style>
 
 <!-- Template for weapon labels -->
@@ -637,6 +685,8 @@
   const crosshair = document.getElementById('crosshair');
   const uvWarningPanel = document.getElementById('uv-warning-panel');
   const uvWarningContent = document.getElementById('uv-warning-content');
+  const attackWarningPanel = document.getElementById('attack-warning-panel');
+  const attackWarningContent = document.getElementById('attack-warning-content');
 
   // Initialize energy value
   let currentEnergy = 100;
@@ -645,6 +695,9 @@
   
   // Add a flag to track player death state in the UI
   let isPlayerDead = false;
+  
+  // Variable to hold the attack warning timeout
+  let attackWarningTimeout = null;
   
   // --- Scene UI Template Registration ---
   // Register the weapon label template
@@ -949,6 +1002,40 @@
         }
         break;
       // *** END: Handle UV Attack Warning ***
+
+      // *** NEW: Handle Environmental Attack Warning ***
+      case 'environmental-attack-warning':
+        if (attackWarningPanel && attackWarningContent) {
+            // Clear any existing timeout
+            if (attackWarningTimeout) {
+                clearTimeout(attackWarningTimeout);
+            }
+            
+            // Set message and class
+            attackWarningContent.textContent = data.message || 'Environmental Anomaly Detected!';
+            attackWarningPanel.classList.remove('heat-warning', 'cold-warning'); // Clear old classes
+            if (data.attackType === 'heat') {
+                attackWarningPanel.classList.add('heat-warning');
+            } else if (data.attackType === 'cold') {
+                attackWarningPanel.classList.add('cold-warning');
+            }
+            
+            // Show the panel
+            attackWarningPanel.style.opacity = 1; // Ensure it's visible for transition
+            attackWarningPanel.style.display = 'block';
+            
+            // Set timeout to hide after 3 seconds
+            attackWarningTimeout = setTimeout(() => {
+                attackWarningPanel.style.opacity = 0; // Start fade out
+                // Use transitionend event or another timeout to set display:none after fade
+                setTimeout(() => {
+                    attackWarningPanel.style.display = 'none';
+                }, 300); // Match CSS transition duration
+                attackWarningTimeout = null; // Clear timeout reference
+            }, 3000); // Display duration
+        }
+        break;
+      // *** END: Handle Environmental Attack Warning ***
     }
   });
   
@@ -1218,4 +1305,6 @@
   crosshair.style.display = 'none';
   // Hide UV warning initially
   if (uvWarningPanel) uvWarningPanel.style.display = 'none';
+  // Hide attack warning initially
+  if (attackWarningPanel) attackWarningPanel.style.display = 'none';
 </script> 

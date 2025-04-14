@@ -419,13 +419,35 @@ export class KOROBrain {
                       // <<< Play Alarm Sound >>>
                       this._overseer.playAttackAlarm();
                       
-                      // Call Overseer method - needs to be implemented in OverseerEntity.ts
-                      // This method should internally check cooldowns/state again for safety
+                      // Call Overseer method
                       const attackInitiated = this._overseer.initiateTemperatureAttack(targetTemp, changeRate); 
                       
                       if (attackInitiated) {
                           this.addTriggeredAttack(`${intensity} ${response.action}`);
                           this.recordEnvironmentalAttackEnd(); // Start the cooldown after initiating
+                          
+                          // --- Broadcast Attack Warning UI Message --- START
+                          if (this._world) { // Check if world exists
+                            const warningMessage = isHeatAttack ? 
+                                "Temperatures rising fast! 🔥" : 
+                                "Temperatures dropping fast! ❄️";
+                            const attackType = isHeatAttack ? 'heat' : 'cold';
+                            
+                            // Iterate through all players and send UI data
+                            const players = this._world.entityManager.getAllPlayerEntities();
+                            players.forEach(playerEntity => {
+                                if (playerEntity.player && playerEntity.player.ui) {
+                                    playerEntity.player.ui.sendData({
+                                        type: 'environmental-attack-warning',
+                                        attackType: attackType,
+                                        message: warningMessage
+                                    });
+                                }
+                            });
+                            
+                            this.logger.info(`Sent UI warning for ${response.action} to ${players.length} players.`);
+                          }
+                          // --- Broadcast Attack Warning UI Message --- END
                       } else {
                           this.logger.warn(`OverseerEntity prevented ${response.action} initiation (likely cooldown or state issue).`);
                            this.addRecentEvent({ type: 'attack_prevented', content: `Attempted ${intensity} ${response.action} but was prevented.`, priority: 'medium'});
