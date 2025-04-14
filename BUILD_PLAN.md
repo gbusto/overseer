@@ -164,7 +164,6 @@ This plan follows a user-centric approach, building core interactions first and 
     *   **UI Polish:**
         *   [ ] Finalize UI layout.
         *   [ ] Ensure Overseer health, weapon status/cooldowns are clear.
-        *   [ ] Add visual indicator for BFG availability/location?
     *   **Misc**
         *   [x] Handle player death; should stop *all* input via keyboard and mouse; player does *not* respawn until after the match ends. This is not a deathmatch style game
         *   **Game Loop Implementation:**
@@ -207,6 +206,7 @@ This plan follows a user-centric approach, building core interactions first and 
             *   [ ] When a freeze attack is ongoing and in the critical temp, have some kind of cold (?) sound effect
             *   [ ] When a player is being hit by a UV attack, have another burning sound
             *   [ ] When a UV attack is active, have some kind of high pitched noise like some bright lights make
+        *   [ ] Have KORO light up red briefly when hit for visual cue that it was injured
         *   [ ] On shield malfunction, warn all users to start shooting at KORO *now*
         *   [ ] Better music when match is active
         *   [ ] Better end state transition
