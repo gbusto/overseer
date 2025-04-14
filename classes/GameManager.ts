@@ -20,14 +20,15 @@ import BiodomeController from './BiodomeController';
 // Game states enum
 export enum GameState {
   IDLE = 'IDLE',
-  STARTING = 'STARTING',
+  COUNTDOWN = 'COUNTDOWN',
   ACTIVE = 'ACTIVE',
-  ENDING = 'ENDING'
+  GAMEOVER = 'GAMEOVER',
 }
 
 // Game constants
 const GAME_DURATION_MS = 10 * 60 * 1000; // 10 minutes
-const COUNTDOWN_DURATION_MS = 5 * 1000; // 5 seconds countdown
+const COUNTDOWN_DURATION_S = 10; // Countdown duration in seconds
+const GAMEOVER_DURATION_S = 10; // Duration of game over screen in seconds
 
 // Map boundary constants for random spawning
 const MAP_MIN_X = -47;
@@ -56,6 +57,11 @@ export default class GameManager {
   private _gameState: GameState = GameState.IDLE;
   private _gameStartTime: number = 0;
   private _logger = new Logger('GameManager');
+
+  // Timers
+  private _countdownTimer: NodeJS.Timeout | null = null;
+  private _healthPackSpawnTimer: NodeJS.Timeout | null = null;
+  private _gameOverTimer: NodeJS.Timeout | null = null;
 
   // Getters
   public get world(): World | undefined { return this._world; }
@@ -89,7 +95,7 @@ export default class GameManager {
     world.chatManager.registerCommand('/start', (player) => {
       if (this._gameState === GameState.IDLE) {
         world.chatManager.sendBroadcastMessage(`${player.username || player.id} started a new game!`, '00FF00');
-        this.startGame();
+        this._transitionToCountdown();
       } else {
         world.chatManager.sendPlayerMessage(player, 'A game is already in progress.', 'FF0000');
       }
@@ -114,65 +120,20 @@ export default class GameManager {
    * Start the game
    */
   public startGame(): void {
-    if (!this._world) return;
-
-    this._gameState = GameState.ACTIVE;
-    this._gameStartTime = Date.now();
-    this._logger.info('Game started');
-
-    // Get the overseer entity
-    const overseer = this.getOverseerEntity();
-    
-    if (overseer) {
-      // Enable the Overseer's brain
-      const defaultMode: KoroMode = process.env.NODE_ENV === 'production' ? 'prod' : 'dev-with-llm';
-      overseer.setKoroMode(defaultMode);
-      this._logger.info(`Set KORO mode to default: ${defaultMode}`);
-      
-      // Make the overseer vulnerable to damage
-      overseer.setInvulnerable(false);
-      
-      this._logger.info('Overseer brain enabled and set to vulnerable');
-    }
-
-    // Spawn initial health packs
-    this.spawnTestHealthPacks(); // Renaming this later might be good
-
-    // Broadcast to all players
-    this._world.chatManager.sendBroadcastMessage('Game started!', '00FF00');
+    // DEPRECATED: Use _transitionToCountdown instead
+    this._logger.warn('startGame() is deprecated. Use the /start command which triggers the countdown.');
+    // Optionally, we could make this call _transitionToCountdown directly
+    // if (this._gameState === GameState.IDLE) {
+    //   this._transitionToCountdown();
+    // }
   }
 
   /**
    * End the game
    */
   public endGame(): void {
-    if (!this._world || this._gameState !== GameState.ACTIVE) return;
-
-    this._gameState = GameState.ENDING;
-    this._logger.info('Game ended');
-
-    // Get the overseer entity
-    const overseer = this.getOverseerEntity();
-    
-    if (overseer) {
-      // Disable the Overseer's brain
-      overseer.setKoroMode('disabled');
-      this._logger.info('Set KORO mode to disabled');
-      
-      // Make the overseer invulnerable to damage
-      overseer.setInvulnerable(true);
-      
-      this._logger.info('Overseer brain disabled and set to invulnerable');
-    }
-    
-    // Despawn any remaining health packs?
-    // this._despawnAllHealthPacks(); // Consider adding this
-
-    // Broadcast to all players
-    this._world.chatManager.sendBroadcastMessage('Game over!', 'FF0000');
-    
-    // Reset game
-    this._resetGame();
+    // DEPRECATED: Use _transitionToGameOver instead
+    this._logger.warn('endGame() is deprecated. Game ends automatically based on win/loss conditions.');
   }
 
   /**
@@ -181,15 +142,30 @@ export default class GameManager {
   private _resetGame(): void {
     if (!this._world) return;
 
+    this._logger.info('Resetting game...');
+
     // Reset all players (restore health, position, etc.)
     this._world.entityManager.getAllPlayerEntities().forEach(entity => {
-      if (entity instanceof PlayerEntity) {
-        // Reset player state
-        entity.setPosition({ x: 0, y: 10, z: 0 });
+      if (entity instanceof GamePlayerEntity) {
+        entity.reset(); // Call the new reset method
       }
     });
 
-    // Reset game state
+    // Reset KORO
+    const overseer = this.getOverseerEntity();
+    if (overseer) {
+        overseer.reset(); // Call the new reset method
+    }
+
+    // Despawn remaining items (health packs, BFG)
+    this._despawnTaggedEntities('healthpack');
+    this._despawnTaggedEntities('persistent_weapon');
+
+    // Disable game systems
+    this._disableGameSystems();
+    this._disableKoroMechanics();
+
+    // Reset game state variable
     this._gameState = GameState.IDLE;
     this._logger.info('Game reset to idle state');
 
@@ -448,7 +424,9 @@ export default class GameManager {
           y: playerEntity.position.y + 1.0, // Higher position to prevent sinking into ground
           z: playerEntity.position.z + facingDir.z * 2,
         };
-        const bfg = new BFG();
+        const bfg = new BFG({
+            tag: 'persistent_weapon' // Add tag via constructor options
+        });
         bfg.spawn(world, spawnPos);
         chatManager.sendPlayerMessage(player, 'Spawned a BFG in front of you.', '00FF00');
       } else {
@@ -1180,4 +1158,215 @@ export default class GameManager {
     
     this._logger.info('Registered custom chat commands.');
   }
+
+  // --- Game State Transition Methods ---
+
+  private _transitionToCountdown(): void {
+    if (this._gameState !== GameState.IDLE || !this._world) return;
+
+    this._logger.info('Transitioning to COUNTDOWN state...');
+    this._gameState = GameState.COUNTDOWN;
+
+    let countdownValue = COUNTDOWN_DURATION_S;
+
+    // Function to update countdown UI
+    const updateCountdown = () => {
+      this._world?.chatManager.sendBroadcastMessage(`Game starting in ${countdownValue}...`, 'FFFF00');
+      // Send UI data as well
+      this._world?.entityManager.getAllPlayerEntities().forEach(entity => {
+          if (entity instanceof GamePlayerEntity) {
+              entity.player.ui.sendData({ type: 'countdown-update', timeRemaining: countdownValue });
+          }
+      });
+    };
+
+    // Initial countdown message
+    updateCountdown();
+
+    // Start interval timer
+    this._countdownTimer = setInterval(() => {
+      countdownValue--;
+      if (countdownValue > 0) {
+        updateCountdown();
+      } else {
+        if (this._countdownTimer) clearInterval(this._countdownTimer);
+        this._countdownTimer = null;
+        this._transitionToActive();
+      }
+    }, 1000); // Update every second
+  }
+
+  private _transitionToActive(): void {
+    if (this._gameState !== GameState.COUNTDOWN || !this._world) return;
+
+    this._logger.info('Transitioning to ACTIVE state...');
+    this._gameState = GameState.ACTIVE;
+    this._gameStartTime = Date.now();
+
+    // Enable Core Game Systems & KORO Mechanics
+    this._enableGameSystems();
+    this._enableKoroMechanics();
+
+    // Set KORO mode
+    const overseer = this.getOverseerEntity();
+    if (overseer) {
+      const defaultMode: KoroMode = process.env.NODE_ENV === 'production' ? 'prod' : 'dev-with-llm';
+      overseer.setKoroMode(defaultMode);
+      this._logger.info(`Set KORO mode to default: ${defaultMode}`);
+    }
+
+    // Equip players with Energy Rifle
+    this._world.entityManager.getAllPlayerEntities().forEach(entity => {
+      if (entity instanceof GamePlayerEntity) {
+        const rifle = new EnergyRifle1();
+        // Spawn the rifle near the player first (required before equipping)
+        // We might need a better way to handle weapon creation/assignment
+        rifle.spawn(this._world!, entity.position); // Spawn then equip
+        entity.equipWeapon(rifle);
+        this._logger.info(`Equipped ${entity.player.username} with Energy Rifle`);
+      }
+    });
+
+    // Spawn one BFG
+    const bfg = new BFG({
+        tag: 'persistent_weapon' // Add tag via constructor options
+    });
+    const bfgSpawnPos = this._getRandomSpawnPositionInCircle() || { x: 0, y: SPAWN_Y, z: 0 }; // Fallback position
+    bfg.spawn(this._world, bfgSpawnPos);
+    this._logger.info(`Spawned persistent BFG at ${JSON.stringify(bfgSpawnPos)}`);
+
+    // Start health pack spawning (We will uncomment this later)
+    // this._startHealthPackSpawning();
+
+    // Broadcast game start message
+    this._world.chatManager.sendBroadcastMessage('GAME STARTED! Protect yourselves!', '00FF00');
+    // Clear countdown UI
+    this._world.entityManager.getAllPlayerEntities().forEach(entity => {
+      if (entity instanceof GamePlayerEntity) {
+          entity.player.ui.sendData({ type: 'countdown-update', timeRemaining: 0 }); // Signal countdown end
+      }
+    });
+  }
+
+  private _transitionToGameOver(winner: 'players' | 'koro'): void {
+    if (this._gameState !== GameState.ACTIVE || !this._world) return;
+
+    this._logger.info(`Transitioning to GAMEOVER state... Winner: ${winner}`);
+    this._gameState = GameState.GAMEOVER;
+
+    // Stop health pack spawning (if it was running)
+    if (this._healthPackSpawnTimer) {
+      clearInterval(this._healthPackSpawnTimer);
+      this._healthPackSpawnTimer = null;
+      this._logger.info('Stopped health pack spawning.');
+    }
+
+    // Disable KORO - prevents attacks during game over screen
+    const overseer = this.getOverseerEntity();
+    if (overseer) {
+        overseer.setKoroMode('disabled');
+    }
+
+    // Broadcast winner message
+    const message = winner === 'players' ? 'YOU HAVE DEFEATED THE OVERSEER!' : 'THE OVERSEER HAS ELIMINATED ALL INTRUDERS!';
+    const color = winner === 'players' ? '00FF00' : 'FF0000';
+    this._world.chatManager.sendBroadcastMessage(message, color);
+
+    // Send game over UI update
+    this._world.entityManager.getAllPlayerEntities().forEach(entity => {
+      if (entity instanceof GamePlayerEntity) {
+          entity.player.ui.sendData({ type: 'game-over', winner: winner });
+      }
+    });
+
+    // Start timer to transition back to IDLE
+    this._gameOverTimer = setTimeout(() => {
+      this._transitionToIdle();
+      this._gameOverTimer = null;
+    }, GAMEOVER_DURATION_S * 1000);
+  }
+
+  private _transitionToIdle(): void {
+    // State check is implicit as this is only called from GAMEOVER timeout
+    this._logger.info('Transitioning to IDLE state...');
+    this._resetGame(); // _resetGame now handles setting state to IDLE and other resets
+  }
+
+  // --- Helper Methods for Enabling/Disabling Systems ---
+
+  private _enableGameSystems(): void {
+    if (!this._world) return;
+    this._logger.info('Enabling core game systems...');
+    // 1. Player Vulnerability
+    GameManager.setPlayerVulnerable(true);
+
+    // 2. UI Elements (Send toggle commands to each player)
+    this._world.entityManager.getAllPlayerEntities().forEach(entity => {
+        if (entity instanceof GamePlayerEntity) {
+             // TODO: Send a single 'show-game-ui' event instead of individual toggles?
+             entity.player.ui.sendData({ type: 'show-game-ui' }); // Assumes UI handles this
+        }
+    });
+  }
+
+  private _disableGameSystems(): void {
+    if (!this._world) return;
+    this._logger.info('Disabling core game systems...');
+    // 1. Player Vulnerability
+    GameManager.setPlayerVulnerable(false);
+
+    // 2. UI Elements (Hide all)
+    this._world.entityManager.getAllPlayerEntities().forEach(entity => {
+        if (entity instanceof GamePlayerEntity) {
+             entity.player.ui.sendData({ type: 'hide-all-ui' }); // Assumes UI handles this
+        }
+    });
+  }
+
+  private _enableKoroMechanics(): void {
+    const overseer = this.getOverseerEntity();
+    if (!overseer) return;
+    this._logger.info('Enabling KORO mechanics...');
+    // 1. KORO Vulnerability
+    overseer.setInvulnerable(false);
+    // 2. Auto-Regulation
+    overseer.setAutoVentEnabled(true);
+    overseer.setBiodomeEnvironmentalDamageEnabled(true); // Enable env damage
+    if (overseer['_biodome']) {
+        (overseer['_biodome'] as BiodomeController).setAutoResetEnabled(true);
+    }
+    // 3. BFG Shield Break
+    overseer.setBFGShieldBreakEnabled(true);
+  }
+
+  private _disableKoroMechanics(): void {
+    const overseer = this.getOverseerEntity();
+    if (!overseer) return;
+    this._logger.info('Disabling KORO mechanics...');
+    // 1. KORO Vulnerability
+    overseer.setInvulnerable(true);
+    // 2. Auto-Regulation
+    overseer.setAutoVentEnabled(false);
+    overseer.setBiodomeEnvironmentalDamageEnabled(false); // Disable env damage
+    if (overseer['_biodome']) {
+        (overseer['_biodome'] as BiodomeController).setAutoResetEnabled(false);
+    }
+    // 3. BFG Shield Break
+    overseer.setBFGShieldBreakEnabled(false);
+  }
+
+  // --- Utility Methods ---
+
+  /**
+   * Despawns all entities with a specific tag.
+   * @param tag The tag to search for.
+   */
+  private _despawnTaggedEntities(tag: string): void {
+    if (!this._world) return;
+    const entities = this._world.entityManager.getEntitiesByTag(tag);
+    entities.forEach(entity => entity.despawn());
+    this._logger.info(`Despawned ${entities.length} entities with tag '${tag}'.`);
+  }
+
+  // TODO: Add _startHealthPackSpawning method later
 } 

@@ -1453,4 +1453,55 @@ export default class OverseerEntity extends Entity {
           this._isTaunting = false; 
       }
   }
+
+  /**
+   * Reset the Overseer state for a new game.
+   */
+  public reset(): void {
+      this._logger.info('Resetting Overseer state...');
+      
+      // Reset health
+      this.setHealth(100);
+      
+      // Set mode to disabled
+      this.setKoroMode('disabled');
+      
+      // Reset biodome temperature and disable damage/auto-reset
+      if (this._biodome) {
+          this._biodome.resetTemperature();
+          this._biodome.setEnvironmentalDamageEnabled(false);
+          this._biodome.setAutoResetEnabled(false);
+      }
+      
+      // Reset internal temperature
+      this._internalTemp = this._normalInternalTemp;
+      this._updateInternalTempUI();
+      
+      // Close shield
+      this.closeShield();
+      
+      // Ensure it's invulnerable
+      this.setInvulnerable(true);
+      
+      // Reset auto-venting state and cooldown
+      this._isAutoVenting = false;
+      this._autoVentCooldownUntil = 0;
+      this.setAutoVentEnabled(false); // Ensure feature is off
+      
+      // Reset BFG shield break state
+      this.setBFGShieldBreakEnabled(false);
+      
+      // Reset taunt state
+      this._isTaunting = false;
+      
+      // Clear any pending message timeouts
+      if (this._messageDisplayTimeoutId) {
+        clearTimeout(this._messageDisplayTimeoutId);
+        this._messageDisplayTimeoutId = null;
+        // Optionally clear the message from UI immediately
+        this.broadcastOverseerUIMessage('', 'none');
+      }
+      
+      this._logger.info('Overseer state reset complete.');
+  }
 }

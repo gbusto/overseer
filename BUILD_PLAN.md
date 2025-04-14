@@ -167,6 +167,16 @@ This plan follows a user-centric approach, building core interactions first and 
         *   [ ] Add visual indicator for BFG availability/location?
     *   **Misc**
         *   [x] Handle player death; should stop *all* input via keyboard and mouse; player does *not* respawn until after the match ends. This is not a deathmatch style game
+        *   **Game Loop Implementation:**
+            *   [x] Define `GameState` enum (`IDLE`, `COUNTDOWN`, `ACTIVE`, `GAMEOVER`) in `GameManager`.
+            *   [x] Implement transition methods (`_transitionTo...`) in `GameManager`.
+            *   [x] Implement `/start` command to trigger `_transitionToCountdown`.
+            *   [x] Implement `COUNTDOWN` state (timer, UI updates).
+            *   [x] Implement simplified `ACTIVE` state (call helpers to enable systems, set KORO mode, equip players, spawn BFG).
+            *   [x] Implement `GAMEOVER` state (stop timers, UI message, timer to Idle).
+            *   [x] Implement `IDLE` state (call helpers to disable systems, despawn items, call entity resets).
+            *   [x] Add `reset()` methods to `GamePlayerEntity` and `OverseerEntity`.
+            *   [ ] Implement game over triggers (`handlePlayerDeath`, `handleOverseerDeath`).
         *   [ ] Handle KORO death; need some kind of final goodbye from KORO or minor celebration if the players win
         *   [ ] Handle all players die / lose; need some kind of event to happen
         *   [ ] Implement smooth transition after players win or lose before transitioning back to IDLE state

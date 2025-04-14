@@ -469,4 +469,41 @@ export default class GamePlayerEntity extends PlayerEntity {
     // Send a message to the UI to indicate player respawn
     this.player.ui.sendData({ type: 'player-respawned' });
   }
+
+  /**
+   * Reset the player state for a new game.
+   */
+  public reset(): void {
+      this._logger.info(`Resetting player state for ${this.player.username || this.player.id}`);
+      
+      // Reset health
+      this.health = this._maxHealth;
+      
+      // Reset death state
+      this._dead = false;
+      
+      // Unequip weapon
+      if (this._activeWeapon) {
+          this._activeWeapon.unequip(); // Ensure proper cleanup
+          this._activeWeapon = null;
+      }
+      
+      // Teleport to a default spawn location (e.g., center of map)
+      // Adjust coordinates as needed
+      const resetPosition = { x: 0, y: 10, z: 0 };
+      this.setPosition(resetPosition);
+      
+      // Reset animations to default
+      this.resetAnimations();
+      
+      // Reset camera to first-person
+      this._setupPlayerCamera(); 
+      
+      // Ensure UI is updated (including hiding game-specific UI if needed)
+      this._updatePlayerUI();
+      // Optionally send a specific 'reset-ui' event
+      this.player.ui.sendData({ type: 'reset-ui' });
+      
+      this._logger.info(`Player state reset complete for ${this.player.username || this.player.id}`);
+  }
 } 
