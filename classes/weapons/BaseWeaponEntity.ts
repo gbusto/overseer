@@ -324,7 +324,7 @@ export default abstract class BaseWeaponEntity extends Entity {
                 attachedToEntity: this,
                 templateId: 'weapon-label',
                 state: { name: this.name }, // Set initial name state
-                viewDistance: 8, // Adjust as needed
+                viewDistance: 10000, // Make it visible from very far away
                 offset: { x: 0, y: 0.75, z: 0 }, // Position label above the weapon
             });
         }

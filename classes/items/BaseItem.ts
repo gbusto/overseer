@@ -4,7 +4,8 @@ import {
   ColliderShape,
   Audio,
   EntityEvent,
-  World
+  World,
+  SceneUI
 } from 'hytopia';
 import type {
   EntityOptions,
@@ -48,6 +49,9 @@ export default class BaseItem extends Entity {
   private _despawnTimer: NodeJS.Timeout | null = null;
   protected _logger: Logger; // Changed to protected for subclasses
   
+  // SceneUI for the label
+  private _labelSceneUI: SceneUI | null = null;
+  
   constructor(options: BaseItemOptions) {
     // Set up the entity with default physics options
     super({
@@ -90,6 +94,20 @@ export default class BaseItem extends Entity {
     super.spawn(world, position, rotation);
     this._logger.debug(`Item spawned at position (${position.x}, ${position.y}, ${position.z})`);
     
+    // Create and load the SceneUI label if it doesn't exist
+    if (!this._labelSceneUI) {
+      this._labelSceneUI = new SceneUI({
+        attachedToEntity: this,
+        templateId: 'item-label', // Use the new template ID
+        state: { name: this.itemName }, // Use item's name
+        viewDistance: 10000, // Make it visible from very far away
+        offset: { x: 0, y: 0.5, z: 0 }, // Position label slightly above the item
+      });
+    }
+    
+    // Load the label when spawned in the world
+    this._labelSceneUI.load(world);
+    
     // Start despawn timer only if configured to despawn
     if (this.despawns) {
       this.startDespawnTimer();
@@ -103,6 +121,9 @@ export default class BaseItem extends Entity {
    */
   public pickup(player: GamePlayerEntity): boolean {
     if (!this.isSpawned || !this.world) return false;
+    
+    // Unload the label UI when picked up
+    this._labelSceneUI?.unload();
     
     // Stop the despawn timer if it was running
     this.stopDespawnTimer();
@@ -214,6 +235,7 @@ export default class BaseItem extends Entity {
    * Handle despawn cleanup
    */
   private _onDespawn = (): void => {
+    this._labelSceneUI?.unload(); // Unload SceneUI on despawn
     this.stopDespawnTimer(); // Ensure timer is cleared on manual despawn too
   }
 } 

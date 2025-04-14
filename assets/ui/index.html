@@ -669,6 +669,15 @@
   </div>
 </template>
 
+<!-- Template for item labels -->
+<template id="item-label-template">
+  <div class="weapon-label"> <!-- Reuse existing style for consistency -->
+    <div class="item-label-name">Item Name</div>
+    <div class="item-label-prompt">[E] Pickup</div>
+    <div class="item-label-caret"></div>
+  </div>
+</template>
+
 <script>
   // Get UI elements
   const messagePanel = document.getElementById('overseer-message-panel');
@@ -712,6 +721,23 @@
         nameElement.textContent = state.name;
       }
       // Note: Visibility is controlled by loading/unloading the SceneUI on the server
+    });
+    
+    return clone;
+  });
+  
+  // Register the item label template
+  hytopia.registerSceneUITemplate('item-label', (id, onState) => {
+    const template = document.getElementById('item-label-template');
+    const clone = template.content.cloneNode(true);
+    const nameElement = clone.querySelector('.item-label-name');
+
+    // Update the name based on the state sent from the server
+    onState(state => {
+      if (state.name && nameElement) {
+        nameElement.textContent = state.name;
+      }
+      // Visibility controlled by load/unload on the server
     });
     
     return clone;
