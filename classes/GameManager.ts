@@ -30,6 +30,7 @@ export enum GameState {
 const GAME_DURATION_MS = 10 * 60 * 1000; // 10 minutes
 const COUNTDOWN_DURATION_S = 10; // Countdown duration in seconds
 const GAMEOVER_DURATION_S = 10; // Duration of game over screen in seconds
+const HEALTH_PACK_SPAWN_INTERVAL_S = 60; // Interval for spawning health packs (in seconds)
 
 // Map boundary constants for random spawning
 const MAP_MIN_X = -47;
@@ -1262,8 +1263,8 @@ export default class GameManager {
     bfg.spawn(this._world, bfgSpawnPos);
     this._logger.info(`Spawned persistent BFG at ${JSON.stringify(bfgSpawnPos)}`);
 
-    // Start health pack spawning (We will uncomment this later)
-    // this._startHealthPackSpawning();
+    // Start health pack spawning
+    this._startHealthPackSpawning();
 
     // Broadcast game start message
     this._world.chatManager.sendBroadcastMessage('GAME STARTED! Protect yourselves!', '00FF00');
@@ -1417,5 +1418,57 @@ export default class GameManager {
     this._logger.info(`Despawned ${entities.length} entities with tag '${tag}'.`);
   }
 
+  // --- Health Pack Spawning ---
+
+  private _startHealthPackSpawning(): void {
+    if (this._healthPackSpawnTimer || !this._world) return; // Prevent multiple timers
+
+    this._logger.info(`Starting periodic health pack spawning (Interval: ${HEALTH_PACK_SPAWN_INTERVAL_S}s)`);
+
+    this._healthPackSpawnTimer = setInterval(() => {
+        if (this._gameState !== GameState.ACTIVE || !this._world) {
+            // Stop spawning if game is no longer active or world is gone
+            if (this._healthPackSpawnTimer) clearInterval(this._healthPackSpawnTimer);
+            this._healthPackSpawnTimer = null;
+            this._logger.info('Stopped health pack spawning due to game state change or missing world.');
+            return;
+        }
+
+        const alivePlayers = this._world.entityManager.getAllPlayerEntities()
+            .filter(entity => entity instanceof GamePlayerEntity && !entity.isDead);
+        const playerCount = alivePlayers.length;
+        
+        // Calculate number of packs based on 75% of alive players, rounded down, minimum 1
+        const numToSpawn = Math.max(1, Math.floor(playerCount * 0.75));
+
+        this._logger.info(`Spawning ${numToSpawn} health packs for ${playerCount} alive players.`);
+        let spawnedCount = 0;
+        for (let i = 0; i < numToSpawn; i++) {
+            const position = this._getRandomSpawnPositionInCircle();
+            if (position) {
+                const healthPack = new HealthPackItem({}); 
+                healthPack.spawn(this._world!, position);
+                spawnedCount++;
+            } else {
+                this._logger.warn(`Could not find valid spawn position for health pack #${i + 1}.`);
+            }
+        }
+        
+        if (spawnedCount > 0) {
+            this._world?.chatManager.sendBroadcastMessage(`${spawnedCount} Health Packs appeared!`, '00FF00');
+            // Log event for KORO?
+            const overseer = this.getOverseerEntity();
+            overseer?.reportSignificantEvent(
+                'healthpack_spawn',
+                `${spawnedCount} health packs detected.`, 
+                'low',
+                { count: spawnedCount, playerCount: playerCount }
+            );
+        }
+
+    }, HEALTH_PACK_SPAWN_INTERVAL_S * 1000);
+  }
+
   // TODO: Add _startHealthPackSpawning method later
-} 
+
+} // End of GameManager class
