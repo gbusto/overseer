@@ -372,13 +372,26 @@ export class KOROBrain {
           }
 
           this.logger.info('Generating LLM response...');
-          const response = await this._generateLlmResponse(snapshot);
+          let response = await this._generateLlmResponse(snapshot);
           if (!response) {
               this.logger.warn('No LLM response generated.');
-              return; // Exit if LLM call failed or returned nothing usable
+              // Even if LLM fails, we might still want to process TTS/UI for a default/silent state
+              // Ensure a minimal response object if LLM failed but we need to proceed
+              response = KOROResponseSchema.parse({ action: 'none' }); // Default to 'none' if LLM fails
           }
+          
+          // --- Check for Malfunction Override ---
+          if (this._overseer.isMalfunctioning() && response.action !== 'none') {
+            this.logger.warn(`KORO MALFUNCTION BLOCKED ACTION: Tried to perform '${response.action}' but shield is compromised.`);
+            // Force action to 'none' and maybe add a specific malfunction message or rely on existing UI cues
+            response.action = 'none';
+            response.message = undefined; // Clear any planned message
+            // Log the blocked action
+            this.addEventWithPriority('action_blocked_malfunction', `Attempted ${response.action} but blocked by malfunction.`, 'medium');
+          }
+          // --- End Malfunction Override ---
 
-          this.logger.info(`LLM Response: ${response.message || '(no message)'}, Action: ${response.action}, Intensity: ${response.intensity || 'N/A'}, Target: ${response.target || 'N/A'}`);
+          this.logger.info(`Final KORO Decision: ${response.message || '(no message)'}, Action: ${response.action}, Intensity: ${response.intensity || 'N/A'}, Target: ${response.target || 'N/A'}`);
           this.addResponseToHistory(response);
 
           // --- Action Execution ---

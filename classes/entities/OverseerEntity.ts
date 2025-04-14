@@ -114,6 +114,9 @@ export default class OverseerEntity extends Entity {
   // Shield Taunt State
   private _isTaunting: boolean = false;
 
+  // Malfunction State (e.g., after BFG hit)
+  private _isMalfunctioning: boolean = false;
+
   constructor(options: Partial<EntityOptions> = {}) {
     // Set up the entity with fixed physics to stay in place
     super({
@@ -1227,6 +1230,7 @@ export default class OverseerEntity extends Entity {
 
   /**
    * Force the shield open, typically due to a BFG hit.
+   * Also triggers a malfunction state, preventing KORO actions.
    * @param duration Optional duration to keep the shield open (defaults to BFG_SHIELD_BREAK_DURATION_MS).
    */
   public forceOpenShield(duration: number = this.BFG_SHIELD_BREAK_DURATION_MS): void {
@@ -1235,27 +1239,46 @@ export default class OverseerEntity extends Entity {
         this._logger.info(`forceOpenShield ignored: Shield already open or auto-venting.`);
         return;
     }
+    
+    // --- Start Malfunction State ---
+    this._isMalfunctioning = true;
+    this._logger.warn(`Malfunction START! Shield forced open by external force (BFG?) for ${duration / 1000}s!`);
 
-    this._logger.warn(`Shield forced open by external force (BFG?) for ${duration / 1000}s!`);
+    // Schedule end of malfunction state
+    setTimeout(() => {
+        if (this._isMalfunctioning) { // Only clear if it hasn't been cleared elsewhere
+            this._isMalfunctioning = false;
+            this._logger.info(`Malfunction END.`);
+        }
+    }, duration);
+    // --- End Malfunction State Logic ---
 
-    // Log the event FIRST
+    // Log the event FIRST (moved from original position)
     this._brain?.addEventWithPriority(
         'shield_breach_bfg',
-        `Shield breached by external force!`,
+        `Shield breached by external force! Malfunction initiated.`, // Updated message
         'high', // High priority - direct player action bypassing defense
         { duration: duration }
     );
 
     // Use the existing openShield method with the specified duration
+    // This method handles the animation and schedules the call to closeShield
     this.openShield(duration);
 
     // Broadcast a specific message
     if (this._world) {
       this._world.chatManager.sendBroadcastMessage(
-        `ALERT: Overseer shield integrity compromised! Forced venting initiated!`,
+        `ALERT: Overseer shield integrity compromised! System malfunction detected! Forced venting initiated!`, // Updated message
         'FFA500' // Orange color for malfunction
       );
     }
+  }
+
+  /**
+   * Returns whether KORO is currently in a malfunction state (e.g., after BFG shield break).
+   */
+  public isMalfunctioning(): boolean {
+      return this._isMalfunctioning;
   }
 
   // --- AI Integration Methods ---
@@ -1553,6 +1576,9 @@ export default class OverseerEntity extends Entity {
       
       // Reset taunt state
       this._isTaunting = false;
+      
+      // Reset malfunction state
+      this._isMalfunctioning = false;
       
       // Clear any pending message timeouts
       if (this._messageDisplayTimeoutId) {
