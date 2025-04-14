@@ -215,4 +215,5 @@ This plan follows a user-centric approach, building core interactions first and 
         *   [ ] Add anti gravity attack
         *   [ ] Update KORO's prompt to give it strategic move pairings; e.g. darkness followed by UV attack (or vice versa), temp change followed by UV attack so that players can't just stand around and wait for you to auto-vent, etc.
         *   [ ] Perhaps as it gets more erratic at the end, let it specify 2 attacks simultaneously (obviously not 2 temp attacks though)
+        *   [ ] Improved map; a little more dynamic, longer weapon ranges, have more layers like water at the lowest point, then void soil, and sometimes topped with void grass
 *   **Outcome Goal:** KORO dynamically chooses actions based on game state via LLM, speaking occasionally with degraded voice. Core loop feels responsive with simplified AI updates and planned event logging. Visuals and audio are polished.
