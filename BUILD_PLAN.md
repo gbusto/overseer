@@ -198,9 +198,9 @@ This plan follows a user-centric approach, building core interactions first and 
             *   [ ] An alarm when a new attack is being launched (also show warning on screen); alarm remains active during attack
             *   [x] When player shoots energy rifle
             *   [x] When player shoots BFG
-            *   [ ] When player rifle hits shield
-            *   [ ] When BFG hits and disrupts shield (maybe electrecution sound or something?)
-            *   [ ] When KORO gets a direct hit
+            *   [x] When player rifle hits shield
+            *   [x] When BFG hits and disrupts shield (maybe electrecution sound or something?)
+            *   [x] When KORO gets a direct hit
             *   [ ] When players tack damage from attacks
             *   [ ] When a heat attack is ongoing and in the critical temp, have a fire burning sound effect
             *   [ ] When a freeze attack is ongoing and in the critical temp, have some kind of cold (?) sound effect
