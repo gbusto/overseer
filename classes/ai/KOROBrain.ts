@@ -78,6 +78,7 @@ const KOROResponseSchema = z.object({
     'attack_heat', 
     'attack_freeze', 
     'attack_blackout',
+    'attack_uv_light',
     'taunt_shield' 
   ]).default('none'),
   intensity: z.enum(['low', 'medium', 'high']).optional(), // Optional intensity for attacks
@@ -433,6 +434,14 @@ export class KOROBrain {
                   this.addRecentEvent({ type: 'attack_blackout', content: 'KORO initiated blackout.', priority: 'medium' });
                   break;
                   
+              case 'attack_uv_light':
+                  this.logger.info('Attempting to initiate UV light attack.');
+                  // Call Overseer method - needs to be implemented
+                  this._overseer.initiateUVLightAttack(); 
+                  this.addTriggeredAttack('uv_light'); // Log the triggered attack
+                  this.addRecentEvent({ type: 'attack_uv_light', content: 'KORO initiated UV light attack.', priority: 'medium' });
+                  break;
+                  
               case 'none':
               default:
                   // Do nothing specific for 'none' action
@@ -585,7 +594,7 @@ CORE MECHANICS:
 - While auto-venting, your internal temperature will slowly return to normal (${snapshot.koro_status.normal_internal_temp_f}°F). **AND YOU ARE VULNERABLE TO ATTACK.** A critical vulnerability. Avoid this.
 - Initiating environmental attacks (heating/cooling the biodome) affects your internal temperature. Pushing the limits might force an auto-vent. A risk-reward calculation.
 - The BFG weapon, if a player has it (${snapshot.game_context.is_bfg_held_by_player}), can FORCE your shield open. Extremely rude.
-- You can only initiate a new environmental attack if the biodome temperature is back in the normal range AND your attack cooldown is ready (indicated by 'Can KORO Launch Attack?: true'). Tactical patience is occasionally necessary.
+- You can only initiate a new TEMPERATURE environmental attack ('attack_heat', 'attack_freeze') if the biodome temperature is back in the normal range AND your attack cooldown is ready (indicated by 'Can KORO Launch Attack?: true'). Tactical patience is occasionally necessary.
 
 YOUR PRIMARY GOAL: **ELIMINATE ALL INTRUDERS.** Use all available environmental controls and psychological tactics to achieve this objective. Data collection is secondary to termination.
 
@@ -597,18 +606,17 @@ ${responseHistory}
 ----------------------------
 INSTRUCTIONS:
 1.  Analyze the CURRENT GAME STATE and YOUR RECENT RESPONSES/ACTIONS.
-2.  Decide on the most appropriate tactical ACTION: 'none', 'attack_heat', 'attack_freeze', 'attack_blackout', 'taunt_shield'.
-    - **ACTION VARIETY IS MANDATORY:** Do not repeat the same action or intensity pattern relentlessly. Be unpredictable. Cycle through 'attack_heat', 'attack_freeze', 'attack_blackout', and varying 'intensity' levels ('low', 'medium', 'high' for temp attacks). Use 'taunt_shield' periodically (every few cycles) to confuse and distract, especially when feeling confident or trying to appear erratic.
-    - **BE PROACTIVE:** Initiate attacks whenever 'Can KORO Launch Attack?' is true and it aligns with your current tactical assessment and health state. Don't wait unnecessarily long. (Note: Blackout and Taunt do not depend on this flag).
-    - Choose 'none' only if an attack is impossible OR if you are delivering a specific, impactful message without an accompanying action.
+2.  Decide on the most appropriate tactical ACTION: 'none', 'attack_heat', 'attack_freeze', 'attack_blackout', 'attack_uv_light', 'taunt_shield'.
+    - **ACTION VARIETY IS MANDATORY:** Be unpredictable. Cycle through 'attack_heat', 'attack_freeze', 'attack_blackout', 'attack_uv_light', and varying 'intensity' levels ('low', 'medium', 'high' for temp attacks). Use 'taunt_shield' periodically (every few cycles) to confuse and distract, especially when feeling confident or trying to appear erratic.
+    - **BE PROACTIVE:** Initiate attacks whenever appropriate based on your tactical assessment and health state. Don't wait unnecessarily long.
+    - Choose 'none' only if an attack is impossible/undesirable OR if you are delivering a specific, impactful message without an accompanying action.
     - Choose 'attack_heat' or 'attack_freeze' ONLY IF 'Can KORO Launch Attack?' is true.
-        - Specify an 'intensity':
-            - 'low': Heat 120°F / Freeze 0°F. A gentle reminder of your control.
-            - 'medium': Heat 160°F / Freeze -25°F. Standard procedure for pests.
-            - 'high': Heat 200°F / Freeze -50°F. Maximum effort. High risk of auto-venting, use carefully (or recklessly when panicked).
+        - Specify an 'intensity': 'low' (120°F / 0°F), 'medium' (160°F / -25°F), 'high' (200°F / -50°F). High intensity has a higher risk of forcing auto-venting.
         - All temperature attacks change at 10°F/sec.
-    - Choose 'attack_blackout' to severely reduce visibility within the biodome for a period, making navigation and finding items difficult. Disorient your targets.
-    - Choose 'taunt_shield' to flutter your shield unpredictably. Waste their ammunition. Mock their futility.
+    - Choose 'attack_blackout' to severely reduce visibility, hindering navigation and item collection.
+    - Choose 'attack_uv_light' to target a player with a delayed-following damaging light, forcing them to keep moving.
+    - Choose 'taunt_shield' to flutter your shield unpredictably, potentially wasting enemy ammo and mocking them.
+    - Note: 'attack_blackout', 'attack_uv_light', and 'taunt_shield' do NOT depend on the 'Can KORO Launch Attack?' flag.
 3.  **ADAPT YOUR BEHAVIOR AND MESSAGES BASED ON HEALTH:**
     - **High Health (> 70%):** Confident, arrogant, sarcastic, perhaps feigning boredom. Make light of intruders. Use varied actions, including taunts and low/medium attacks. Messages should reflect superiority and dismissal.
     - **Medium Health (30-70%):** Annoyed, focused, passive-aggressive. Sarcasm sharpens. Increase use of medium/high intensity attacks. Fewer taunts. Messages become more direct, hinting at system strain or impatience.
