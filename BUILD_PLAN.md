@@ -179,12 +179,14 @@ This plan follows a user-centric approach, building core interactions first and 
             *   [x] Implement game over triggers (`handlePlayerDeath`, `handleOverseerDeath`).
         *   [ ] Handle KORO death; need some kind of final goodbye from KORO or minor celebration if the players win
         *   [ ] Handle all players die / lose; need some kind of event to happen
+            *   [ ] Players winning or KORO dying are immediate events it should stop and respond to NOW
+            *   [ ] On game end, reset all lighting and attacks; or just reset the environment
         *   [ ] Implement smooth transition after players win or lose before transitioning back to IDLE state
-        *   [ ] Program out the actual main game loop in GameManager.ts
-        *   [ ] Tweak attack damage, KORO damage, BFG damage, Rifle damage, and weapon cooldown / recharge speeds so the game is challeging but fun
-        *   [ ] Fix the voice location for KORO on the map; it fades away when you're far away
-        *   [ ] New targeted UV attack. Can attack up to 3 players at a time
-        *   [ ] Don't allow darkness to happen until current attack has been reset (same wiht UV lighting; have a better "can_attack" flag)
+        *   [x] Program out the actual main game loop in GameManager.ts
+        *   [x] Tweak attack damage, KORO damage, BFG damage, Rifle damage, and weapon cooldown / recharge speeds so the game is challeging but fun
+        *   [x] Fix the voice location for KORO on the map; it fades away when you're far away
+        *   [x] New targeted UV attack. Can attack up to 3 players at a time
+        *   [ ] Blackout attack should just adjust light intensity; not actual light coloring
         *   [ ] Try and figure out how to use Grok instead of Gemini
         *   [ ] Try to make the personality even more quirky
         *   [ ] New skybox
@@ -192,4 +194,8 @@ This plan follows a user-centric approach, building core interactions first and 
         *   [ ] Better music when match is active
         *   [ ] Better end state transition
         *   [ ] Add mobile support
+        *   [ ] When KORO is defeated, its shields fall to the floor with a loud bang (if possible) and it also falls to the floor
+        *   [ ] Add anti gravity attack
+        *   [ ] Update KORO's prompt to give it strategic move pairings; e.g. darkness followed by UV attack (or vice versa), temp change followed by UV attack so that players can't just stand around and wait for you to auto-vent, etc.
+        *   [ ] Perhaps as it gets more erratic at the end, let it specify 2 attacks simultaneously (obviously not 2 temp attacks though)
 *   **Outcome Goal:** KORO dynamically chooses actions based on game state via LLM, speaking occasionally with degraded voice. Core loop feels responsive with simplified AI updates and planned event logging. Visuals and audio are polished.

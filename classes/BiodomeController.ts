@@ -654,12 +654,21 @@ export default class BiodomeController {
                         
     this._logger.info(`UV Light Attack started, targeting player: ${playerName}`);
     
-    // Notify players about the attack
+    // Notify ALL players about the attack (Broadcast)
     if (this._world.chatManager) {
       this._world.chatManager.sendBroadcastMessage(
         'WARNING: Overseer has initiated a UV radiation attack. Keep moving!',
         'FF00FF' // Purple color
       );
+    }
+    
+    // Notify ONLY the TARGET player via UI data
+    if (this._uvAttackTargetPlayer.player && this._uvAttackTargetPlayer.player.ui) {
+        this._uvAttackTargetPlayer.player.ui.sendData({
+            type: 'uv-attack-warning',
+            active: true,
+            message: 'WARNING: UV Radiation Lock Detected! Keep Moving!' // Example message
+        });
     }
     
     return true;
@@ -758,6 +767,15 @@ export default class BiodomeController {
   private _stopUVLightAttack(): void {
     if (!this._isUVAttackActive) return;
     
+    // --- Send clear message to the player who WAS targeted --- START
+    if (this._uvAttackTargetPlayer && this._uvAttackTargetPlayer.player && this._uvAttackTargetPlayer.player.ui) {
+        this._uvAttackTargetPlayer.player.ui.sendData({
+            type: 'uv-attack-warning', // Use the same type
+            active: false // Indicate the warning is no longer active
+        });
+    }
+    // --- Send clear message to the player who WAS targeted --- END
+    
     // Despawn light
     if (this._uvAttackLight && this._world) {
       this._uvAttackLight.despawn();
@@ -766,7 +784,7 @@ export default class BiodomeController {
     
     // Reset state
     this._isUVAttackActive = false;
-    this._uvAttackTargetPlayer = null;
+    this._uvAttackTargetPlayer = null; // Clear the target reference
     this._uvAttackEndTime = 0;
     this._uvAttackPositionHistory = [];
     

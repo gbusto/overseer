@@ -68,6 +68,11 @@
     <div class="crosshair-vertical"></div>
   </div>
 
+  <!-- UV Light Attack Warning Panel -->
+  <div id="uv-warning-panel" class="uv-warning-panel">
+    <div id="uv-warning-content" class="uv-warning-content"></div>
+  </div>
+
   <!-- Fade overlay for transitions -->
   <div id="fade-overlay" class="fade-overlay"></div>
 </div>
@@ -571,6 +576,40 @@
     color: #cccccc;
     text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
   }
+
+  /* UV Warning Panel Styles */
+  .uv-warning-panel {
+    position: fixed;
+    bottom: 60px; /* Position above player health bar */
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(50, 0, 70, 0.8); /* Dark purple background */
+    color: #FF00FF; /* Magenta/Fuchsia */
+    padding: 10px 15px;
+    border-radius: 4px;
+    border: 1px solid #FF00FF;
+    box-shadow: 0 0 12px rgba(255, 0, 255, 0.6);
+    text-align: center;
+    font-size: 16px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    max-width: 60%;
+    margin: 0 auto;
+    text-shadow: 0 0 4px rgba(255, 0, 255, 0.8);
+    z-index: 999; /* Below overseer message */
+    display: none; /* Hidden by default */
+    animation: pulse-uv-warning 1.5s infinite alternate; /* Add pulsing */
+  }
+
+  .uv-warning-content {
+    margin: 0;
+  }
+  
+  @keyframes pulse-uv-warning {
+    from { opacity: 0.7; transform: translateX(-50%) scale(0.98); }
+    to { opacity: 1; transform: translateX(-50%) scale(1.02); }
+  }
 </style>
 
 <!-- Template for weapon labels -->
@@ -596,6 +635,8 @@
   const weaponStatus = document.querySelector('.weapon-status');
   const energyBarContainer = document.querySelector('.weapon-energy-container');
   const crosshair = document.getElementById('crosshair');
+  const uvWarningPanel = document.getElementById('uv-warning-panel');
+  const uvWarningContent = document.getElementById('uv-warning-content');
 
   // Initialize energy value
   let currentEnergy = 100;
@@ -897,6 +938,17 @@
             }, 1000);
         }
         break;
+
+      // *** NEW: Handle UV Attack Warning ***
+      case 'uv-attack-warning':
+        if (data.active && uvWarningPanel && uvWarningContent) {
+            uvWarningContent.textContent = data.message || 'WARNING: UV Lock Detected! Keep Moving!';
+            uvWarningPanel.style.display = 'block';
+        } else if (!data.active && uvWarningPanel) {
+            uvWarningPanel.style.display = 'none';
+        }
+        break;
+      // *** END: Handle UV Attack Warning ***
     }
   });
   
@@ -1164,4 +1216,6 @@
   
   // Hide crosshair initially (show only when weapon equipped)
   crosshair.style.display = 'none';
+  // Hide UV warning initially
+  if (uvWarningPanel) uvWarningPanel.style.display = 'none';
 </script> 
