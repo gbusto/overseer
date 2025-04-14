@@ -1,5 +1,7 @@
-import { World } from 'hytopia';
+import { World, Light } from 'hytopia';
+import type { Vector3Like } from 'hytopia';
 import { Logger } from '../utils/logger';
+import GamePlayerEntity from './entities/GamePlayerEntity';
 
 /**
  * BiodomeController manages the environmental conditions of the biodome.
@@ -34,6 +36,16 @@ export default class BiodomeController {
   private readonly MAX_COLD_DAMAGE: number = 2.0; // Maximum damage per second at min temp
   private readonly DAMAGE_INTERVAL_MS: number = 1000; // Apply damage every second
   
+  // UV Light Attack constants
+  private readonly UV_ATTACK_DURATION_MS: number = 15000; // 15 seconds
+  private readonly UV_ATTACK_SAMPLE_RATE_TICKS: number = 5; // Sample position every 10 ticks
+  private readonly UV_ATTACK_POSITION_BUFFER_SIZE: number = 12; // Store ~2 seconds of positions
+  private readonly UV_ATTACK_DELAY_OFFSET: number = 5; // Use 5th sample back (~1 second delay)
+  private readonly UV_ATTACK_DAMAGE_PER_SECOND: number = 1.0; // Damage per second when in range
+  private readonly UV_ATTACK_DAMAGE_RADIUS: number = 1.5; // Radius in which damage is applied
+  private readonly UV_ATTACK_LIGHT_COLOR: { r: number, g: number, b: number } = { r: 150, g: 0, b: 255 }; // UV Purple
+  private readonly UV_ATTACK_LIGHT_INTENSITY: number = 50; // Light intensity
+  
   // Temperature properties
   private _currentTemp: number = 74; // Default temperature (F)
   private _targetTemp: number = 74;
@@ -48,6 +60,16 @@ export default class BiodomeController {
   private _environmentalDamageEnabled: boolean = false; // Off by default for development
   private _lastDamageTime: number = 0; // Track when damage was last applied
   private _isAutoResetting: boolean = false; // Flag to indicate if currently in auto-reset phase
+  
+  // UV Light Attack state
+  private _isUVAttackActive: boolean = false;
+  private _uvAttackTargetPlayer: GamePlayerEntity | null = null;
+  private _uvAttackEndTime: number = 0;
+  private _uvAttackLight: Light | null = null;
+  private _uvAttackPositionHistory: Vector3Like[] = [];
+  private _uvAttackBufferWriteIndex: number = 0;
+  private _uvAttackTickSampleCounter: number = 0;
+  private _uvAttackLastDamageTime: number = 0;
   
   // Logger
   private _logger: Logger;
@@ -78,6 +100,11 @@ export default class BiodomeController {
     this._updateLighting();
     this._applyEnvironmentalEffects(tickDeltaMs);
     this._updateUI();
+    
+    // Handle UV Light Attack if active
+    if (this._isUVAttackActive) {
+      this._updateUVLightAttack(tickDeltaMs);
+    }
   }
 
   /**
@@ -546,5 +573,211 @@ export default class BiodomeController {
           this._isBlackoutActive = false;
           this._logger.info('Blackout attack finished.');
       }
+  }
+
+  /**
+   * Triggers a UV Light attack targeting a random living player.
+   * The attack creates a point light that follows the player's position with a delay,
+   * causing damage when the player stays still long enough for the light to catch up.
+   * 
+   * @param duration Duration of the attack in ms (default: 15000)
+   * @param sampleRate How many ticks between position samples (default: 10)
+   * @param delayOffset Position buffer offset to use (default: 5) 
+   * @returns True if attack was successfully triggered
+   */
+  public triggerUVLightAttack(
+    duration: number = this.UV_ATTACK_DURATION_MS,
+    sampleRate: number = this.UV_ATTACK_SAMPLE_RATE_TICKS,
+    delayOffset: number = this.UV_ATTACK_DELAY_OFFSET
+  ): boolean {
+    // Guard clauses
+    if (this._isUVAttackActive || !this._world) {
+      this._logger.warn('Cannot trigger UV attack: Attack already active or world missing.');
+      return false;
+    }
+    
+    // Get all player entities
+    const players = this._world.entityManager.getAllPlayerEntities();
+    
+    // Filter to GamePlayerEntity instances that are alive
+    const livingPlayers = players.filter(player => 
+      player instanceof GamePlayerEntity && !player.isDead
+    ) as GamePlayerEntity[];
+    
+    // Check if we have valid targets
+    if (livingPlayers.length === 0) {
+      this._logger.warn('Cannot trigger UV attack: No living players found.');
+      return false;
+    }
+    
+    // Randomly select a target player
+    const randomIndex = Math.floor(Math.random() * livingPlayers.length);
+    const selectedPlayer = livingPlayers[randomIndex];
+    if (!selectedPlayer) {
+      this._logger.warn('Cannot trigger UV attack: Failed to select a target player.');
+      return false;
+    }
+    
+    this._uvAttackTargetPlayer = selectedPlayer;
+    
+    // Initialize state
+    this._isUVAttackActive = true;
+    this._uvAttackEndTime = Date.now() + duration;
+    this._uvAttackTickSampleCounter = 0;
+    this._uvAttackBufferWriteIndex = 0;
+    this._uvAttackLastDamageTime = 0;
+    
+    // Initialize position buffer with current player position
+    const currentPos = {
+        x: this._uvAttackTargetPlayer.position.x,
+        y: this._uvAttackTargetPlayer.position.y + 10,
+        z: this._uvAttackTargetPlayer.position.z
+    }
+    this._uvAttackPositionHistory = Array(this.UV_ATTACK_POSITION_BUFFER_SIZE).fill({...currentPos});
+    
+    // Create and spawn light
+    this._uvAttackLight = new Light({
+      color: this.UV_ATTACK_LIGHT_COLOR,
+      intensity: this.UV_ATTACK_LIGHT_INTENSITY,
+      position: {...currentPos}
+    });
+    
+    this._uvAttackLight.spawn(this._world);
+    
+    // Safely get player identifiers
+    const playerName = this._uvAttackTargetPlayer.player ? 
+                       (this._uvAttackTargetPlayer.player.username || 
+                        (this._uvAttackTargetPlayer.player.id ? 
+                         this._uvAttackTargetPlayer.player.id.toString() : 
+                         'unknown')) : 
+                       'unknown';
+                        
+    this._logger.info(`UV Light Attack started, targeting player: ${playerName}`);
+    
+    // Notify players about the attack
+    if (this._world.chatManager) {
+      this._world.chatManager.sendBroadcastMessage(
+        'WARNING: Overseer has initiated a UV radiation attack. Keep moving!',
+        'FF00FF' // Purple color
+      );
+    }
+    
+    return true;
+  }
+
+  /**
+   * Updates the UV Light attack state and applies effects
+   * @param tickDeltaMs Time since last tick in milliseconds
+   */
+  private _updateUVLightAttack(tickDeltaMs: number): void {
+    // Check if attack should end
+    if (!this._world || !this._uvAttackTargetPlayer || this._uvAttackTargetPlayer.isDead || Date.now() >= this._uvAttackEndTime) {
+      this._stopUVLightAttack();
+      return;
+    }
+    
+    // Position Sampling
+    this._uvAttackTickSampleCounter++;
+    if (this._uvAttackTickSampleCounter >= this.UV_ATTACK_SAMPLE_RATE_TICKS) {
+      // Reset counter
+      this._uvAttackTickSampleCounter = 0;
+      
+      // Store current player position
+      const currentPos = {...this._uvAttackTargetPlayer.position};
+      this._uvAttackPositionHistory[this._uvAttackBufferWriteIndex] = currentPos;
+      
+      // Update write index with wrap-around
+      this._uvAttackBufferWriteIndex = (this._uvAttackBufferWriteIndex + 1) % this.UV_ATTACK_POSITION_BUFFER_SIZE;
+    }
+    
+    // Update Light Position
+    if (this._uvAttackLight) {
+      // Calculate read index with wrap-around
+      const readIndex = (this._uvAttackBufferWriteIndex + this.UV_ATTACK_POSITION_BUFFER_SIZE - this.UV_ATTACK_DELAY_OFFSET) % this.UV_ATTACK_POSITION_BUFFER_SIZE;
+      
+      // Get historical position with safety check
+      const historicalPos = this._uvAttackPositionHistory[readIndex];
+      if (historicalPos) {
+        // Update light position
+        this._uvAttackLight.setPosition(historicalPos);
+      }
+    }
+    
+    // Apply Damage
+    this._uvAttackLastDamageTime += tickDeltaMs;
+    if (this._uvAttackLastDamageTime >= this.DAMAGE_INTERVAL_MS) {
+      // Get time factor and reset timer
+      const timeFactor = this._uvAttackLastDamageTime / 1000;
+      this._uvAttackLastDamageTime = 0;
+      
+      // Check if player is in range of the light
+      if (this._uvAttackLight && this._uvAttackTargetPlayer) {
+        const lightPos = this._uvAttackLight.position;
+        const playerPos = this._uvAttackTargetPlayer.position;
+        
+        if (lightPos && playerPos) {
+          // Calculate squared distance (more efficient than using sqrt)
+          const dx = lightPos.x - playerPos.x;
+          const dy = lightPos.y - playerPos.y;
+          const dz = lightPos.z - playerPos.z;
+          const distanceSq = dx*dx + dy*dy + dz*dz;
+          
+          // Check if within damage radius
+          if (distanceSq <= this.UV_ATTACK_DAMAGE_RADIUS * this.UV_ATTACK_DAMAGE_RADIUS) {
+            // Apply damage
+            const damage = this.UV_ATTACK_DAMAGE_PER_SECOND * timeFactor;
+            this._uvAttackTargetPlayer.takeDamage(damage);
+            
+            // Visual feedback to player if they have UI
+            if (this._uvAttackTargetPlayer.player && this._uvAttackTargetPlayer.player.ui) {
+              this._uvAttackTargetPlayer.player.ui.sendData({
+                type: 'environmental-damage-effect',
+                damageType: 'uv-radiation',
+                amount: damage
+              });
+            }
+            
+            // Safely get player identifier for logging
+            const playerName = this._uvAttackTargetPlayer.player ? 
+                            (this._uvAttackTargetPlayer.player.username || 
+                              (this._uvAttackTargetPlayer.player.id ? 
+                              this._uvAttackTargetPlayer.player.id.toString() : 
+                              'unknown')) : 
+                            'unknown';
+                            
+            this._logger.debug(`Applied UV radiation damage: ${damage.toFixed(2)} to player ${playerName}`);
+          }
+        }
+      }
+    }
+  }
+  
+  /**
+   * Stops the active UV Light attack and cleans up resources
+   */
+  private _stopUVLightAttack(): void {
+    if (!this._isUVAttackActive) return;
+    
+    // Despawn light
+    if (this._uvAttackLight && this._world) {
+      this._uvAttackLight.despawn();
+      this._uvAttackLight = null;
+    }
+    
+    // Reset state
+    this._isUVAttackActive = false;
+    this._uvAttackTargetPlayer = null;
+    this._uvAttackEndTime = 0;
+    this._uvAttackPositionHistory = [];
+    
+    this._logger.info('UV Light Attack ended.');
+    
+    // Notify players
+    if (this._world && this._world.chatManager) {
+      this._world.chatManager.sendBroadcastMessage(
+        'UV radiation levels returning to normal.',
+        'AAAAFF' // Light blue color
+      );
+    }
   }
 } 

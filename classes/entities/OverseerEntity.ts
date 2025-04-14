@@ -1426,6 +1426,45 @@ export default class OverseerEntity extends Entity {
   }
 
   /**
+   * Initiates a UV Light attack via the BiodomeController.
+   * This attack targets a random living player with a delayed-following point light.
+   * The light damages the player if they stay still long enough for it to catch up.
+   * @param duration Optional: Duration of attack in ms (default: 15000)
+   * @param sampleRate Optional: Sampling rate for player position (default: 10 ticks)
+   * @param delayOffset Optional: How far back in position history to use (default: 5 samples)
+   * @returns True if attack was successfully triggered
+   */
+  public initiateUVLightAttack(
+    duration?: number,
+    sampleRate?: number,
+    delayOffset?: number
+  ): boolean {
+    if (this._biodome) {
+      // Attempt to trigger the attack
+      const success = this._biodome.triggerUVLightAttack(duration, sampleRate, delayOffset);
+      
+      if (success) {
+        this._logger.info('UV Light Attack initiated successfully');
+        
+        // Report this as a significant event to the KORO brain
+        this.reportSignificantEvent(
+          'attack',
+          'Initiated UV radiation attack against a target',
+          'medium',
+          { attackType: 'uv-light' }
+        );
+      } else {
+        this._logger.warn('Failed to initiate UV Light Attack');
+      }
+      
+      return success;
+    } else {
+      this._logger.error('Cannot initiate UV Light Attack: BiodomeController not found');
+      return false;
+    }
+  }
+
+  /**
    * Performs a shield taunt sequence: rapidly opening and closing the shield.
    * Prevents overlapping taunts.
    */

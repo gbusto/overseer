@@ -1216,6 +1216,68 @@ export default class GameManager {
        );
     });
     
+    // Command: /uvlight [duration] [sampleRate] [delayOffset] - Trigger a UV light attack
+    chatManager.registerCommand('/uvlight', (player, args) => {
+      const overseer = this.getOverseerEntity();
+      if (!overseer) {
+        chatManager.sendPlayerMessage(player, 'Overseer not found.', 'FF0000');
+        return;
+      }
+      
+      // Parse optional parameters
+      let duration: number | undefined = undefined;
+      let sampleRate: number | undefined = undefined;
+      let delayOffset: number | undefined = undefined;
+      
+      // Parse duration (first argument)
+      if (args.length > 0 && args[0]) {
+        const parsedDuration = parseInt(args[0], 10);
+        if (!isNaN(parsedDuration) && parsedDuration > 0) {
+          duration = parsedDuration * 1000; // Convert to milliseconds
+        } else {
+          chatManager.sendPlayerMessage(player, 'Invalid duration. Using default (15s).', 'FFFF00');
+        }
+      }
+      
+      // Parse sample rate (second argument)
+      if (args.length > 1 && args[1]) {
+        const parsedRate = parseInt(args[1], 10);
+        if (!isNaN(parsedRate) && parsedRate > 0) {
+          sampleRate = parsedRate;
+        } else {
+          chatManager.sendPlayerMessage(player, 'Invalid sample rate. Using default (10).', 'FFFF00');
+        }
+      }
+      
+      // Parse delay offset (third argument)
+      if (args.length > 2 && args[2]) {
+        const parsedOffset = parseInt(args[2], 10);
+        if (!isNaN(parsedOffset) && parsedOffset > 0) {
+          delayOffset = parsedOffset;
+        } else {
+          chatManager.sendPlayerMessage(player, 'Invalid delay offset. Using default (5).', 'FFFF00');
+        }
+      }
+      
+      // Trigger the UV light attack
+      const success = overseer.initiateUVLightAttack(duration, sampleRate, delayOffset);
+      
+      if (success) {
+        // Notify the player
+        chatManager.sendPlayerMessage(
+          player,
+          `UV Light attack triggered successfully. Duration: ${duration ? duration/1000 : 15}s`,
+          '00FF00'
+        );
+      } else {
+        chatManager.sendPlayerMessage(
+          player,
+          'Failed to trigger UV Light attack. Check logs for details.',
+          'FF0000'
+        );
+      }
+    });
+    
     this._logger.info('Registered custom chat commands.');
   }
 
