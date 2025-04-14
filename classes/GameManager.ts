@@ -256,21 +256,22 @@ export default class GameManager {
 
   /**
    * Handles logic when a player entity dies.
+   *
    * @param playerEntity The GamePlayerEntity instance that died.
    */
   public handlePlayerDeath(playerEntity: GamePlayerEntity): void {
     if (!this._world) return;
-    
+
     this._logger.info(`Handling death for player: ${playerEntity.player.username || playerEntity.player.id}`);
-    
+
     // Report the event to the Overseer (KORO)
     const overseer = this.getOverseerEntity();
     if (overseer) {
       overseer.reportSignificantEvent(
         'player_death', // Event type
-        `Detected cessation of intruder biosign: ${playerEntity.player.username || playerEntity.player.id}`, // Content for LLM
-        'medium', // Priority
-        { // Optional structured data
+        `Detected cessation of intruder biosign: ${playerEntity.player.username || playerEntity.player.id}`,
+        'medium',
+        {
           playerId: playerEntity.player.id,
           playerName: playerEntity.player.username || playerEntity.player.id
         }
@@ -278,9 +279,24 @@ export default class GameManager {
     } else {
       this._logger.warn('Could not report player death to Overseer: Overseer entity not found.');
     }
+
+    // Check if this was the last player alive
+    const alivePlayers = this._world.entityManager.getAllPlayerEntities()
+        .filter(entity => entity instanceof GamePlayerEntity && !entity.isDead); // Check isDead flag
     
-    // TODO: Add any other game logic needed when a player dies, 
-    // e.g., check if all players are dead to end the game.
+    if (alivePlayers.length === 0 && this._gameState === GameState.ACTIVE) {
+        this._logger.info('Last player died. Triggering game over (KORO wins).');
+        this._transitionToGameOver('koro');
+    }
+  }
+
+  /**
+   * Handles logic when the Overseer entity dies.
+   */
+  public handleOverseerDeath(): void {
+      if (!this._world || this._gameState !== GameState.ACTIVE) return;
+      this._logger.info('Overseer has been defeated!');
+      this._transitionToGameOver('players');
   }
 
   /**
@@ -1171,11 +1187,14 @@ export default class GameManager {
 
     // Function to update countdown UI
     const updateCountdown = () => {
-      this._world?.chatManager.sendBroadcastMessage(`Game starting in ${countdownValue}...`, 'FFFF00');
+      // Remove chat broadcast
+      // this._world?.chatManager.sendBroadcastMessage(`Game starting in ${countdownValue}...`, 'FFFF00');
+      
       // Send UI data as well
       this._world?.entityManager.getAllPlayerEntities().forEach(entity => {
           if (entity instanceof GamePlayerEntity) {
-              entity.player.ui.sendData({ type: 'countdown-update', timeRemaining: countdownValue });
+              // Send 'game-countdown' event type
+              entity.player.ui.sendData({ type: 'game-countdown', countdown: countdownValue }); 
           }
       });
     };
@@ -1222,8 +1241,9 @@ export default class GameManager {
         // Spawn the rifle near the player first (required before equipping)
         // We might need a better way to handle weapon creation/assignment
         rifle.spawn(this._world!, entity.position); // Spawn then equip
-        entity.equipWeapon(rifle);
-        this._logger.info(`Equipped ${entity.player.username} with Energy Rifle`);
+        // Call pickup instead of equipWeapon directly
+        rifle.pickup(entity);
+        this._logger.info(`Called pickup() for ${entity.player.username}'s Energy Rifle`);
       }
     });
 
@@ -1240,10 +1260,10 @@ export default class GameManager {
 
     // Broadcast game start message
     this._world.chatManager.sendBroadcastMessage('GAME STARTED! Protect yourselves!', '00FF00');
-    // Clear countdown UI
+    // Clear countdown UI by sending count 0
     this._world.entityManager.getAllPlayerEntities().forEach(entity => {
       if (entity instanceof GamePlayerEntity) {
-          entity.player.ui.sendData({ type: 'countdown-update', timeRemaining: 0 }); // Signal countdown end
+          entity.player.ui.sendData({ type: 'game-countdown', countdown: 0 }); // Signal countdown end
       }
     });
   }

@@ -176,7 +176,7 @@ This plan follows a user-centric approach, building core interactions first and 
             *   [x] Implement `GAMEOVER` state (stop timers, UI message, timer to Idle).
             *   [x] Implement `IDLE` state (call helpers to disable systems, despawn items, call entity resets).
             *   [x] Add `reset()` methods to `GamePlayerEntity` and `OverseerEntity`.
-            *   [ ] Implement game over triggers (`handlePlayerDeath`, `handleOverseerDeath`).
+            *   [x] Implement game over triggers (`handlePlayerDeath`, `handleOverseerDeath`).
         *   [ ] Handle KORO death; need some kind of final goodbye from KORO or minor celebration if the players win
         *   [ ] Handle all players die / lose; need some kind of event to happen
         *   [ ] Implement smooth transition after players win or lose before transitioning back to IDLE state

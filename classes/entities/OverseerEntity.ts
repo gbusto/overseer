@@ -923,6 +923,12 @@ export default class OverseerEntity extends Entity {
       // TODO: Play non-verbal damage sound effect here
       // Example: AudioManager.instance.playAttachedSound(this, 'koro_damage_sfx', { volume: 0.8 });
 
+      // Check if Overseer died
+      if (newHealth <= 0) {
+          this._logger.info('Overseer health reached zero.');
+          GameManager.instance.handleOverseerDeath();
+      }
+
       return true;
     }
 

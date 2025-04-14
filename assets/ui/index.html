@@ -43,7 +43,10 @@
   <div id="timer-container" class="timer-container">10:00</div>
 
   <!-- Countdown for game start -->
-  <div id="countdown-container" class="countdown-container">5</div>
+  <div id="countdown-container" class="countdown-container">
+    <div class="countdown-text">Game starting in</div>
+    <div id="countdown-number" class="countdown-number">10</div>
+  </div>
 
   <!-- Energy bar container for weapons -->
   <div class="weapon-energy-container">
@@ -214,11 +217,23 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
+    text-align: center;
+    display: none; /* Hidden by default */
+  }
+
+  .countdown-text {
+    font-size: 48px; /* Smaller than the number */
+    font-weight: bold;
+    color: white;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+    margin-bottom: 10px; /* Space between lines */
+  }
+
+  .countdown-number {
     font-size: 72px;
     font-weight: bold;
     color: white;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
-    display: none; /* Hidden by default */
   }
 
   /* Crosshair styles */
@@ -735,8 +750,7 @@
         document.getElementById('timer-container').style.display = 'none';
         document.getElementById('countdown-container').style.display = 'none';
         // Also hide crosshair on reset
-        const crosshairElement = document.getElementById('crosshair');
-        if (crosshairElement) crosshairElement.style.display = 'none';
+        if (crosshair) crosshair.style.display = 'none';
         break;
       
       case 'player-died':
@@ -789,6 +803,30 @@
           }, 2000);
         }
         break;
+        
+      // Handle showing game UI
+      case 'show-game-ui':
+        document.getElementById('health-container').style.display = 'block';
+        document.getElementById('overseer-health-container').style.display = 'block';
+        document.getElementById('biodome-status-container').style.display = 'block';
+        document.getElementById('overseer-temp-container').style.display = 'block';
+        // Timer visibility is handled by game state logic usually
+        // Crosshair visibility is handled by weapon equip/unequip
+        break;
+        
+      // Handle hiding all UI (for reset)
+      case 'hide-all-ui':
+        document.getElementById('health-container').style.display = 'none';
+        document.getElementById('overseer-health-container').style.display = 'none';
+        document.getElementById('biodome-status-container').style.display = 'none';
+        document.getElementById('overseer-temp-container').style.display = 'none';
+        document.getElementById('timer-container').style.display = 'none';
+        document.getElementById('countdown-container').style.display = 'none';
+        document.getElementById('overseer-message-panel').style.display = 'none';
+        // Hide crosshair and weapon UI
+        if (crosshair) crosshair.style.display = 'none';
+        setEnergyWeaponEquipped(false);
+        break;
     }
   });
   
@@ -827,24 +865,29 @@
     document.getElementById('timer-container').style.display = visible ? 'block' : 'none';
   }
 
-  // Show countdown
+  // Show countdown - CORRECTED
   function showCountdown(count) {
-    const countdownElement = document.getElementById('countdown-container');
-    countdownElement.textContent = count;
-    countdownElement.style.display = 'block';
+    const countdownContainer = document.getElementById('countdown-container');
+    const countdownNumberElement = document.getElementById('countdown-number');
     
-    // Hide countdown when it reaches 0
-    if (count <= 0) {
-      setTimeout(() => {
-        countdownElement.style.display = 'none';
-      }, 1000);
+    if (!countdownContainer || !countdownNumberElement) return;
+    
+    if (count > 0) {
+      // Update the number element specifically
+      countdownNumberElement.textContent = count; 
+      countdownContainer.style.display = 'flex'; // Use flex for centering container
+      countdownContainer.style.flexDirection = 'column'; // Stack text and number vertically
+      countdownContainer.style.alignItems = 'center'; // Center items horizontally
+    } else {
+      // Hide countdown when it reaches 0 or below
+      countdownContainer.style.display = 'none';
     }
   }
 
   // Start game
   function startGame(startTime, duration) {
-    // Hide countdown
-    document.getElementById('countdown-container').style.display = 'none';
+    // Hide countdown - handled by showCountdown(0) now
+    // document.getElementById('countdown-container').style.display = 'none';
     
     // Show timer
     showTimer(true);
