@@ -809,11 +809,11 @@ export default class OverseerEntity extends Entity {
       
       // Create and play the new TTS audio
       this._ttsAudio = new Audio({
-        attachedToEntity: this,
+        // attachedToEntity: this,
         uri: data.filepath, // Now points to a .wav file
         loop: false,
-        volume: 0.8,
-        referenceDistance: 30
+        volume: 1.0,
+        // referenceDistance: 30
       });
       
       this._ttsAudio.play(this._world);

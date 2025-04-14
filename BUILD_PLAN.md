@@ -182,4 +182,14 @@ This plan follows a user-centric approach, building core interactions first and 
         *   [ ] Implement smooth transition after players win or lose before transitioning back to IDLE state
         *   [ ] Program out the actual main game loop in GameManager.ts
         *   [ ] Tweak attack damage, KORO damage, BFG damage, Rifle damage, and weapon cooldown / recharge speeds so the game is challeging but fun
+        *   [ ] Fix the voice location for KORO on the map; it fades away when you're far away
+        *   [ ] New targeted UV attack. Can attack up to 3 players at a time
+        *   [ ] Don't allow darkness to happen until current attack has been reset (same wiht UV lighting; have a better "can_attack" flag)
+        *   [ ] Try and figure out how to use Grok instead of Gemini
+        *   [ ] Try to make the personality even more quirky
+        *   [ ] New skybox
+        *   [ ] More sound effects
+        *   [ ] Better music when match is active
+        *   [ ] Better end state transition
+        *   [ ] Add mobile support
 *   **Outcome Goal:** KORO dynamically chooses actions based on game state via LLM, speaking occasionally with degraded voice. Core loop feels responsive with simplified AI updates and planned event logging. Visuals and audio are polished.
