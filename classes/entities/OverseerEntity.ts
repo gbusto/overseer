@@ -13,7 +13,8 @@ import {
 import type {
   EntityOptions,
   Vector3Like,
-  QuaternionLike
+  QuaternionLike,
+  RgbColor
 } from 'hytopia';
 
 import { KOROBrain } from '../ai/KOROBrain';
@@ -119,6 +120,10 @@ export default class OverseerEntity extends Entity {
 
   // Malfunction State (e.g., after BFG hit)
   private _isMalfunctioning: boolean = false;
+
+  // Damage Flash Timeout
+  private _damageFlashTimeout: NodeJS.Timeout | null = null;
+  private _defaultTintColor: RgbColor | undefined = undefined;
 
   constructor(options: Partial<EntityOptions> = {}) {
     // Set up the entity with fixed physics to stay in place
@@ -738,6 +743,11 @@ export default class OverseerEntity extends Entity {
       this._updateInternalTempUI();
     }
     
+    // --- Store the initial tint color --- START
+    this._defaultTintColor = this.tintColor || { r: 0, g: 0, b: 0 }; // Store the tint *after* spawn
+    this._logger.info(`Stored default tint color: ${JSON.stringify(this._defaultTintColor)}`);
+    // --- Store the initial tint color --- END
+    
     this._logger.info('Spawned and initialized');
   }
 
@@ -760,6 +770,13 @@ export default class OverseerEntity extends Entity {
       clearTimeout(this._messageDisplayTimeoutId);
       this._messageDisplayTimeoutId = null;
     }
+    
+    // --- Clear damage flash timeout --- START
+    if (this._damageFlashTimeout) {
+        clearTimeout(this._damageFlashTimeout);
+        this._damageFlashTimeout = null;
+    }
+    // --- Clear damage flash timeout --- END
     
     // Clean up biodome controller reference
     this._biodome = null;
@@ -979,6 +996,18 @@ export default class OverseerEntity extends Entity {
           this._directHitAudio.play(this.world, true); // Play and restart if needed
       }
       // --- Play Direct Hit Sound --- END
+      
+      // --- Trigger Damage Flash --- START
+      if (this._damageFlashTimeout) {
+          clearTimeout(this._damageFlashTimeout);
+      }
+      this.setTintColor({ r: 255, g: 0, b: 0 }); // Set tint to red
+      this._damageFlashTimeout = setTimeout(() => {
+          // Reset tint to the stored default value
+          this.setTintColor(this._defaultTintColor); 
+          this._damageFlashTimeout = null; // Clear the timeout ID
+      }, 500); // Flash duration 500ms
+      // --- Trigger Damage Flash --- END
 
       // Log the damage event to the brain
       this._brain?.addEventWithPriority(
@@ -1652,6 +1681,15 @@ export default class OverseerEntity extends Entity {
       
       // Reset malfunction state
       this._isMalfunctioning = false;
+      
+      // --- Reset Damage Flash --- START
+      if (this._damageFlashTimeout) {
+        clearTimeout(this._damageFlashTimeout);
+        this._damageFlashTimeout = null;
+      }
+      // Ensure tint is reset to the stored default value
+      this.setTintColor(this._defaultTintColor); 
+      // --- Reset Damage Flash --- END
       
       // Clear any pending message timeouts
       if (this._messageDisplayTimeoutId) {
