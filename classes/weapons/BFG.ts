@@ -88,4 +88,12 @@ export default class BFG extends BaseEnergyWeaponEntity {
     protected override getEquippedRotation(): QuaternionLike {
         return Quaternion.fromEuler(-95, 5, -90);
     }
+
+    /**
+     * Override startDespawnTimer to prevent the BFG from despawning.
+     */
+    public override startDespawnTimer(): void {
+        this._logger.info('BFG despawn timer explicitly prevented.');
+        // Do nothing
+    }
 } 

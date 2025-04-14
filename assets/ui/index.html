@@ -48,6 +48,12 @@
     <div id="countdown-number" class="countdown-number">10</div>
   </div>
 
+  <!-- Game Over container -->
+  <div id="game-over-container" class="game-over-container">
+    <div id="game-over-message" class="game-over-message">GAME OVER MESSAGE</div>
+    <div class="game-over-subtext">Resetting in <span id="game-over-timer">10</span>...</div>
+  </div>
+
   <!-- Energy bar container for weapons -->
   <div class="weapon-energy-container">
     <div class="energy-bar">
@@ -536,6 +542,31 @@
     border-right: 6px solid transparent;
     border-top: 6px solid rgba(0, 0, 0, 0.7);
   }
+
+  /* Game Over styles */
+  .game-over-container {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    display: none; /* Hidden by default */
+    z-index: 1010; /* Ensure it's above other UI but below fade potentially */
+  }
+
+  .game-over-message {
+    font-size: 48px;
+    font-weight: bold;
+    color: white;
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 1);
+    margin-bottom: 15px;
+  }
+
+  .game-over-subtext {
+    font-size: 24px;
+    color: #cccccc;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+  }
 </style>
 
 <!-- Template for weapon labels -->
@@ -826,6 +857,41 @@
         // Hide crosshair and weapon UI
         if (crosshair) crosshair.style.display = 'none';
         setEnergyWeaponEquipped(false);
+        break;
+        
+      // Handle Game Over display
+      case 'game-over-display':
+        const gameOverContainer = document.getElementById('game-over-container');
+        const gameOverMessage = document.getElementById('game-over-message');
+        const gameOverTimerSpan = document.getElementById('game-over-timer');
+        
+        if (gameOverContainer && gameOverMessage && gameOverTimerSpan) {
+            // Set winner message
+            gameOverMessage.textContent = data.winner === 'players' 
+                ? 'YOU DEFEATED THE OVERSEER!' 
+                : 'THE OVERSEER HAS ELIMINATED ALL INTRUDERS!';
+            gameOverMessage.style.color = data.winner === 'players' ? '#00FF00' : '#FF0000';
+            
+            // Start countdown timer
+            let remainingTime = data.duration;
+            gameOverTimerSpan.textContent = remainingTime;
+            gameOverContainer.style.display = 'block'; // Show the container
+            
+            // Clear previous interval if exists
+            if (window.gameOverInterval) clearInterval(window.gameOverInterval);
+            
+            window.gameOverInterval = setInterval(() => {
+                remainingTime--;
+                if (remainingTime >= 0) {
+                    gameOverTimerSpan.textContent = remainingTime;
+                } else {
+                    clearInterval(window.gameOverInterval);
+                    window.gameOverInterval = null;
+                    // Hide container when timer ends (reset happens server-side)
+                    gameOverContainer.style.display = 'none'; 
+                }
+            }, 1000);
+        }
         break;
     }
   });

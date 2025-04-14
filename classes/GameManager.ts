@@ -16,6 +16,7 @@ import type { KoroMode } from './ai/KOROBrain';
 import EnergyRifle1 from './weapons/EnergyRifle1';
 import BFG from './weapons/BFG';
 import BiodomeController from './BiodomeController';
+import BaseWeaponEntity from './weapons/BaseWeaponEntity';
 
 // Game states enum
 export enum GameState {
@@ -160,6 +161,12 @@ export default class GameManager {
     // Despawn remaining items (health packs, BFG)
     this._despawnTaggedEntities('healthpack');
     this._despawnTaggedEntities('persistent_weapon');
+
+    // Also despawn any dropped non-persistent weapons (like Energy Rifles)
+    this._world.entityManager.getAllEntities()
+        .filter(e => e instanceof BaseWeaponEntity && e.tag !== 'persistent_weapon')
+        .forEach(weapon => weapon.despawn());
+    this._logger.info('Despawned any remaining non-persistent weapons.');
 
     // Disable game systems
     this._disableGameSystems();
@@ -1295,21 +1302,43 @@ export default class GameManager {
     // Send game over UI update
     this._world.entityManager.getAllPlayerEntities().forEach(entity => {
       if (entity instanceof GamePlayerEntity) {
-          entity.player.ui.sendData({ type: 'game-over', winner: winner });
+          // Send specific event for display
+          entity.player.ui.sendData({ 
+              type: 'game-over-display', 
+              winner: winner, 
+              duration: GAMEOVER_DURATION_S 
+          });
       }
     });
 
     // Start timer to transition back to IDLE
     this._gameOverTimer = setTimeout(() => {
-      this._transitionToIdle();
-      this._gameOverTimer = null;
-    }, GAMEOVER_DURATION_S * 1000);
+      // Trigger fade-to-white before resetting
+      this._world?.entityManager.getAllPlayerEntities().forEach(entity => {
+          if (entity instanceof GamePlayerEntity) {
+              entity.player.ui.sendData({ type: 'fade-white', duration: 1000 }); // 1 second fade
+          }
+      });
+      
+      // Add a short delay for the fade to start before resetting
+      setTimeout(() => {
+        this._transitionToIdle();
+        this._gameOverTimer = null;
+      }, 1000); // Wait 1 second (matching fade duration) before resetting
+    }, (GAMEOVER_DURATION_S - 1) * 1000); // Start fade 1 second before the total duration ends
   }
 
   private _transitionToIdle(): void {
     // State check is implicit as this is only called from GAMEOVER timeout
     this._logger.info('Transitioning to IDLE state...');
     this._resetGame(); // _resetGame now handles setting state to IDLE and other resets
+
+    // Trigger fade-from-white after reset is complete
+    this._world?.entityManager.getAllPlayerEntities().forEach(entity => {
+        if (entity instanceof GamePlayerEntity) {
+             entity.player.ui.sendData({ type: 'fade-from-white', duration: 1000 }); // 1 second fade
+        }
+    });
   }
 
   // --- Helper Methods for Enabling/Disabling Systems ---
