@@ -389,6 +389,36 @@ export default class OverseerEntity extends Entity {
     return this._shieldActive; // Return true if closed (active)
   }
 
+  private _playShieldOpenSound(): void {
+    // Play the shield open sound
+    if (!this._world) {
+      this._logger.error('No world found to play shield open sound');
+      return;
+    }
+
+    const audio = new Audio({
+      uri: 'audio/sfx/overseer/shield-open.mp3',
+      volume: 0.8,
+    });
+
+    audio.play(this._world);
+  }
+
+  private _playShieldCloseSound(): void {
+    // Play the shield close sound
+    if (!this._world) {
+      this._logger.error('No world found to play shield close sound');
+      return;
+    }
+
+    const audio = new Audio({
+      uri: 'audio/sfx/overseer/shield-close.mp3',
+      volume: 0.9,
+    });
+
+    audio.play(this._world);
+  }
+
   /**
    * Animate shield opening/closing using setTimeout
    */
@@ -398,6 +428,11 @@ export default class OverseerEntity extends Entity {
     const targetOffsets = opening ? this._shieldOpenOffsets : this._shieldOffsets;
     const animationStepMs = 16; // ~60fps
     const animationSpeed = 0.1; // Units per step
+
+    // If opening, play the opening sound
+    if (opening) {
+      this._playShieldOpenSound();
+    }
     
     // Animation function using setInterval
     this._shieldAnimationTimer = setInterval(() => {
@@ -455,6 +490,10 @@ export default class OverseerEntity extends Entity {
         if (this._shieldAnimationTimer) {
           clearInterval(this._shieldAnimationTimer);
           this._shieldAnimationTimer = null;
+        }
+
+        if (!opening) {
+          this._playShieldCloseSound();
         }
       }
     }, animationStepMs);
