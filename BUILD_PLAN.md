@@ -191,8 +191,8 @@ This plan follows a user-centric approach, building core interactions first and 
         *   [ ] Try to make the personality even more quirky
         *   [ ] New skybox
         *   [ ] More sound effects
-            *   [ ] When KORO shields open (venting noise)
-            *   [ ] When KORO shields close (heavy metal bang like a steel door closing)
+            *   [x] When KORO shields open (venting noise)
+            *   [x] When KORO shields close (heavy metal bang like a steel door closing)
             *   [ ] When KORO shields fall from the sky, metal bang like a heav, hollow metal ball falling on the ground
             *   [ ] A thud sound when KORO entity hits the ground
             *   [ ] An alarm when a new attack is being launched (also show warning on screen); alarm remains active during attack
