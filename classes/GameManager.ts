@@ -269,9 +269,9 @@ export default class GameManager {
    */
   public handlePlayerDeath(playerEntity: GamePlayerEntity): void {
     if (!this._world) return;
-
+    
     this._logger.info(`Handling death for player: ${playerEntity.player.username || playerEntity.player.id}`);
-
+    
     // Report the event to the Overseer (KORO)
     const overseer = this.getOverseerEntity();
     if (overseer) {
@@ -287,7 +287,7 @@ export default class GameManager {
     } else {
       this._logger.warn('Could not report player death to Overseer: Overseer entity not found.');
     }
-
+    
     // Check if this was the last player alive
     const alivePlayers = this._world.entityManager.getAllPlayerEntities()
         .filter(entity => entity instanceof GamePlayerEntity && !entity.isDead); // Check isDead flag

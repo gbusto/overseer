@@ -90,6 +90,8 @@ export default abstract class BaseEnergyWeaponEntity extends BaseWeaponEntity {
             this._needsToStartFullRecharge = false; // Reset flag
             this._logger.info(`Deferred start of full recharge initiated on tick.`);
 
+            console.log(`IS FULL RECHARGE WHEN TICKING ${this._isFullRecharging}`);
+
             // Send the initial depletion message from here now
             if (owner && owner.player) {
                 owner.player.ui.sendData({
@@ -291,7 +293,7 @@ export default abstract class BaseEnergyWeaponEntity extends BaseWeaponEntity {
         }
 
         // Check if energy is less than required for a shot
-        if (this._currentEnergy < this._energyPerShot) {
+        if (this._currentEnergy <= this._energyPerShot) {
             this._logger.debug(`Not enough energy to fire. Required: ${this._energyPerShot}, Has: ${this._currentEnergy.toFixed(1)}`);
             
             // Force energy to zero and trigger full recharge
@@ -301,7 +303,7 @@ export default abstract class BaseEnergyWeaponEntity extends BaseWeaponEntity {
             
             // Update UI immediately to show empty state
             this._updateOwnerEnergyUI(); 
-            return; // Prevent firing
+            // return; // Prevent firing
         }
 
         // If we have enough energy, proceed with firing:
@@ -353,6 +355,8 @@ export default abstract class BaseEnergyWeaponEntity extends BaseWeaponEntity {
      */
     public override equip(): void {
         super.equip(); // Call the base equip logic (positioning, animations)
+
+        console.log(`IS FUL RECHARGE WHEN EQUIPPED ${this._isFullRecharging}`);
         
         // Send the initial energy state to the UI when equipped
         this._updateOwnerEnergyUI(); 
