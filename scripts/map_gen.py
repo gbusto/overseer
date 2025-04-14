@@ -309,67 +309,67 @@ if __name__ == "__main__":
             "max_scale": 1.5
         },
         {
-            "uri": "models/flora/overseer-mushroom-2.glb",
+            "uri": "models/environment/overseer-mushroom-2.glb",
             "name": "mushroom-2",
             "min_scale": 1.0,
             "max_scale": 1.5
         },
         {
-            "uri": "models/flora/overseer-mushroom-3.glb",
+            "uri": "models/environment/overseer-mushroom-3.glb",
             "name": "mushroom-3",
             "min_scale": 1.0,
             "max_scale": 1.5
         },
         {
-            "uri": "models/flora/overseer-mushroom-4.glb",
+            "uri": "models/environment/overseer-mushroom-4.glb",
             "name": "mushroom-4",
             "min_scale": 1.0,
             "max_scale": 1.5
         },
         {
-            "uri": "models/flora/overseer-mushroom-5.glb",
+            "uri": "models/environment/overseer-mushroom-5.glb",
             "name": "mushroom-5",
             "min_scale": 1.0,
             "max_scale": 1.5
         },
         {
-            "uri": "models/flora/overseer-plant-1.glb",
+            "uri": "models/environment/overseer-plant-1.glb",
             "name": "plant-1",
             "min_scale": 1.0,
             "max_scale": 1.5
         },
         {
-            "uri": "models/flora/overseer-plant-2.glb",
+            "uri": "models/environment/overseer-plant-2.glb",
             "name": "plant-2",
             "min_scale": 1.0,
             "max_scale": 1.5
         },
         {
-            "uri": "models/flora/overseer-plant-3.glb",
+            "uri": "models/environment/overseer-plant-3.glb",
             "name": "plant-3",
             "min_scale": 1.0,
             "max_scale": 1.5
         },
         {
-            "uri": "models/flora/overseer-plant-4.glb",
+            "uri": "models/environment/overseer-plant-4.glb",
             "name": "plant-4",
             "min_scale": 1.0,
             "max_scale": 1.5
         },
         {
-            "uri": "models/flora/overseer-tree-1.glb",
+            "uri": "models/environment/overseer-tree-1.glb",
             "name": "tree-1",
             "min_scale": 2.0,
             "max_scale": 4.0
         },
         {
-            "uri": "models/flora/overseer-tree-2.glb",
+            "uri": "models/environment/overseer-tree-2.glb",
             "name": "tree-2",
             "min_scale": 2.0,
             "max_scale": 4.0
         },
         {
-            "uri": "models/flora/overseer-tree-3.glb",
+            "uri": "models/environment/overseer-tree-3.glb",
             "name": "tree-3",
             "min_scale": 2.0,
             "max_scale": 4.0
