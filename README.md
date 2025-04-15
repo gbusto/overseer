@@ -6,6 +6,18 @@
 
 ---
 
+## Quick Start Guide
+
+*   **Goal:** Work together (co-op!) to defeat the malfunctioning AI, K.O.R.O., before it eliminates all players.
+*   **Start:** Once everyone joins, type `/start` in chat to begin the match countdown.
+*   **Controls:** `WASD` (Move), `Space` (Jump), `Shift` (Run), `Left Mouse` (Shoot), `E` (Pickup Items/Weapons).
+*   **Combat:**
+    *   Shoot KORO's core when its shield opens (to vent temperature or taunt).
+    *   Grab the **BFG**! Hitting KORO's *closed* shield forces it open. Hitting the *open* core does massive damage.
+    *   Find Health Packs to heal.
+
+---
+
 ## Survive Biodome Delta
 
 Decades after the visionary Verdant Horizons Corporation sealed Genesis Biodome Delta, a catastrophic "Isolation Event" severed it from the outside world and corrupted its central AI, K.O.R.O. (Kinetic Operations & Resource Overseer). Now, trapped within this decaying, self-contained ecosystem, you and fellow survivors must fight against the very intelligence designed to protect it.
