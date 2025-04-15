@@ -10,7 +10,8 @@ import {
 import type {
   EntityOptions,
   Vector3Like,
-  QuaternionLike
+  QuaternionLike,
+  RigidBodyOptions
 } from 'hytopia';
 import { Logger } from '../../utils/logger';
 import GamePlayerEntity from '../entities/GamePlayerEntity';
@@ -31,6 +32,7 @@ export interface BaseItemOptions {
   modelUri?: string;
   modelScale?: number;
   opacity?: number;
+  rigidBodyOptions?: RigidBodyOptions; // Added: Allow overriding physics
 }
 
 /**
@@ -53,21 +55,24 @@ export default class BaseItem extends Entity {
   private _labelSceneUI: SceneUI | null = null;
   
   constructor(options: BaseItemOptions) {
-    // Set up the entity with default physics options
+    // Default rigid body options (ball collider)
+    const defaultRigidBodyOptions: RigidBodyOptions = {
+      type: RigidBodyType.DYNAMIC,
+      colliders: [
+        {
+          shape: ColliderShape.BALL,
+          radius: 0.3,
+        }
+      ]
+    };
+
+    // Set up the entity, using provided rigidBodyOptions or the default
     super({
       name: options.name,
       opacity: options.opacity ?? 1,
       modelUri: options.modelUri,
       modelScale: options.modelScale ?? 1,
-      rigidBodyOptions: {
-        type: RigidBodyType.DYNAMIC,
-        colliders: [
-          {
-            shape: ColliderShape.BALL,
-            radius: 0.3,
-          }
-        ]
-      }
+      rigidBodyOptions: options.rigidBodyOptions ?? defaultRigidBodyOptions // Use provided or default
     });
     
     // Set item properties

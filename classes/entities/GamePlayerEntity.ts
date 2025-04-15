@@ -298,7 +298,7 @@ export default class GamePlayerEntity extends PlayerEntity {
     
     const origin = this.position;
     const direction = this.player.camera.facingDirection;
-    const distance = 2; 
+    const distance = 3; // Increased distance for easier interaction
     
     const raycastResult = this.world.simulation.raycast(
       origin,
@@ -312,11 +312,18 @@ export default class GamePlayerEntity extends PlayerEntity {
       
       if (hitEntity instanceof HealthPackItem) {
         this._logger.debug(`Player interacted with Health Pack`);
-        const consumed = hitEntity.consume(this); 
-        if (consumed) {
-          hitEntity.despawn();
+        // First, call pickup to handle label unload and stop despawn timer
+        const pickedUp = hitEntity.pickup(this); 
+        if (pickedUp) {
+          // Now, attempt to consume it
+          const consumed = hitEntity.consume(this); 
+          if (!consumed) {
+            this._logger.debug(`Health pack consumption returned false (player likely at full health), but still removing pack.`);
+          }
+          // Always despawn the health pack after interaction since there's no inventory
+          hitEntity.despawn(); 
         } else {
-          this._logger.debug(`Health pack consumption returned false (player likely at full health)`);
+          this._logger.warn(`Health pack pickup call failed unexpectedly.`);
         }
       } 
       // Now check if it's a weapon (BaseWeaponEntity)

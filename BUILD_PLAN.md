@@ -227,3 +227,17 @@ This plan follows a user-centric approach, building core interactions first and 
         *   [ ] New healthpack model that I created
         *   [ ] Improve "handleInteract"
 *   **Outcome Goal:** KORO dynamically chooses actions based on game state via LLM, speaking occasionally with degraded voice. Core loop feels responsive with simplified AI updates and planned event logging. Visuals and audio are polished.
+
+## Phase 7: Get it online
+
+*   **Tasks:**
+    *   [ ] Get it online on our VPS using /about path
+    *   [ ] Add og:image
+    *   [ ] Add image and short video at top of the page
+    *   [ ] Add a "Play Now" button that takes them to hytopia.com/play/?join=overseer.gbusto.com
+    *   [ ] Setup a service on the VPS to run the Hytopia game and restart it
+    *   [ ] Setup a service on the VPS to run the TTS API script and restart it
+    *   [ ] Put the webpage and associated files in the right place
+    *   [ ] Update page documentation by talking about KORO's temperature control mechanism
+    *   [ ] Update page docs by talking about energy weapon firing and recharging rate and damage
+    *   [ ] Find other things to document?

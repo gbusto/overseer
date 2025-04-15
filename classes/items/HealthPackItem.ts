@@ -1,4 +1,4 @@
-import { Audio } from 'hytopia';
+import { Audio, ColliderShape, RigidBodyType } from 'hytopia';
 import BaseItem from './BaseItem';
 import type { BaseItemOptions } from './BaseItem';
 import GamePlayerEntity from '../entities/GamePlayerEntity';
@@ -30,6 +30,21 @@ export default class HealthPackItem extends BaseItem {
       modelUri: 'models/items/health-pack.glb',
       opacity: 0.99,
       modelScale: options.modelScale || 0.5,
+      // --- Override rigidBodyOptions for better pickup ---
+      rigidBodyOptions: {
+        type: RigidBodyType.DYNAMIC,
+        colliders: [
+          {
+            shape: ColliderShape.BLOCK,
+            halfExtents: { x: 0.25, y: 0.25, z: 0.25 }, // Larger, easier to hit block
+            mass: 1,
+            friction: 0.8,
+            // restitution: 0.2
+            // Collision groups can be inherited or specified if needed
+          }
+        ]
+      }
+      // --- End Override ---
     });
     
     // Set health pack properties
@@ -76,7 +91,7 @@ export default class HealthPackItem extends BaseItem {
       const healSound = new Audio({
         uri: 'audio/sfx/player/health-pack-heal.mp3',
         attachedToEntity: player,
-        volume: 0.5,
+        volume: 0.8,
       });
       
       healSound.play(player.world);
