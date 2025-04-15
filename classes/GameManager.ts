@@ -38,7 +38,7 @@ const MAP_MAX_X = 47;
 const MAP_MIN_Z = -47;
 const MAP_MAX_Z = 47;
 const MAP_RADIUS = 47;
-const SPAWN_Y = 4; // Base height for item spawns
+const SPAWN_Y = 30; // Base height for item spawns
 const NUM_HEALTH_PACKS_TO_SPAWN = 5;
 
 export default class GameManager {
