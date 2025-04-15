@@ -29,7 +29,7 @@ export enum GameState {
 // Game constants
 const GAME_DURATION_MS = 10 * 60 * 1000; // 10 minutes
 const COUNTDOWN_DURATION_S = 10; // Countdown duration in seconds
-const GAMEOVER_DURATION_S = 10; // Duration of game over screen in seconds
+const GAMEOVER_DURATION_S = 30; // Duration of game over screen in seconds - Increased to 30
 const HEALTH_PACK_SPAWN_INTERVAL_S = 60; // Interval for spawning health packs (in seconds)
 
 // Map boundary constants for random spawning
@@ -1425,18 +1425,36 @@ export default class GameManager {
       this._logger.info('Stopped health pack spawning.');
     }
 
-    // Disable KORO - prevents attacks during game over screen
+    // --- Immediately Disable Damage Sources ---
     const overseer = this.getOverseerEntity();
     if (overseer) {
-        overseer.setKoroMode('disabled');
+        overseer.setInvulnerable(true);
+        overseer.setBiodomeEnvironmentalDamageEnabled(false);
+        this._logger.info('Set Overseer invulnerable and disabled environmental damage.');
+        
+        // --- Report Game End to KORO ---
+        // Send a high-priority event to trigger a final response
+        overseer.reportSignificantEvent(
+          'game_over',
+          `Game Over. Facility Secured. Intruder Status: ${winner === 'koro' ? 'Eliminated' : 'Victorious'}. Winner: ${winner}`,
+          'high',
+          { winner: winner }
+        );
+        this._logger.info(`Reported game over event to KORO.`);
+        
+    } else {
+      this._logger.warn('Could not find Overseer to disable damage or report game over.');
     }
+    GameManager.setPlayerVulnerable(false); // Disable player damage
+    this._logger.info('Disabled player vulnerability.');
+    // --- End Damage Disable ---
 
     // Broadcast winner message
     const message = winner === 'players' ? 'YOU HAVE DEFEATED THE OVERSEER!' : 'THE OVERSEER HAS ELIMINATED ALL INTRUDERS!';
     const color = winner === 'players' ? '00FF00' : 'FF0000';
     this._world.chatManager.sendBroadcastMessage(message, color);
 
-    // Send game over UI update
+    // Send game over UI update - duration already uses GAMEOVER_DURATION_S
     this._world.entityManager.getAllPlayerEntities().forEach(entity => {
       if (entity instanceof GamePlayerEntity) {
           // Send specific event for display
@@ -1448,7 +1466,7 @@ export default class GameManager {
       }
     });
 
-    // Start timer to transition back to IDLE
+    // Start timer to transition back to IDLE - uses updated GAMEOVER_DURATION_S
     this._gameOverTimer = setTimeout(() => {
       // Trigger fade-to-white before resetting
       this._world?.entityManager.getAllPlayerEntities().forEach(entity => {
