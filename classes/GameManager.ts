@@ -31,7 +31,7 @@ export enum GameState {
 const GAME_DURATION_MS = 10 * 60 * 1000; // 10 minutes
 const COUNTDOWN_DURATION_S = 10; // Countdown duration in seconds
 const GAMEOVER_DURATION_S = 60; // Duration of game over screen in seconds - Increased to 30
-const HEALTH_PACK_SPAWN_INTERVAL_S = 60; // Interval for spawning health packs (in seconds)
+const HEALTH_PACK_SPAWN_INTERVAL_S = 45; // Interval for spawning health packs (in seconds) - WAS 60
 
 // Map boundary constants for random spawning
 const MAP_MIN_X = -47;
