@@ -118,18 +118,6 @@ export default class GamePlayerEntity extends PlayerEntity {
     this.world.chatManager.sendPlayerMessage(this.player, 'Left-click to fire equipped weapons.');
     this.world.chatManager.sendPlayerMessage(this.player, 'Press \\ to enter or exit debug view.');
     this.world.chatManager.sendPlayerMessage(this.player, 'Type /start to begin a game!', '00FFFF');
-    this.world.chatManager.sendPlayerMessage(this.player, 'Admin commands:', 'FFA500');
-    this.world.chatManager.sendPlayerMessage(this.player, '/rocket - Launch yourself into the air', 'FFA500');
-    this.world.chatManager.sendPlayerMessage(this.player, '/oshealth [0-100] - Set overseer health', 'FFA500');
-    this.world.chatManager.sendPlayerMessage(this.player, '/toggleplayerhealth - Toggle player health bar visibility', 'FFA500');
-    this.world.chatManager.sendPlayerMessage(this.player, '/togglekorohealth - Toggle KORO health bar visibility', 'FFA500');
-    this.world.chatManager.sendPlayerMessage(this.player, '/healthpack - Spawn a health pack in front of you', 'FFA500');
-    this.world.chatManager.sendPlayerMessage(this.player, '/healthpacks - Spawn health packs around the map', 'FFA500');
-    this.world.chatManager.sendPlayerMessage(this.player, '/rifle - Spawn an Energy Rifle in front of you', 'FFA500');
-    this.world.chatManager.sendPlayerMessage(this.player, '/riflepos - Adjust equipped rifle position (debugging)', 'FFA500');
-    this.world.chatManager.sendPlayerMessage(this.player, '/setweaponpos x y z - Set weapon position', 'FFA500');
-    this.world.chatManager.sendPlayerMessage(this.player, '/setweaponrot x y z - Set weapon rotation (degrees)', 'FFA500');
-    this.world.chatManager.sendPlayerMessage(this.player, '/setweaponscale scale - Set weapon scale', 'FFA500');
   }
   
   /**
