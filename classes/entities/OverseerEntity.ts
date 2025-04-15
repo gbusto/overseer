@@ -677,8 +677,9 @@ export default class OverseerEntity extends Entity {
    * @param health Value from 0-100
    */
   public setHealth(health: number): void {
-    this._health = Math.max(0, Math.min(100, health));
-    this._logger.info(`KORO health set to ${this._health}`);
+    // Corrected clamping to use this._maxHealth
+    this._health = Math.max(0, Math.min(this._maxHealth, health)); 
+    this._logger.info(`KORO health set to ${this._health}/${this._maxHealth}`); // Log with max health context
     
     // Update all player UIs with the new health
     if (this._world) {

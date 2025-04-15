@@ -277,7 +277,7 @@ export default class GameManager {
       if (position) {
         // Create a health pack with default settings (uses default heal amount)
         const healthPack = new HealthPackItem({}); 
-        healthPack.spawn(this._world, position);
+        healthPack.spawn(this._world!, position);
         this._logger.debug(`Spawned health pack #${i + 1} at (${position.x.toFixed(1)}, ${position.y.toFixed(1)}, ${position.z.toFixed(1)})`);
         spawnedCount++;
       } else {
@@ -454,11 +454,12 @@ export default class GameManager {
       this._logger.info(`Set KORO mode to default: ${defaultMode}`);
       
       // Calculate and set scaled KORO health
-      const baseHealth = 100;
+      const baseHealth = 100; // Use this base value
       const playerCount = this._world.entityManager.getAllPlayerEntities().length;
-      const scaledHealth = baseHealth * (1 + 0.5 * (playerCount - 1));
-      overseer.setMaxHealth(scaledHealth);
-      overseer.setHealth(scaledHealth);
+      // Corrected calculation to use baseHealth
+      const scaledHealth = baseHealth * (1 + 0.5 * (playerCount - 1)); 
+      overseer.setMaxHealth(scaledHealth); // Set max health first
+      overseer.setHealth(scaledHealth);    // Then set current health to the new max
       this._logger.info(`Set KORO health based on ${playerCount} players: ${scaledHealth}`);
     }
 
