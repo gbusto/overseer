@@ -119,6 +119,9 @@ export class KOROBrain {
   private _gameManager: GameManager;
   private _world: World | null = null; // Store world reference
 
+  // Game over flag
+  private _gameOver: boolean = false;
+
   // Current operational mode
   private _currentMode: KoroMode = 'disabled'; // Start disabled
 
@@ -348,7 +351,8 @@ export class KOROBrain {
 
   public shouldUpdate(): boolean {
     const now = Date.now();
-    return this._brainProcessingEnabled && !this.isProcessing && now - this.lastUpdateTime >= this.updateIntervalMs;
+    // Prevent updates if game is over, processing is disabled, already processing, or interval hasn't passed
+    return !this._gameOver && this._brainProcessingEnabled && !this.isProcessing && now - this.lastUpdateTime >= this.updateIntervalMs;
   }
 
   public async generateUpdate(): Promise<void> {
@@ -394,104 +398,108 @@ export class KOROBrain {
           this.logger.info(`Final KORO Decision: ${response.message || '(no message)'}, Action: ${response.action}, Intensity: ${response.intensity || 'N/A'}, Target: ${response.target || 'N/A'}`);
           this.addResponseToHistory(response);
 
-          // --- Action Execution ---
-          switch (response.action) {
+          // --- Action Execution Check --- 
+          // Skip action execution if the game is already over
+          if (!this._gameOver) {
+            switch (response.action) {
               case 'attack_heat':
               case 'attack_freeze':
-                  // Check if KORO can actually attack based on the snapshot state
-                  if (snapshot.game_context.can_initiate_environmental_attack) {
-                      const intensity = response.intensity || 'medium'; // Default to medium if not provided
-                      const isHeatAttack = response.action === 'attack_heat';
-                      const changeRate = 10; // Constant change rate
-                      
-                      // Define temperature/rate based on intensity (UPDATED RANGES)
-                      let targetTemp: number;
-                      if (intensity === 'low') {
-                          targetTemp = isHeatAttack ? 120 : 0; 
-                      } else if (intensity === 'medium') {
-                          targetTemp = isHeatAttack ? 160 : -25;
-                      } else { // high
-                          targetTemp = isHeatAttack ? 200 : -50; 
-                      }
-                      
-                      this.logger.info(`Attempting to initiate ${intensity} ${response.action} (Target: ${targetTemp}°F, Rate: ${changeRate}°/s)`);
-                      
-                      // <<< Play Alarm Sound >>>
-                      this._overseer.playAttackAlarm();
-                      
-                      // Call Overseer method
-                      const attackInitiated = this._overseer.initiateTemperatureAttack(targetTemp, changeRate); 
-                      
-                      if (attackInitiated) {
-                          this.addTriggeredAttack(`${intensity} ${response.action}`);
-                          this.recordEnvironmentalAttackEnd(); // Start the cooldown after initiating
+                // Check if KORO can actually attack based on the snapshot state
+                if (snapshot.game_context.can_initiate_environmental_attack) {
+                    const intensity = response.intensity || 'medium'; // Default to medium if not provided
+                    const isHeatAttack = response.action === 'attack_heat';
+                    const changeRate = 10; // Constant change rate
+                    
+                    // Define temperature/rate based on intensity (UPDATED RANGES)
+                    let targetTemp: number;
+                    if (intensity === 'low') {
+                        targetTemp = isHeatAttack ? 120 : 0; 
+                    } else if (intensity === 'medium') {
+                        targetTemp = isHeatAttack ? 160 : -25;
+                    } else { // high
+                        targetTemp = isHeatAttack ? 200 : -50; 
+                    }
+                    
+                    this.logger.info(`Attempting to initiate ${intensity} ${response.action} (Target: ${targetTemp}°F, Rate: ${changeRate}°/s)`);
+                    
+                    // <<< Play Alarm Sound >>>
+                    this._overseer.playAttackAlarm();
+                    
+                    // Call Overseer method
+                    const attackInitiated = this._overseer.initiateTemperatureAttack(targetTemp, changeRate); 
+                    
+                    if (attackInitiated) {
+                        this.addTriggeredAttack(`${intensity} ${response.action}`);
+                        this.recordEnvironmentalAttackEnd(); // Start the cooldown after initiating
+                        
+                        // --- Broadcast Attack Warning UI Message --- START
+                        if (this._world) { // Check if world exists
+                          const warningMessage = isHeatAttack ? 
+                              "Temperatures rising fast! 🔥" : 
+                              "Temperatures dropping fast! ❄️";
+                          const attackType = isHeatAttack ? 'heat' : 'cold';
                           
-                          // --- Broadcast Attack Warning UI Message --- START
-                          if (this._world) { // Check if world exists
-                            const warningMessage = isHeatAttack ? 
-                                "Temperatures rising fast! 🔥" : 
-                                "Temperatures dropping fast! ❄️";
-                            const attackType = isHeatAttack ? 'heat' : 'cold';
-                            
-                            // Iterate through all players and send UI data
-                            const players = this._world.entityManager.getAllPlayerEntities();
-                            players.forEach(playerEntity => {
-                                if (playerEntity.player && playerEntity.player.ui) {
-                                    playerEntity.player.ui.sendData({
-                                        type: 'environmental-attack-warning',
-                                        attackType: attackType,
-                                        message: warningMessage
-                                    });
-                                }
-                            });
-                            
-                            this.logger.info(`Sent UI warning for ${response.action} to ${players.length} players.`);
-                          }
-                          // --- Broadcast Attack Warning UI Message --- END
-                      } else {
-                          this.logger.warn(`OverseerEntity prevented ${response.action} initiation (likely cooldown or state issue).`);
-                           this.addRecentEvent({ type: 'attack_prevented', content: `Attempted ${intensity} ${response.action} but was prevented.`, priority: 'medium'});
-                      }
-                  } else {
-                      this.logger.warn(`LLM chose ${response.action} but KORO cannot attack now (cooldown/temp not normal).`);
-                       this.addRecentEvent({ type: 'attack_invalid_choice', content: `LLM chose ${response.action} when attack not possible.`, priority: 'low'});
-                  }
-                  break;
-                  
+                          // Iterate through all players and send UI data
+                          const players = this._world.entityManager.getAllPlayerEntities();
+                          players.forEach(playerEntity => {
+                              if (playerEntity.player && playerEntity.player.ui) {
+                                  playerEntity.player.ui.sendData({
+                                      type: 'environmental-attack-warning',
+                                      attackType: attackType,
+                                      message: warningMessage
+                                  });
+                              }
+                          });
+                          
+                          this.logger.info(`Sent UI warning for ${response.action} to ${players.length} players.`);
+                        }
+                        // --- Broadcast Attack Warning UI Message --- END
+                    } else {
+                        this.logger.warn(`OverseerEntity prevented ${response.action} initiation (likely cooldown or state issue).`);
+                         this.addRecentEvent({ type: 'attack_prevented', content: `Attempted ${intensity} ${response.action} but was prevented.`, priority: 'medium'});
+                    }
+                } else {
+                    this.logger.warn(`LLM chose ${response.action} but KORO cannot attack now (cooldown/temp not normal).`);
+                     this.addRecentEvent({ type: 'attack_invalid_choice', content: `LLM chose ${response.action} when attack not possible.`, priority: 'low'});
+                }
+                break;
+                
               case 'taunt_shield':
-                  this.logger.info(`Attempting to perform shield taunt.`);
-                  // Taunt doesn't trigger alarm
-                  this._overseer.performShieldTaunt(); 
-                   this.addRecentEvent({ type: 'taunt_shield', content: `KORO initiated shield taunt.`, priority: 'low'});
-                  break;
-                  
+                this.logger.info(`Attempting to perform shield taunt.`);
+                // Taunt doesn't trigger alarm
+                this._overseer.performShieldTaunt(); 
+                 this.addRecentEvent({ type: 'taunt_shield', content: `KORO initiated shield taunt.`, priority: 'low'});
+                break;
+                
               case 'attack_blackout':
-                  this.logger.info('Attempting to initiate blackout attack.');
-                  // <<< Play Alarm Sound >>>
-                  this._overseer.playAttackAlarm();
-                  // Call Overseer method
-                  this._overseer.initiateBlackoutAttack(); 
-                  this.addTriggeredAttack('blackout'); // Log the triggered attack
-                  this.addRecentEvent({ type: 'attack_blackout', content: 'KORO initiated blackout.', priority: 'medium' });
-                  break;
-                  
+                this.logger.info('Attempting to initiate blackout attack.');
+                // <<< Play Alarm Sound >>>
+                this._overseer.playAttackAlarm();
+                // Call Overseer method
+                this._overseer.initiateBlackoutAttack(); 
+                this.addTriggeredAttack('blackout'); // Log the triggered attack
+                this.addRecentEvent({ type: 'attack_blackout', content: 'KORO initiated blackout.', priority: 'medium' });
+                break;
+                
               case 'attack_uv_light':
-                  this.logger.info('Attempting to initiate UV light attack.');
-                  // <<< Play Alarm Sound >>>
-                  this._overseer.playAttackAlarm();
-                  // Call Overseer method
-                  this._overseer.initiateUVLightAttack(); 
-                  this.addTriggeredAttack('uv_light'); // Log the triggered attack
-                  this.addRecentEvent({ type: 'attack_uv_light', content: 'KORO initiated UV light attack.', priority: 'medium' });
-                  break;
-                  
+                this.logger.info('Attempting to initiate UV light attack.');
+                // <<< Play Alarm Sound >>>
+                this._overseer.playAttackAlarm();
+                // Call Overseer method
+                this._overseer.initiateUVLightAttack(); 
+                this.addTriggeredAttack('uv_light'); // Log the triggered attack
+                this.addRecentEvent({ type: 'attack_uv_light', content: 'KORO initiated UV light attack.', priority: 'medium' });
+                break;
+                
               case 'none':
               default:
-                  // Do nothing specific for 'none' action
-                   this.logger.debug(`KORO action: none.`);
-                  break;
+                this.logger.debug(`KORO action: none.`);
+                break;
+            }
+          } else {
+            this.logger.info('Game over flag is set. Skipping action execution.');
           }
-          // --- End Action Execution ---
+          // --- End Action Execution Check ---
 
           // Handle TTS if enabled and a message exists
           if (this._ttsGenerationEnabled && response.message) {
@@ -509,6 +517,19 @@ export class KOROBrain {
                // TODO: Implement broadcastOverseerUIMessage method in OverseerEntity.ts
                this._overseer.broadcastOverseerUIMessage(response.message || '', response.action);
           }
+          
+          // --- Set Game Over Flag After Processing --- 
+          // Check if the snapshot used for this response contained a game_over event
+          const gameOverEvent = snapshot.interaction_history.recent_game_events.find(e => e.type === 'game_over');
+          if (gameOverEvent) {
+            this.logger.info('Game over event processed. Setting _gameOver flag to true.');
+            this._gameOver = true;
+            // Optionally disable brain processing components permanently here if desired
+            // this.setBrainProcessingEnabled(false);
+            // this.setLlmInteractionEnabled(false);
+            // this.setTtsGenerationEnabled(false);
+          }
+          // --- End Set Game Over Flag ---
 
       } catch (error) {
           this.logger.error('Error during KORO brain update cycle:', error);
