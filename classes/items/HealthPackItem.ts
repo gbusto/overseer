@@ -2,6 +2,7 @@ import { Audio, ColliderShape, RigidBodyType } from 'hytopia';
 import BaseItem from './BaseItem';
 import type { BaseItemOptions } from './BaseItem';
 import GamePlayerEntity from '../entities/GamePlayerEntity';
+import { CollisionGroup } from 'hytopia';
 
 // Constants
 const HEALTH_PACK_HEAL_AMOUNT = 15; // Amount of health to restore
@@ -40,7 +41,12 @@ export default class HealthPackItem extends BaseItem {
             mass: 1,
             friction: 0.8,
             // restitution: 0.2
-            // Collision groups can be inherited or specified if needed
+            // --- Add Collision Groups --- 
+            collisionGroups: {
+              belongsTo: [CollisionGroup.ENTITY],
+              collidesWith: [CollisionGroup.BLOCK] // Ensure collision with floor
+            }
+            // --- End Add Collision Groups ---
           }
         ]
       }
