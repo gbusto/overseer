@@ -125,7 +125,33 @@ export default class GameManager {
 
     // Handle player joining
     world.on(PlayerEvent.JOINED_WORLD, ({ player }) => {
-      this._spawnPlayer(player);
+      // Ensure world exists before proceeding
+      if (!this._world) return;
+
+      // Create the player entity regardless of game state
+      const playerEntity = new GamePlayerEntity(player);
+      
+      if (this._gameState === GameState.ACTIVE) {
+        // Game is active, spawn player as dead spectator at specific location
+        const spectatorSpawnPos = { x: -47, y: 6, z: 47 };
+        playerEntity.spawn(this._world, spectatorSpawnPos);
+        this._logger.info(`Player ${player.username || player.id} joined during ACTIVE game. Spawning as spectator.`);
+        
+        // Immediately set health to 0 and trigger death state
+        playerEntity.health = 0;
+        playerEntity.checkDeath(); // This handles camera update and UI message
+        
+        // Send a specific chat message explaining they joined late
+        this._world.chatManager.sendPlayerMessage(player, 'You joined mid-game and will start as a spectator.', 'FFFF00');
+        
+        // Send message to UI to show the centered notification
+        player.ui.sendData({ type: 'show-mid-game-join-message' });
+        
+      } else {
+        // Game is IDLE or COUNTDOWN, spawn normally
+        this._spawnPlayer(player); 
+        // _spawnPlayer already logs and sends welcome messages etc.
+      }
     });
 
     // Handle player leaving

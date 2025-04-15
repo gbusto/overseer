@@ -80,6 +80,11 @@
 
   <!-- Fade overlay for transitions -->
   <div id="fade-overlay" class="fade-overlay"></div>
+
+  <!-- NEW: Mid-game join message -->
+  <div id="mid-game-join-message" class="center-screen-message">
+    You've joined in the middle of a match.<br>You will respawn once this match ends.
+  </div>
 </div>
 
 <style>
@@ -658,6 +663,31 @@
   .attack-warning-content {
     margin: 0;
   }
+
+  /* NEW: Centered screen message styles */
+  .center-screen-message {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(0, 0, 0, 0.8);
+    color: #FFD700; /* Gold/Yellow */
+    padding: 20px 30px;
+    border-radius: 8px;
+    border: 2px solid #FFD700;
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+    text-align: center;
+    font-size: 20px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    max-width: 80%;
+    text-shadow: 0 0 5px rgba(0, 0, 0, 1);
+    z-index: 1005; /* Ensure it's above most things */
+    display: none; /* Hidden by default */
+    opacity: 0; /* Start invisible for fade-in */
+    transition: opacity 0.5s ease-in-out;
+  }
 </style>
 
 <!-- Template for weapon labels -->
@@ -696,6 +726,9 @@
   const uvWarningContent = document.getElementById('uv-warning-content');
   const attackWarningPanel = document.getElementById('attack-warning-panel');
   const attackWarningContent = document.getElementById('attack-warning-content');
+
+  // NEW: Get reference to the mid-game join message element
+  const midGameJoinMessage = document.getElementById('mid-game-join-message');
 
   // Initialize energy value
   let currentEnergy = 100;
@@ -1018,6 +1051,33 @@
         }
         break;
 
+      // *** NEW: Handle Mid-Game Join Message ***
+      case 'show-mid-game-join-message':
+        if (midGameJoinMessage) {
+            // Make visible and fade in
+            midGameJoinMessage.style.display = 'block';
+            // Use a short delay to allow display:block to apply before starting transition
+            setTimeout(() => {
+              midGameJoinMessage.style.opacity = '1';
+            }, 10); 
+            
+            // Clear previous timeout if any
+            if (window.midGameJoinTimeout) {
+                clearTimeout(window.midGameJoinTimeout);
+            }
+            
+            // Set timeout to fade out and hide after 7 seconds
+            window.midGameJoinTimeout = setTimeout(() => {
+                midGameJoinMessage.style.opacity = '0';
+                // Hide after fade out completes
+                setTimeout(() => {
+                    midGameJoinMessage.style.display = 'none';
+                }, 500); // Match the CSS transition duration
+            }, 7000); // Display duration
+        }
+        break;
+      // *** END: Handle Mid-Game Join Message ***
+
       // *** NEW: Handle UV Attack Warning ***
       case 'uv-attack-warning':
         if (data.active && uvWarningPanel && uvWarningContent) {
@@ -1333,4 +1393,6 @@
   if (uvWarningPanel) uvWarningPanel.style.display = 'none';
   // Hide attack warning initially
   if (attackWarningPanel) attackWarningPanel.style.display = 'none';
+  // NEW: Hide mid-game join message initially
+  if (midGameJoinMessage) midGameJoinMessage.style.display = 'none';
 </script> 
