@@ -28,6 +28,7 @@ export default class HealthPackItem extends BaseItem {
       despawns: false, // Health packs should not despawn by default
       // Fixed paths for health pack resources
       modelUri: 'models/items/health-pack.glb',
+      opacity: 0.99,
       modelScale: options.modelScale || 0.5,
     });
     
@@ -73,7 +74,7 @@ export default class HealthPackItem extends BaseItem {
     // Play healing sound
     if (player.world) {
       const healSound = new Audio({
-        uri: 'audio/sfx/heal.mp3',
+        uri: 'audio/sfx/player/health-pack-heal.mp3',
         attachedToEntity: player,
         volume: 0.5,
       });
