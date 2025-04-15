@@ -262,6 +262,9 @@ export default class GameManager {
     playerEntity.spawn(this._world, { x: 0, y: 10, z: 0 });
     
     this._logger.info(`Player spawned: ${player.username || player.id}`);
+
+    // --- Trigger Welcome Card UI --- 
+    player.ui.sendData({ type: 'show-welcome-card' });
   }
 
   /**

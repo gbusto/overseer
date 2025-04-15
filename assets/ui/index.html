@@ -85,6 +85,20 @@
   <div id="mid-game-join-message" class="center-screen-message">
     You've joined in the middle of a match.<br>You will respawn once this match ends.
   </div>
+
+  <!-- NEW: Welcome Card -->
+  <div id="welcome-card" class="welcome-card">
+    <h2>Welcome to The Overseer!</h2>
+    <p>Quick Start Guide:</p>
+    <ul>
+      <li>Type <strong>/start</strong> in chat when ready to begin the match.</li>
+      <li>Controls: <strong>WASD</strong> (Move), <strong>Space</strong> (Jump), <strong>Shift</strong> (Run)</li>
+      <li>Combat: <strong>Left Mouse</strong> (Shoot), <strong>E</strong> (Pickup Weapons/Items)</li>
+      <li>Objective: Defeat KORO before it eliminates everyone!</li>
+    </ul>
+    <div class="welcome-card-timer">Closing in <span id="welcome-timer-value">10</span>s</div>
+  </div>
+  <!-- END: Welcome Card -->
 </div>
 
 <style>
@@ -688,6 +702,77 @@
     opacity: 0; /* Start invisible for fade-in */
     transition: opacity 0.5s ease-in-out;
   }
+
+  /* NEW: Welcome Card Styles */
+  .welcome-card {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 450px; /* Adjust width as needed */
+    background-color: rgba(20, 20, 40, 0.9); /* Dark blue-ish background */
+    color: #e0e0e0; /* Light grey text */
+    padding: 25px;
+    border-radius: 10px;
+    border: 2px solid #4a90e2; /* Nice blue border */
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+    text-align: left;
+    font-family: 'Arial', sans-serif;
+    z-index: 1010; /* High z-index */
+    display: none; /* Hidden by default */
+    opacity: 0;
+    transition: opacity 0.5s ease-in-out;
+  }
+
+  .welcome-card h2 {
+    color: #4a90e2; /* Match border color */
+    text-align: center;
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 24px;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+  }
+
+  .welcome-card p {
+    margin-bottom: 10px;
+    font-size: 16px;
+  }
+
+  .welcome-card ul {
+    list-style: none; /* Remove default bullets */
+    padding-left: 0;
+    margin-bottom: 25px; /* Space before timer */
+  }
+
+  .welcome-card li {
+    margin-bottom: 8px;
+    font-size: 14px;
+    line-height: 1.4;
+  }
+  
+  .welcome-card li::before {
+     content: "▹"; /* Use a triangle bullet */
+     color: #4a90e2; /* Match border color */
+     display: inline-block; 
+     width: 1em;
+     margin-left: -1em; /* Adjust spacing if needed */
+     font-weight: bold;
+  }
+
+  .welcome-card strong {
+    color: #ffffff; /* White for highlighted keys/commands */
+    font-weight: bold;
+  }
+
+  .welcome-card-timer {
+    position: absolute;
+    bottom: 10px;
+    right: 15px;
+    font-size: 12px;
+    color: #aaaaaa; /* Dimmer color for timer */
+    opacity: 0.8;
+  }
+  /* END: Welcome Card Styles */
 </style>
 
 <!-- Template for weapon labels -->
@@ -729,6 +814,9 @@
 
   // NEW: Get reference to the mid-game join message element
   const midGameJoinMessage = document.getElementById('mid-game-join-message');
+  // NEW: Get references for welcome card elements
+  const welcomeCard = document.getElementById('welcome-card');
+  const welcomeTimerValue = document.getElementById('welcome-timer-value');
 
   // Initialize energy value
   let currentEnergy = 100;
@@ -740,6 +828,9 @@
   
   // Variable to hold the attack warning timeout
   let attackWarningTimeout = null;
+  // NEW: Variable to hold the welcome card timeout and interval
+  let welcomeCardTimeout = null;
+  let welcomeCardInterval = null;
   
   // --- Scene UI Template Registration ---
   // Register the weapon label template
@@ -1122,6 +1213,12 @@
         }
         break;
       // *** END: Handle Environmental Attack Warning ***
+      
+      // *** NEW: Handle Welcome Card ***
+      case 'show-welcome-card':
+        showWelcomeCard();
+        break;
+      // *** END: Handle Welcome Card ***
     }
   });
   
@@ -1380,6 +1477,52 @@
     tempBar.style.width = `${barWidth}%`;
   }
 
+  // *** NEW: Welcome Card Function ***
+  function showWelcomeCard() {
+    if (!welcomeCard || !welcomeTimerValue) return;
+
+    // Clear any existing timers/intervals
+    if (welcomeCardTimeout) clearTimeout(welcomeCardTimeout);
+    if (welcomeCardInterval) clearInterval(welcomeCardInterval);
+
+    let remainingTime = 10; // Duration in seconds
+    welcomeTimerValue.textContent = remainingTime;
+
+    // Show the card and fade in
+    welcomeCard.style.display = 'block';
+    setTimeout(() => { // Allow display:block to apply before transition
+        welcomeCard.style.opacity = '1';
+    }, 10);
+
+    // Start countdown interval
+    welcomeCardInterval = setInterval(() => {
+        remainingTime--;
+        if (remainingTime >= 0) {
+            welcomeTimerValue.textContent = remainingTime;
+        } else {
+            // Timer reached 0, clear interval and hide card (handled by timeout)
+            clearInterval(welcomeCardInterval);
+            welcomeCardInterval = null;
+        }
+    }, 1000);
+
+    // Set timeout to hide the card after 10 seconds
+    welcomeCardTimeout = setTimeout(() => {
+        welcomeCard.style.opacity = '0';
+        // Hide after fade out completes
+        setTimeout(() => {
+            welcomeCard.style.display = 'none';
+            // Ensure interval is cleared if timeout finishes slightly early
+            if (welcomeCardInterval) {
+              clearInterval(welcomeCardInterval);
+              welcomeCardInterval = null;
+            }
+        }, 500); // Match CSS transition duration
+        welcomeCardTimeout = null;
+    }, remainingTime * 1000); // Use initial remainingTime for total duration
+  }
+  // *** END: Welcome Card Function ***
+
   // Initialize with default values but hide UI elements initially
   updateHealth(100, 100);
   updateOverseerHealth(100, 100);
@@ -1395,4 +1538,6 @@
   if (attackWarningPanel) attackWarningPanel.style.display = 'none';
   // NEW: Hide mid-game join message initially
   if (midGameJoinMessage) midGameJoinMessage.style.display = 'none';
+  // NEW: Hide welcome card initially
+  if (welcomeCard) welcomeCard.style.display = 'none';
 </script> 
