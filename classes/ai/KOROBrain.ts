@@ -27,7 +27,7 @@ const ENVIRONMENTAL_ATTACK_COOLDOWN_MS = 30000; // Cooldown between KORO attacks
 // Define the structure of the game state snapshot we send to the LLM
 const GameStateSnapshotSchema = z.object({
   koro_status: z.object({
-    health_percent: z.number().min(0).max(100),
+    health_percent: z.number().min(0),
     internal_temperature_f: z.number(),
     normal_internal_temp_f: z.number(),
     critical_high_internal_temp_f: z.number(),
