@@ -157,7 +157,24 @@ export default class GameManager {
     // Handle player leaving
     world.on(PlayerEvent.LEFT_WORLD, ({ player }) => {
       // Clean up player entities when they leave
-      world.entityManager.getPlayerEntitiesByPlayer(player).forEach(entity => entity.despawn());
+      this._logger.info(`Player ${player.username || player.id} left the world.`);
+      const playerEntities = world.entityManager.getPlayerEntitiesByPlayer(player);
+      playerEntities.forEach(entity => entity.despawn());
+      
+      // Check if game should reset because the last player left during an active game
+      if (this._gameState === GameState.ACTIVE && this._world) {
+        // Use setTimeout to check player count after entity manager updates
+        setTimeout(() => {
+          // Double-check world still exists in the async callback
+          if (!this._world) return;
+          
+          const remainingPlayers = this._world.entityManager.getAllPlayerEntities();
+          if (remainingPlayers.length === 0) {
+            this._logger.info('Last player left during active game. Resetting to IDLE state.');
+            this._transitionToIdle();
+          }
+        }, 0); // Delay of 0 ensures it runs after current stack completes
+      }
     });
 
     // Register custom chat commands
