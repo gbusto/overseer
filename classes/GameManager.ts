@@ -296,26 +296,39 @@ export default class GameManager {
     if (!this._world) return;
     
     this._logger.info(`Handling death for player: ${playerEntity.player.username || playerEntity.player.id}`);
-    
+
+    // Check if this was the last player alive
+    const alivePlayers = this._world.entityManager.getAllPlayerEntities()
+    .filter(entity => entity instanceof GamePlayerEntity && !entity.isDead); // Check isDead flag
+
     // Report the event to the Overseer (KORO)
     const overseer = this.getOverseerEntity();
     if (overseer) {
-      overseer.reportSignificantEvent(
-        'player_death', // Event type
-        `Detected cessation of intruder biosign: ${playerEntity.player.username || playerEntity.player.id}`,
-        'medium',
-        {
-          playerId: playerEntity.player.id,
-          playerName: playerEntity.player.username || playerEntity.player.id
-        }
-      );
+      if (alivePlayers.length === 0) {
+        overseer.reportSignificantEvent(
+          'game_over',
+          'All players have been eliminated! KORO wins!',
+          'high',
+          {
+            winner: 'koro'
+          }
+        );
+      }
+      else {
+        overseer.reportSignificantEvent(
+          'player_death', // Event type
+          `Detected cessation of intruder biosign: ${playerEntity.player.username || playerEntity.player.id}`,
+          'medium',
+          {
+            playerId: playerEntity.player.id,
+            playerName: playerEntity.player.username || playerEntity.player.id
+          }
+        );  
+      }
     } else {
       this._logger.warn('Could not report player death to Overseer: Overseer entity not found.');
     }
     
-    // Check if this was the last player alive
-    const alivePlayers = this._world.entityManager.getAllPlayerEntities()
-        .filter(entity => entity instanceof GamePlayerEntity && !entity.isDead); // Check isDead flag
     
     if (alivePlayers.length === 0 && this._gameState === GameState.ACTIVE) {
         this._logger.info('Last player died. Triggering game over (KORO wins).');
@@ -1431,17 +1444,6 @@ export default class GameManager {
         overseer.setInvulnerable(true);
         overseer.setBiodomeEnvironmentalDamageEnabled(false);
         this._logger.info('Set Overseer invulnerable and disabled environmental damage.');
-        
-        // --- Report Game End to KORO ---
-        // Send a high-priority event to trigger a final response
-        overseer.reportSignificantEvent(
-          'game_over',
-          `Game Over. Facility Secured. Intruder Status: ${winner === 'koro' ? 'Eliminated' : 'Victorious'}. Winner: ${winner}`,
-          'high',
-          { winner: winner }
-        );
-        this._logger.info(`Reported game over event to KORO.`);
-        
     } else {
       this._logger.warn('Could not find Overseer to disable damage or report game over.');
     }

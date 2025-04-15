@@ -1043,6 +1043,12 @@ export default class OverseerEntity extends Entity {
       if (newHealth <= 0) {
           this._logger.info('Overseer health reached zero.');
           GameManager.instance.handleOverseerDeath();
+          this._brain?.addEventWithPriority(
+            'game_over',
+            'Overseer has been defeated! Players win :( you should react poorly to this',
+            'high',
+            { winner: 'players' }
+          );
       }
 
       return true;
