@@ -42,6 +42,19 @@ const MAP_RADIUS = 47;
 const SPAWN_Y = 30; // Base height for item spawns
 const NUM_HEALTH_PACKS_TO_SPAWN = 5;
 
+// --- Define fixed BFG spawn locations (used for BFG and Health Packs) ---
+const FIXED_SPAWN_LOCATIONS = [
+  { x: -22, z: 26 },
+  { x: -14, z: 44 },
+  { x: 24, z: 31 },
+  { x: 41, z: 21 },
+  { x: 43, z: -5 },
+  { x: 16, z: -25 },
+  { x: -42, z: -13 },
+  { x: -46, z: 0 },
+];
+// --- End Fixed Spawn Locations ---
+
 export default class GameManager {
   // Singleton pattern
   private static _instance: GameManager;
@@ -298,6 +311,7 @@ export default class GameManager {
   /**
    * Generates a random spawn position within the defined circular map area.
    * Retries a few times if the first attempt is outside the circle.
+   * @deprecated Use fixed spawn locations with offsets for items now.
    * @returns A valid Vector3Like position or null if unable to find one after retries.
    */
   private _getRandomSpawnPositionInCircle(maxRetries = 10): Vector3Like | null {
@@ -480,6 +494,8 @@ export default class GameManager {
     });
 
     // --- Define fixed BFG spawn locations (X, Z coordinates) ---
+    // MOVED TO TOP LEVEL CONSTANT: FIXED_SPAWN_LOCATIONS
+    /*
     const bfgSpawnLocations = [
       { x: -22, z: 26 },
       { x: -14, z: 44 },
@@ -491,6 +507,7 @@ export default class GameManager {
       { x: -46, z: 0 },
       // Note: -22, 26 is listed twice, keeping it for potential weighting
     ];
+    */
     // --- End BFG Spawn Locations ---
 
     // Spawn one BFG at a random fixed location
@@ -498,8 +515,8 @@ export default class GameManager {
         tag: 'persistent_weapon' // Add tag via constructor options
     });
     // Select a random location from the predefined list
-    const randomLocationIndex = Math.floor(Math.random() * bfgSpawnLocations.length);
-    const chosenLocation = bfgSpawnLocations[randomLocationIndex];
+    const randomLocationIndex = Math.floor(Math.random() * FIXED_SPAWN_LOCATIONS.length);
+    const chosenLocation = FIXED_SPAWN_LOCATIONS[randomLocationIndex];
     
     // Ensure a location was chosen (handle potential empty array edge case)
     const bfgSpawnPos = chosenLocation 
@@ -698,13 +715,39 @@ export default class GameManager {
         this._logger.info(`Spawning ${numToSpawn} health packs for ${playerCount} alive players.`);
         let spawnedCount = 0;
         for (let i = 0; i < numToSpawn; i++) {
-            const position = this._getRandomSpawnPositionInCircle();
-            if (position) {
+            // --- Get spawn position using fixed locations + offset --- START
+            // 1. Select a random base location
+            const baseLocationIndex = Math.floor(Math.random() * FIXED_SPAWN_LOCATIONS.length);
+            const baseLocation = FIXED_SPAWN_LOCATIONS[baseLocationIndex];
+
+            // --- Linter Fix: Add check for baseLocation --- 
+            if (!baseLocation) {
+                this._logger.warn(`Could not get base location at index ${baseLocationIndex} for health pack spawn.`);
+                continue; // Skip this spawn attempt
+            }
+            // --- End Linter Fix ---
+
+            // 2. Calculate random offsets (-2 to +2)
+            const offsetX = Math.random() * 4 - 2; // Generates number between -2.0 and +2.0
+            const offsetZ = Math.random() * 4 - 2;
+
+            // 3. Apply offsets
+            const position: Vector3Like = {
+                x: baseLocation.x + offsetX,
+                y: SPAWN_Y, // Keep original Y spawn height
+                z: baseLocation.z + offsetZ
+            };
+            // --- Get spawn position using fixed locations + offset --- END
+
+            // OLD WAY: const position = this._getRandomSpawnPositionInCircle();
+            
+            if (position) { // Position should always be valid now
                 const healthPack = new HealthPackItem({}); 
                 healthPack.spawn(this._world!, position);
                 spawnedCount++;
             } else {
-                this._logger.warn(`Could not find valid spawn position for health pack #${i + 1}.`);
+                // This case should ideally not happen anymore with the new method
+                this._logger.warn(`Could not determine valid spawn position for health pack #${i + 1}.`);
             }
         }
         
