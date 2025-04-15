@@ -716,6 +716,20 @@ export default class CommandManager {
       }
     });
 
+    // --- NEW COMMAND: /getpos ---
+    chatManager.registerCommand('/getpos', (player) => {
+      const playerEntities = entityManager.getPlayerEntitiesByPlayer(player);
+      const playerEntity = playerEntities.length > 0 ? playerEntities[0] : null;
+      if (playerEntity) {
+        const pos = playerEntity.position;
+        const message = `Your position: X=${pos.x.toFixed(2)}, Y=${pos.y.toFixed(2)}, Z=${pos.z.toFixed(2)}`;
+        chatManager.sendPlayerMessage(player, message, 'FFFFFF'); // White color
+      } else {
+        chatManager.sendPlayerMessage(player, 'Could not find your player entity.', 'FF0000');
+      }
+    });
+    // --- END NEW COMMAND ---
+
     // --- End Moved Commands ---
 
     // --- Add Player Join Listener for Debug Commands --- 
@@ -729,6 +743,7 @@ export default class CommandManager {
       chatManager.sendPlayerMessage(player, '/healthpacks - Spawn multiple health packs', 'FFA500');
       chatManager.sendPlayerMessage(player, '/rifle - Spawn Energy Rifle', 'FFA500');
       chatManager.sendPlayerMessage(player, '/bfg - Spawn BFG', 'FFA500');
+      chatManager.sendPlayerMessage(player, '/getpos - Print current position', 'FFA500');
       chatManager.sendPlayerMessage(player, '/setweaponpos x y z - Set equipped weapon position', 'FFA500');
       chatManager.sendPlayerMessage(player, '/setweaponrot x y z - Set equipped weapon rotation (degrees)', 'FFA500');
       chatManager.sendPlayerMessage(player, '/setweaponscale [scale] / [x y z] - Set equipped weapon scale', 'FFA500');

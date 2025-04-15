@@ -476,13 +476,36 @@ export default class GameManager {
       }
     });
 
-    // Spawn one BFG
+    // --- Define fixed BFG spawn locations (X, Z coordinates) ---
+    const bfgSpawnLocations = [
+      { x: -22, z: 26 },
+      { x: -14, z: 44 },
+      { x: 24, z: 31 },
+      { x: 41, z: 21 },
+      { x: 43, z: -5 },
+      { x: 16, z: -25 },
+      { x: -42, z: -13 },
+      { x: -46, z: 0 },
+      // Note: -22, 26 is listed twice, keeping it for potential weighting
+    ];
+    // --- End BFG Spawn Locations ---
+
+    // Spawn one BFG at a random fixed location
     const bfg = new BFG({
         tag: 'persistent_weapon' // Add tag via constructor options
     });
-    const bfgSpawnPos = this._getRandomSpawnPositionInCircle() || { x: 0, y: SPAWN_Y, z: 0 }; // Fallback position
+    // Select a random location from the predefined list
+    const randomLocationIndex = Math.floor(Math.random() * bfgSpawnLocations.length);
+    const chosenLocation = bfgSpawnLocations[randomLocationIndex];
+    
+    // Ensure a location was chosen (handle potential empty array edge case)
+    const bfgSpawnPos = chosenLocation 
+      ? { x: chosenLocation.x, y: SPAWN_Y, z: chosenLocation.z } 
+      : { x: 0, y: SPAWN_Y, z: 0 }; // Fallback to center if no location found
+      
     bfg.spawn(this._world, bfgSpawnPos);
-    this._logger.info(`Spawned persistent BFG at ${JSON.stringify(bfgSpawnPos)}`);
+    // Log the chosen location or the fallback
+    this._logger.info(`Spawned persistent BFG at ${chosenLocation ? `fixed location index ${randomLocationIndex}` : 'fallback location (0,Y,0)'}: ${JSON.stringify(bfgSpawnPos)}`);
 
     // Start health pack spawning
     this._startHealthPackSpawning();
