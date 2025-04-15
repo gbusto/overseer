@@ -223,4 +223,7 @@ This plan follows a user-centric approach, building core interactions first and 
         *   [ ] Re-tweak gameplay mechanics now with harder level
         *   [ ] Remove all commands in the game to prevent cheating.
         *   [x] Fix BFG spawning and healthpack spawning to start with a y of 50
+        *   [ ] Health pack sound effect
+        *   [ ] New healthpack model that I created
+        *   [ ] Improve "handleInteract"
 *   **Outcome Goal:** KORO dynamically chooses actions based on game state via LLM, speaking occasionally with degraded voice. Core loop feels responsive with simplified AI updates and planned event logging. Visuals and audio are polished.

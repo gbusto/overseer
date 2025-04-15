@@ -58,7 +58,7 @@ strong {
 }
 
 /* Model List Specifics */
-#models ul {
+/* #models ul {
     list-style: none;
     padding: 0;
 }
@@ -68,6 +68,35 @@ strong {
     margin-bottom: 0.5rem;
     padding: 0.5rem 1rem;
     border-radius: 4px;
+} */ /* Commented out old list styles */
+
+/* Model Viewer Grid */
+.model-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Responsive grid */
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+.model-item {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+    background-color: #f8f9fa;
+}
+
+model-viewer {
+    width: 100%;
+    height: 200px; /* Adjust height as needed */
+    border-radius: 4px;
+    background-color: #e9ecef; /* Placeholder background */
+}
+
+.model-item p {
+    margin-top: 0.5rem;
+    font-weight: bold;
+    color: #555;
 }
 
 /* Placeholder Styling */

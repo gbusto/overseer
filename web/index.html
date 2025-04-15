@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The Overseer</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Loads <model-viewer> for modern browsers: -->
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
 </head>
 <body>
     <header>
@@ -116,35 +118,85 @@
 
         <section id="models">
             <h2>Model Showcase</h2>
-            <p>Here are some of the models featured in the game:</p>
-            <ul>
-                <li>squid (NPC)</li>
-                <li>player (Player Character)</li>
-                <li>soldier-player (Player Variant)</li>
-                <li>energy_rifle_1 (Weapon)</li>
-                <li>bfg (Weapon)</li>
-                <li>bfg-energy-orb (Weapon Projectile)</li>
-                <li>ak-47 (Weapon)</li>
-                <li>energy-orb (Weapon Projectile)</li>
-                <li>overseer-tree-1 (Environment)</li>
-                <li>overseer-tree-2 (Environment)</li>
-                <li>overseer-tree-3 (Environment)</li>
-                <li>overseer-mushroom-1 (Environment)</li>
-                <li>overseer-mushroom-2 (Environment)</li>
-                <li>overseer-mushroom-3 (Environment)</li>
-                <li>overseer-mushroom-4 (Environment)</li>
-                <li>overseer-mushroom-5 (Environment)</li>
-                <li>overseer-plant-1 (Environment)</li>
-                <li>overseer-plant-2 (Environment)</li>
-                <li>overseer-plant-3 (Environment)</li>
-                <li>overseer-plant-4 (Environment)</li>
-                <li>health-pack (Item)</li>
-                <li>koro (Overseer AI Model)</li>
-                <li>shield-half (Environment/Effect)</li>
-                <li>basic-tree (Environment - Note: has 'idle' animation)</li>
-                <!-- Note: Filtered out .optimized and -named-nodes versions for brevity -->
-             </ul>
-             <p><em>[Ideally, this section would have images or 3D viewers for the models.]</em></p>
+            <p>Explore some of the key models from The Overseer. Click and drag to rotate!</p>
+            <div class="model-grid">
+                <!-- KORO -->
+                <div class="model-item">
+                    <model-viewer src="models/koro.glb" alt="KORO 3D model" camera-controls auto-rotate ar ios-src="models/koro.usdz"></model-viewer>
+                    <p>KORO</p>
+                </div>
+                <!-- Shield Half -->
+                <div class="model-item">
+                    <model-viewer src="models/shield-half.glb" alt="Shield Half 3D model" camera-controls auto-rotate ar ios-src="models/shield-half.usdz"></model-viewer>
+                    <p>Shield Half</p>
+                </div>
+                <!-- BFG -->
+                <div class="model-item">
+                    <model-viewer src="models/bfg.glb" alt="BFG Weapon 3D model" camera-controls auto-rotate ar ios-src="models/bfg.usdz"></model-viewer>
+                    <p>BFG</p>
+                </div>
+                <!-- Energy Rifle -->
+                <div class="model-item">
+                    <model-viewer src="models/energy-rifle-1.glb" alt="Energy Rifle 3D model" camera-controls auto-rotate ar ios-src="models/energy_rifle_1.usdz"></model-viewer>
+                    <p>Energy Rifle</p>
+                </div>
+                <!-- Health Pack -->
+                <div class="model-item">
+                    <model-viewer src="models/health-pack.glb" alt="Health Pack 3D model" camera-controls auto-rotate ar ios-src="models/health-pack.usdz"></model-viewer>
+                    <p>Health Pack</p>
+                </div>
+                <!-- Environment Models -->
+                <div class="model-item">
+                    <model-viewer src="models/overseer-tree-1.glb" alt="Tree 1 3D model" camera-controls auto-rotate ar ios-src="models/overseer-tree-1.usdz"></model-viewer>
+                    <p>Tree 1</p>
+                </div>
+                <div class="model-item">
+                    <model-viewer src="models/overseer-tree-2.glb" alt="Tree 2 3D model" camera-controls auto-rotate ar ios-src="models/overseer-tree-2.usdz"></model-viewer>
+                    <p>Tree 2</p>
+                </div>
+                 <div class="model-item">
+                    <model-viewer src="models/overseer-tree-3.glb" alt="Tree 3 3D model" camera-controls auto-rotate ar ios-src="models/overseer-tree-3.usdz"></model-viewer>
+                    <p>Tree 3</p>
+                </div>
+                 <div class="model-item">
+                    <model-viewer src="models/overseer-mushroom-1.glb" alt="Mushroom 1 3D model" camera-controls auto-rotate ar ios-src="models/overseer-mushroom-1.usdz"></model-viewer>
+                    <p>Mushroom 1</p>
+                </div>
+                 <div class="model-item">
+                    <model-viewer src="models/overseer-mushroom-2.glb" alt="Mushroom 2 3D model" camera-controls auto-rotate ar ios-src="models/overseer-mushroom-2.usdz"></model-viewer>
+                    <p>Mushroom 2</p>
+                </div>
+                 <div class="model-item">
+                    <model-viewer src="models/overseer-mushroom-3.glb" alt="Mushroom 3 3D model" camera-controls auto-rotate ar ios-src="models/overseer-mushroom-3.usdz"></model-viewer>
+                    <p>Mushroom 3</p>
+                </div>
+                 <div class="model-item">
+                    <model-viewer src="models/overseer-mushroom-4.glb" alt="Mushroom 4 3D model" camera-controls auto-rotate ar ios-src="models/overseer-mushroom-4.usdz"></model-viewer>
+                    <p>Mushroom 4</p>
+                </div>
+                 <div class="model-item">
+                    <model-viewer src="models/overseer-mushroom-5.glb" alt="Mushroom 5 3D model" camera-controls auto-rotate ar ios-src="models/overseer-mushroom-5.usdz"></model-viewer>
+                    <p>Mushroom 5</p>
+                </div>
+                 <div class="model-item">
+                    <model-viewer src="models/overseer-plant-1.glb" alt="Plant 1 3D model" camera-controls auto-rotate ar ios-src="models/overseer-plant-1.usdz"></model-viewer>
+                    <p>Plant 1</p>
+                </div>
+                 <div class="model-item">
+                    <model-viewer src="models/overseer-plant-2.glb" alt="Plant 2 3D model" camera-controls auto-rotate ar ios-src="models/overseer-plant-2.usdz"></model-viewer>
+                    <p>Plant 2</p>
+                </div>
+                 <div class="model-item">
+                    <model-viewer src="models/overseer-plant-3.glb" alt="Plant 3 3D model" camera-controls auto-rotate ar ios-src="models/overseer-plant-3.usdz"></model-viewer>
+                    <p>Plant 3</p>
+                </div>
+                 <div class="model-item">
+                    <model-viewer src="models/overseer-plant-4.glb" alt="Plant 4 3D model" camera-controls auto-rotate ar ios-src="models/overseer-plant-4.usdz"></model-viewer>
+                    <p>Plant 4</p>
+                </div>
+                <!-- Add more models as needed -->
+            </div>
+             <p><em>Note: AR features require compatible devices and may need corresponding `.usdz` files placed alongside the `.glb` files.</em></p>
         </section>
 
         <section id="dev-notes">
