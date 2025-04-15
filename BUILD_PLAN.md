@@ -156,7 +156,7 @@ This plan follows a user-centric approach, building core interactions first and 
     *   **Audio Polish:**
         *   [x] Integrate Replicate API for "kokoro" TTS via `AudioManager.speakKoro()` (assuming this refers to the TTS call setup).
         *   [x] Implement voice degradation based on `OverseerEntity` health (should be part of `generateTTSForMessage` logic).
-        *   [ ] Implement non-verbal SFX for shield hits and KORO core damage in `OverseerEntity.takeDamage`.
+        *   [x] Implement non-verbal SFX for shield hits and KORO core damage in `OverseerEntity.takeDamage`.
         *   [ ] Finalize SFX for environmental attacks, barrier movement, weapon fire/reload.
     *   **Visual Polish:**
         *   [x] Refine screen tints and add particle effects for attacks.
@@ -176,11 +176,11 @@ This plan follows a user-centric approach, building core interactions first and 
             *   [x] Implement `IDLE` state (call helpers to disable systems, despawn items, call entity resets).
             *   [x] Add `reset()` methods to `GamePlayerEntity` and `OverseerEntity`.
             *   [x] Implement game over triggers (`handlePlayerDeath`, `handleOverseerDeath`).
-        *   [ ] Handle KORO death; need some kind of final goodbye from KORO or minor celebration if the players win
-        *   [ ] Handle all players die / lose; need some kind of event to happen
-            *   [ ] Players winning or KORO dying are immediate events it should stop and respond to NOW
-            *   [ ] On game end, reset all lighting and attacks; or just reset the environment
-        *   [ ] Implement smooth transition after players win or lose before transitioning back to IDLE state
+        *   [x] Handle KORO death; need some kind of final goodbye from KORO or minor celebration if the players win
+        *   [x] Handle all players die / lose; need some kind of event to happen
+            *   [x] Players winning or KORO dying are immediate events it should stop and respond to NOW
+            *   [x] On game end, reset all lighting and attacks; or just reset the environment
+        *   [x] Implement smooth transition after players win or lose before transitioning back to IDLE state
         *   [x] Program out the actual main game loop in GameManager.ts
         *   [x] Tweak attack damage, KORO damage, BFG damage, Rifle damage, and weapon cooldown / recharge speeds so the game is challeging but fun
         *   [x] Fix the voice location for KORO on the map; it fades away when you're far away
@@ -209,17 +209,18 @@ This plan follows a user-centric approach, building core interactions first and 
         *   [x] Have KORO light up red briefly when hit for visual cue that it was injured
         *   [ ] On shield malfunction, warn all users to start shooting at KORO *now*
         *   [x] Better music when match is active
-        *   [ ] **Better end state transition**
+        *   [x] **Better end state transition**
         *   [ ] Add mobile support
         *   [ ] When KORO is defeated, its shields fall to the floor with a loud bang (if possible) and it also falls to the floor
         *   [ ] Add anti gravity attack
         *   [ ] Water turns to lava attack? Or water is electrified?
-        *   [ ] **Players can't join during match; if so, they spawn at 0, -300, 0, already dead with 0 health, and have a spectator cam**
-        *   [ ] **Test player death mechanics**
+        *   [x] **Players can't join during match; if so, they spawn at 0, -300, 0, already dead with 0 health, and have a spectator cam**
+        *   [x] **Test player death mechanics**
         *   [ ] Update KORO's prompt to give it strategic move pairings; e.g. darkness followed by UV attack (or vice versa), temp change followed by UV attack so that players can't just stand around and wait for you to auto-vent, etc.
         *   [ ] Perhaps as it gets more erratic at the end, let it specify 2 attacks simultaneously (obviously not 2 temp attacks though)
         *   [x] Improved map; a little more dynamic, longer weapon ranges, have more layers like water at the lowest point, then void soil, and sometimes topped with void grass
-        *   [ ] Show permanent SceneUI labels for health packs and BFG
+        *   [x] Show permanent SceneUI labels for health packs and BFG
         *   [ ] Re-tweak gameplay mechanics now with harder level
         *   [ ] Remove all commands in the game to prevent cheating.
+        *   [x] Fix BFG spawning and healthpack spawning to start with a y of 50
 *   **Outcome Goal:** KORO dynamically chooses actions based on game state via LLM, speaking occasionally with degraded voice. Core loop feels responsive with simplified AI updates and planned event logging. Visuals and audio are polished.
