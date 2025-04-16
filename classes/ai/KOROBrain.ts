@@ -14,7 +14,7 @@ import type {
 
 import { Logger } from '../../utils/logger';
 import OverseerEntity from '../entities/OverseerEntity'; // Import OverseerEntity
-import GameManager from '../GameManager'; // Import GameManager
+import GameManager, { GameState } from '../GameManager'; // Import GameManager AND GameState
 import GamePlayerEntity from '../entities/GamePlayerEntity'; // Import GamePlayerEntity
 
 // KORO Operational Modes
@@ -134,7 +134,7 @@ export class KOROBrain {
   private _llmInteractionEnabled: boolean = false; // Default to true
   private _ttsGenerationEnabled: boolean = false; // Default to false, enable based on env/config
   private lastUpdateTime: number = 0;
-  private updateIntervalMs: number; // Changed to allow configuration
+  private updateIntervalMs: number; // For LLM mode
   private isProcessing: boolean = false;
   private logger: Logger;
 
@@ -167,13 +167,12 @@ export class KOROBrain {
   // Attack Cooldown Tracking
   private _environmentalAttackCooldownUntil: number = 0;
 
-  // --- New State Variables for Deterministic Mode ---
-  private _deterministicUpdateIntervalMs: number = 30000; // Start with 30 seconds
+  // --- State Variables for Deterministic Mode ---
   private _nextDeterministicAttackIndex: number = 0;
   private _deterministicBlackoutReadyAt: number = 0;
   private _deterministicUvLightReadyAt: number = 0;
   private _deterministicTauntReadyAt: number = 0;
-  // --- End New State Variables ---
+  // --- End State Variables ---
 
   constructor(overseer: OverseerEntity, gameManager: GameManager, world: World, updateInterval: number = DEFAULT_UPDATE_INTERVAL_MS) {
     // this.model = google('gemini-2.0-flash');
@@ -183,7 +182,7 @@ export class KOROBrain {
     this._overseer = overseer;
     this._gameManager = gameManager;
     this._world = world; // Store the world reference
-    this.updateIntervalMs = updateInterval; // Set interval from parameter
+    this.updateIntervalMs = updateInterval; // For LLM mode
 
     // Example: Enable TTS only in production
     // REMOVED: Logic moved to setMode
@@ -196,7 +195,7 @@ export class KOROBrain {
     // Start in disabled mode by default
     this.setMode('disabled'); // Call setMode to initialize flags correctly
 
-    this.logger.info(`Initialized KORO brain (LLM Interval: ${this.updateIntervalMs}ms, Deterministic Interval: ${this._deterministicUpdateIntervalMs}ms, Initial Mode: ${this._currentMode})`);
+    this.logger.info(`Initialized KORO brain (LLM Interval: ${this.updateIntervalMs}ms, Deterministic Interval: Health-Based, Initial Mode: ${this._currentMode})`);
   }
 
   // --- Control Flags ---
@@ -398,11 +397,32 @@ export class KOROBrain {
 
   public shouldUpdate(): boolean {
     const now = Date.now();
+    let intervalToCheck: number;
 
-    // Determine the correct interval based on mode
-    const intervalToCheck = this._llmInteractionEnabled
-      ? this.updateIntervalMs // Use LLM interval if LLM is enabled
-      : this._deterministicUpdateIntervalMs; // Use deterministic interval otherwise
+    if (this._llmInteractionEnabled) {
+        // Use fixed LLM interval if LLM is enabled
+        intervalToCheck = this.updateIntervalMs;
+    } else {
+        // --- Calculate Dynamic Interval for Deterministic Mode ---
+        if (!this._overseer) { // Safety check
+            this.logger.warn('Overseer reference missing in shouldUpdate. Using default 30s interval.');
+            intervalToCheck = 30000;
+        } else {
+            const healthPercent = this._overseer.getHealth(); // Get current health
+
+            if (healthPercent > 66) {
+                intervalToCheck = 30000; // 30 seconds
+            } else if (healthPercent > 33) {
+                intervalToCheck = 25000; // 25 seconds
+            } else if (healthPercent > 10) {
+                intervalToCheck = 20000; // 20 seconds
+            } else {
+                intervalToCheck = 15000; // 15 seconds
+            }
+            this.logger.debug(`[Deterministic] Health: ${healthPercent.toFixed(1)}%, Required Interval: ${intervalToCheck / 1000}s`);
+        }
+         // --- End Dynamic Interval Calculation ---
+    }
 
     // Prevent updates if game is over, processing is disabled, already processing, or interval hasn't passed
     return !this._gameOver &&
@@ -486,8 +506,10 @@ export class KOROBrain {
           // --- End Malfunction Override ---
 
           // --- Action Execution (Common Logic) ---
-          if (!this._gameOver && actionsToExecute.length > 0) {
-              this.logger.info(`Executing ${actionsToExecute.length} action(s)...`);
+          // Check BOTH internal gameOver flag AND current GameManager state
+          const currentGameState = this._gameManager.gameState; // Get current state from GameManager
+          if (!this._gameOver && currentGameState === GameState.ACTIVE && actionsToExecute.length > 0) {
+              this.logger.info(`Executing ${actionsToExecute.length} action(s) while game state is ACTIVE...`);
               for (const actionDetail of actionsToExecute) { // Loop through actions (currently max 1)
                     const { action, intensity } = actionDetail;
                     this.logger.info(`Executing Action: ${action} ${intensity ? `(Intensity: ${intensity})` : ''}`);
@@ -583,8 +605,11 @@ export class KOROBrain {
                     // --- End Cooldown Setting ---
               } // End for loop over actions
           } else if (this._gameOver) {
-              this.logger.info('Game over flag is set. Skipping action execution.');
-          } else {
+              this.logger.info('KORO Brain internal _gameOver flag is set. Skipping action execution.');
+          } else if (currentGameState !== GameState.ACTIVE) {
+              // Log why we are skipping based on GameManager state
+              this.logger.info(`GameManager state is ${currentGameState}, not ACTIVE. Skipping action execution.`);
+          } else { // actionsToExecute must be empty if we reach here
               this.logger.debug('No actions to execute this cycle.');
           }
           // --- End Action Execution ---
@@ -909,6 +934,7 @@ ${snapshot.interaction_history.recent_attacks_triggered.join(', ') || '(None rec
     const now = Date.now();
     let selectedAction: DeterministicActionDetail | null = null;
     const maxAttempts = DETERMINISTIC_ATTACK_SEQUENCE.length; // Prevent infinite loop in edge cases
+    const currentHealthPercent = snapshot.koro_status.health_percent; // Get health from snapshot
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       const currentIndex = this._nextDeterministicAttackIndex % DETERMINISTIC_ATTACK_SEQUENCE.length;
@@ -921,54 +947,57 @@ ${snapshot.interaction_history.recent_attacks_triggered.join(', ') || '(None rec
         case 'attack_freeze':
           if (snapshot.game_context.can_initiate_environmental_attack) {
             isValid = true;
-            intensity = 'medium'; // Default to medium for simple mode
-            // We will start the main cooldown *after* execution in generateUpdate
+            // --- Determine Intensity based on Health ---
+            if (currentHealthPercent > 70) {
+                intensity = 'low';
+            } else if (currentHealthPercent > 30) {
+                intensity = 'medium';
+            } else {
+                intensity = 'high';
+            }
+            this.logger.debug(`[Deterministic] Temp attack ${candidateAction} chosen. Health: ${currentHealthPercent.toFixed(1)}% -> Intensity: ${intensity}`);
+            // Cooldown started after execution
           }
           break;
         case 'attack_blackout':
           if (now >= this._deterministicBlackoutReadyAt) {
             isValid = true;
-            // We will set the cooldown *after* execution in generateUpdate
           }
           break;
         case 'attack_uv_light':
           if (now >= this._deterministicUvLightReadyAt) {
             isValid = true;
-            // We will set the cooldown *after* execution in generateUpdate
           }
           break;
         case 'taunt_shield':
           if (now >= this._deterministicTauntReadyAt) {
             isValid = true;
-             // We will set the cooldown *after* execution in generateUpdate
           }
           break;
-        case 'none': // Should not be in sequence, but handle defensively
-          isValid = true; // 'none' is always valid if selected (but we won't return it from sequence)
+        case 'none': // Should not be in sequence
+          isValid = false; // Explicitly invalid in sequence
           break;
       }
 
-      if (isValid && candidateAction !== 'none') {
-        // Assert type here, as we've excluded 'none'
+      if (isValid) { // candidateAction cannot be 'none' if isValid is true here
         selectedAction = { action: candidateAction as Exclude<KoroActionType, 'none'>, intensity };
-        this._nextDeterministicAttackIndex = (currentIndex + 1) % DETERMINISTIC_ATTACK_SEQUENCE.length; // Advance index only if action found
-        this.logger.info(`[Deterministic] Selected action: ${candidateAction} ${intensity ? `(Intensity: ${intensity})` : ''}`);
-        break; // Found a valid action, exit loop
+        this._nextDeterministicAttackIndex = (currentIndex + 1) % DETERMINISTIC_ATTACK_SEQUENCE.length; // Advance index
+        this.logger.info(`[Deterministic] Selected action: ${selectedAction.action} ${selectedAction.intensity ? `(Intensity: ${selectedAction.intensity})` : ''}`);
+        break; // Found a valid action
       } else {
-          // If the current action is not valid, just increment the index to try the next one
-          this._nextDeterministicAttackIndex = (currentIndex + 1) % DETERMINISTIC_ATTACK_SEQUENCE.length;
-          if (!isValid) {
-              this.logger.debug(`[Deterministic] Skipped action ${candidateAction} (Not ready/valid). Trying next.`);
+          // If the current action is not valid, just increment the index to try the next one in the next update cycle
+           this._nextDeterministicAttackIndex = (currentIndex + 1) % DETERMINISTIC_ATTACK_SEQUENCE.length;
+          if (candidateAction !== 'none') { // Don't log skipping 'none' if it somehow got in sequence
+                this.logger.debug(`[Deterministic] Skipped action ${candidateAction} (Not ready/valid). Trying next.`);
           }
       }
-      // If loop completes without break, selectedAction remains null
-    }
+    } // End for loop
 
     if (!selectedAction) {
         this.logger.info('[Deterministic] No valid actions available in sequence this cycle.');
-        return []; // Return empty array if no valid action found
+        return [];
     }
 
-    return [selectedAction]; // Return array with the single selected action
+    return [selectedAction];
   }
 } 
