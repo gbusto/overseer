@@ -466,7 +466,8 @@ export default class GameManager {
     // Set KORO mode
     const overseer = this.getOverseerEntity();
     if (overseer) {
-      const defaultMode: KoroMode = process.env.NODE_ENV === 'production' ? 'prod' : 'dev-with-llm';
+      // Set default mode to 'hytopia' (no LLM/TTS)
+      const defaultMode: KoroMode = 'hytopia';
       overseer.setKoroMode(defaultMode);
       this._logger.info(`Set KORO mode to default: ${defaultMode}`);
       

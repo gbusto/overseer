@@ -234,7 +234,7 @@ export default class OverseerEntity extends Entity {
     this._brain = new KOROBrain(this, GameManager.instance, world);
     
     // Start with the brain processing disabled until game starts
-    this._brain.setBrainProcessingEnabled(true);
+    this._brain.setBrainProcessingEnabled(false);
     this._logger.info('KORO Brain initialized but processing disabled until game starts.');
     
     // Initialize the biodome controller

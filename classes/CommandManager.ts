@@ -605,7 +605,7 @@ export default class CommandManager {
             return;
         }
 
-        const validModes: KoroMode[] = ['disabled', 'dev-no-llm', 'dev-with-llm', 'prod'];
+        const validModes: KoroMode[] = ['disabled', 'dev-no-llm', 'dev-with-llm', 'hytopia'];
         const modeArg = args[0] as KoroMode;
 
         if (!modeArg || !validModes.includes(modeArg)) {

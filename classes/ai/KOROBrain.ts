@@ -18,11 +18,35 @@ import GameManager from '../GameManager'; // Import GameManager
 import GamePlayerEntity from '../entities/GamePlayerEntity'; // Import GamePlayerEntity
 
 // KORO Operational Modes
-export type KoroMode = 'disabled' | 'dev-no-llm' | 'dev-with-llm' | 'prod';
+export type KoroMode = 'disabled' | 'dev-no-llm' | 'dev-with-llm' | 'hytopia';
 
 // Configuration
 const DEFAULT_UPDATE_INTERVAL_MS = 8000; // Make interval configurable (8 seconds)
 const ENVIRONMENTAL_ATTACK_COOLDOWN_MS = 30000; // Cooldown between KORO attacks (30 seconds)
+
+// Define the deterministic attack sequence
+const DETERMINISTIC_ATTACK_SEQUENCE: KoroActionType[] = [
+    'attack_heat',
+    'taunt_shield',
+    'attack_freeze',
+    'attack_blackout',
+    'attack_uv_light',
+    'taunt_shield', // Add taunt again for variety
+];
+
+// Define type for KORO actions for clarity
+type KoroActionType = z.infer<typeof KOROResponseSchema>['action'];
+
+// Type for actions we actually return from deterministic logic (excluding 'none')
+type DeterministicActionDetail = {
+    action: Exclude<KoroActionType, 'none'>; // Exclude 'none' from possible actions
+    intensity?: 'low' | 'medium' | 'high';
+};
+
+// Define cooldowns for deterministic non-temperature attacks (in ms)
+const DETERMINISTIC_BLACKOUT_COOLDOWN_MS = 60000; // 60 seconds
+const DETERMINISTIC_UV_LIGHT_COOLDOWN_MS = 60000; // 60 seconds
+const DETERMINISTIC_TAUNT_COOLDOWN_MS = 45000;  // 45 seconds
 
 // Define the structure of the game state snapshot we send to the LLM
 const GameStateSnapshotSchema = z.object({
@@ -143,6 +167,14 @@ export class KOROBrain {
   // Attack Cooldown Tracking
   private _environmentalAttackCooldownUntil: number = 0;
 
+  // --- New State Variables for Deterministic Mode ---
+  private _deterministicUpdateIntervalMs: number = 30000; // Start with 30 seconds
+  private _nextDeterministicAttackIndex: number = 0;
+  private _deterministicBlackoutReadyAt: number = 0;
+  private _deterministicUvLightReadyAt: number = 0;
+  private _deterministicTauntReadyAt: number = 0;
+  // --- End New State Variables ---
+
   constructor(overseer: OverseerEntity, gameManager: GameManager, world: World, updateInterval: number = DEFAULT_UPDATE_INTERVAL_MS) {
     // this.model = google('gemini-2.0-flash');
     this.model = google('gemini-2.5-pro-preview-03-25');
@@ -154,16 +186,17 @@ export class KOROBrain {
     this.updateIntervalMs = updateInterval; // Set interval from parameter
 
     // Example: Enable TTS only in production
-    this._ttsGenerationEnabled = process.env.NODE_ENV === 'production';
-    if (this._ttsGenerationEnabled && !this._llmInteractionEnabled) {
-        this.logger.warn('TTS generation enabled but LLM interaction is disabled. TTS will not function.');
-        this._ttsGenerationEnabled = false; // Force disable TTS if LLM is off
-    }
-    
-    // Start in disabled mode by default
-    this.setMode('disabled');
+    // REMOVED: Logic moved to setMode
+    // this._ttsGenerationEnabled = process.env.NODE_ENV === 'production';
+    // if (this._ttsGenerationEnabled && !this._llmInteractionEnabled) {
+    //     this.logger.warn('TTS generation enabled but LLM interaction is disabled. TTS will not function.');
+    //     this._ttsGenerationEnabled = false; // Force disable TTS if LLM is off
+    // }
 
-    this.logger.info(`Initialized KORO brain (Update Interval: ${this.updateIntervalMs}ms, Initial Mode: ${this._currentMode})`);
+    // Start in disabled mode by default
+    this.setMode('disabled'); // Call setMode to initialize flags correctly
+
+    this.logger.info(`Initialized KORO brain (LLM Interval: ${this.updateIntervalMs}ms, Deterministic Interval: ${this._deterministicUpdateIntervalMs}ms, Initial Mode: ${this._currentMode})`);
   }
 
   // --- Control Flags ---
@@ -215,6 +248,13 @@ export class KOROBrain {
   public setMode(mode: KoroMode): void {
     this.logger.info(`Setting KORO mode to: ${mode}`);
     this._currentMode = mode;
+    this._gameOver = false; // Reset game over flag when mode changes
+    this._nextDeterministicAttackIndex = 0; // Reset sequence on mode change
+    // Reset deterministic cooldowns
+    const now = Date.now();
+    this._deterministicBlackoutReadyAt = now;
+    this._deterministicUvLightReadyAt = now;
+    this._deterministicTauntReadyAt = now;
 
     switch (mode) {
       case 'disabled':
@@ -222,20 +262,20 @@ export class KOROBrain {
         this.setLlmInteractionEnabled(false);
         this.setTtsGenerationEnabled(false); // Ensure TTS is off
         break;
-      case 'dev-no-llm':
+      case 'dev-no-llm': // Deterministic mode for dev
         this.setBrainProcessingEnabled(true);
         this.setLlmInteractionEnabled(false);
         this.setTtsGenerationEnabled(false); // Ensure TTS is off
         break;
-      case 'dev-with-llm':
+      case 'dev-with-llm': // LLM mode for dev
         this.setBrainProcessingEnabled(true);
         this.setLlmInteractionEnabled(true);
         this.setTtsGenerationEnabled(false); // Ensure TTS is off in dev
         break;
-      case 'prod':
-        this.setBrainProcessingEnabled(true);
-        this.setLlmInteractionEnabled(true);
+      case 'hytopia': // <<< RENAMED from 'prod' >>>
         // Enable TTS only if the API token is configured
+        // REMOVED - Hytopia mode should never use TTS
+        /*
         const ttsAvailable = !!process.env.TTS_API_TOKEN;
         if (ttsAvailable) {
             this.setTtsGenerationEnabled(true);
@@ -243,6 +283,13 @@ export class KOROBrain {
             this.logger.warn('Prod mode requested, but TTS_API_TOKEN is not set. TTS remains disabled.');
             this.setTtsGenerationEnabled(false);
         }
+        */
+        // <<< Force deterministic (no LLM/TTS) in hytopia mode >>>
+        this.setBrainProcessingEnabled(true);
+        this.setLlmInteractionEnabled(false); // Force LLM OFF
+        this.setTtsGenerationEnabled(false); // Force TTS OFF
+        // Log reason for hytopia settings
+        this.logger.info('Hytopia mode activated: LLM and TTS are explicitly disabled.');
         break;
       default:
         this.logger.warn(`Unknown KORO mode requested: ${mode}. Defaulting to 'disabled'.`);
@@ -351,8 +398,17 @@ export class KOROBrain {
 
   public shouldUpdate(): boolean {
     const now = Date.now();
+
+    // Determine the correct interval based on mode
+    const intervalToCheck = this._llmInteractionEnabled
+      ? this.updateIntervalMs // Use LLM interval if LLM is enabled
+      : this._deterministicUpdateIntervalMs; // Use deterministic interval otherwise
+
     // Prevent updates if game is over, processing is disabled, already processing, or interval hasn't passed
-    return !this._gameOver && this._brainProcessingEnabled && !this.isProcessing && now - this.lastUpdateTime >= this.updateIntervalMs;
+    return !this._gameOver &&
+           this._brainProcessingEnabled &&
+           !this.isProcessing &&
+           now - this.lastUpdateTime >= intervalToCheck;
   }
 
   public async generateUpdate(): Promise<void> {
@@ -362,180 +418,209 @@ export class KOROBrain {
       }
       this.lastUpdateTime = Date.now();
       this.isProcessing = true;
+      
       try {
           const snapshot = this._gatherGameStateSnapshot();
           if (!snapshot) {
               this.logger.error('Failed to gather game state snapshot.');
+              this.isProcessing = false; // Ensure processing flag is reset on error
               return;
           }
-          this.logger.debug('Generated Game State Snapshot:', snapshot);
+          this.logger.debug('Generated Game State Snapshot:', snapshot); // Keep this debug log
 
-          if (!this._llmInteractionEnabled) {
-              this.logger.info('LLM interaction disabled. Skipping LLM call.');
-              return;
-          }
+          let actionsToExecute: DeterministicActionDetail[] = [];
+          let llmResponse: KOROResponse | null = null; // Store LLM response if used
 
-          this.logger.info('Generating LLM response...');
-          let response = await this._generateLlmResponse(snapshot);
-          if (!response) {
-              this.logger.warn('No LLM response generated.');
-              // Even if LLM fails, we might still want to process TTS/UI for a default/silent state
-              // Ensure a minimal response object if LLM failed but we need to proceed
-              response = KOROResponseSchema.parse({ action: 'none' }); // Default to 'none' if LLM fails
+          if (this._llmInteractionEnabled) {
+              // --- LLM Path ---
+              this.logger.info('Generating LLM response...');
+              llmResponse = await this._generateLlmResponse(snapshot);
+              
+              if (!llmResponse) {
+                  this.logger.warn('No LLM response generated. Defaulting to no action.');
+                  llmResponse = KOROResponseSchema.parse({ action: 'none' }); // Ensure response object exists
+              } else {
+                   this.logger.info(`LLM Response: ${llmResponse.message || '(no message)'}, Action: ${llmResponse.action}, Intensity: ${llmResponse.intensity || 'N/A'}, Target: ${llmResponse.target || 'N/A'}`);
+              }
+
+              // Record LLM response history
+              this.addResponseToHistory(llmResponse);
+
+              // Convert LLM response action to the execution format if not 'none'
+              if (llmResponse.action !== 'none') {
+                  actionsToExecute.push({ 
+                      action: llmResponse.action as Exclude<KoroActionType, 'none'>, // Type assertion needed as KOROResponse allows 'none'
+                      intensity: llmResponse.intensity 
+                  });
+              }
+              // --- End LLM Path ---
+
+          } else {
+              // --- Deterministic Path ---
+              this.logger.info('Determining action via deterministic logic...');
+              actionsToExecute = this._determineActionWithoutLLM(snapshot);
+              // History is logged inside _determineActionWithoutLLM if action is chosen
+              // We might want a history entry even if no action is chosen?
+              if (actionsToExecute.length === 0) {
+                  // Add a history entry for deterministic silence/no valid action
+                  this.addResponseToHistory({ action: 'none', message: '<<deterministic_no_action>>' });
+              } else {
+                  // Add history for the chosen deterministic action (no message)
+                  // Note: _determineAction logs the choice, addResponseToHistory formalizes it
+                  // Add a check to satisfy the linter, although length > 0 is already confirmed
+                  const firstAction = actionsToExecute[0];
+                  if (firstAction) {
+                     this.addResponseToHistory({ action: firstAction.action, message: '<<deterministic_action>>' });
+                  }
+              }
+              // --- End Deterministic Path ---
           }
           
-          // --- Check for Malfunction Override ---
-          if (this._overseer.isMalfunctioning() && response.action !== 'none') {
-            this.logger.warn(`KORO MALFUNCTION BLOCKED ACTION: Tried to perform '${response.action}' but shield is compromised.`);
-            // Force action to 'none' and maybe add a specific malfunction message or rely on existing UI cues
-            response.action = 'none';
-            response.message = undefined; // Clear any planned message
-            // Log the blocked action
-            this.addEventWithPriority('action_blocked_malfunction', `Attempted ${response.action} but blocked by malfunction.`, 'medium');
+          // --- Check for Malfunction Override (Applies to both LLM and Deterministic) ---
+          if (this._overseer.isMalfunctioning() && actionsToExecute.length > 0) {
+                const blockedActions = actionsToExecute.map(a => a.action).join(', ');
+                this.logger.warn(`KORO MALFUNCTION BLOCKED ACTION(S): Tried to perform '${blockedActions}' but shield is compromised.`);
+                this.addEventWithPriority('actions_blocked_malfunction', `Attempted ${blockedActions} but blocked by malfunction.`, 'medium');
+                actionsToExecute = []; // Clear actions if malfunctioning
           }
           // --- End Malfunction Override ---
 
-          this.logger.info(`Final KORO Decision: ${response.message || '(no message)'}, Action: ${response.action}, Intensity: ${response.intensity || 'N/A'}, Target: ${response.target || 'N/A'}`);
-          this.addResponseToHistory(response);
+          // --- Action Execution (Common Logic) ---
+          if (!this._gameOver && actionsToExecute.length > 0) {
+              this.logger.info(`Executing ${actionsToExecute.length} action(s)...`);
+              for (const actionDetail of actionsToExecute) { // Loop through actions (currently max 1)
+                    const { action, intensity } = actionDetail;
+                    this.logger.info(`Executing Action: ${action} ${intensity ? `(Intensity: ${intensity})` : ''}`);
+                    
+                    // Add triggered attack BEFORE execution attempt
+                    this.addTriggeredAttack(`${intensity ? intensity + ' ' : ''}${action}`);
 
-          // --- Action Execution Check --- 
-          // Skip action execution if the game is already over
-          if (!this._gameOver) {
-            switch (response.action) {
-              case 'attack_heat':
-              case 'attack_freeze':
-                // Check if KORO can actually attack based on the snapshot state
-                if (snapshot.game_context.can_initiate_environmental_attack) {
-                    const intensity = response.intensity || 'medium'; // Default to medium if not provided
-                    const isHeatAttack = response.action === 'attack_heat';
-                    const changeRate = 10; // Constant change rate
-                    
-                    // Define temperature/rate based on intensity (UPDATED RANGES)
-                    let targetTemp: number;
-                    if (intensity === 'low') {
-                        targetTemp = isHeatAttack ? 120 : 0; 
-                    } else if (intensity === 'medium') {
-                        targetTemp = isHeatAttack ? 160 : -25;
-                    } else { // high
-                        targetTemp = isHeatAttack ? 200 : -50; 
-                    }
-                    
-                    this.logger.info(`Attempting to initiate ${intensity} ${response.action} (Target: ${targetTemp}°F, Rate: ${changeRate}°/s)`);
-                    
-                    // <<< Play Alarm Sound >>>
-                    this._overseer.playAttackAlarm();
-                    
-                    // Call Overseer method
-                    const attackInitiated = this._overseer.initiateTemperatureAttack(targetTemp, changeRate); 
-                    
-                    if (attackInitiated) {
-                        this.addTriggeredAttack(`${intensity} ${response.action}`);
-                        this.recordEnvironmentalAttackEnd(); // Start the cooldown after initiating
+                    let executedSuccessfully = false; // Track success for cooldown setting
+
+                    switch (action) {
+                        case 'attack_heat':
+                        case 'attack_freeze':
+                            // Check again if KORO can attack (snapshot might be slightly old, but necessary check is here)
+                            // We rely on the check within _determineActionWithoutLLM primarily for deterministic
+                            // LLM might choose it even if snapshot says can_initiate is false, OverseerEntity prevents it.
+                            const isHeatAttack = action === 'attack_heat';
+                            const changeRate = 10; // Constant change rate
+                            let targetTemp: number;
+                            const finalIntensity = intensity || 'medium'; // Default intensity
+
+                            if (finalIntensity === 'low') targetTemp = isHeatAttack ? 120 : 0;
+                            else if (finalIntensity === 'medium') targetTemp = isHeatAttack ? 160 : -25;
+                            else targetTemp = isHeatAttack ? 200 : -50;
+
+                            this.logger.info(`Attempting to initiate ${finalIntensity} ${action} (Target: ${targetTemp}°F, Rate: ${changeRate}°/s)`);
+                            this._overseer.playAttackAlarm(); // Play alarm
+                            const attackInitiated = this._overseer.initiateTemperatureAttack(targetTemp, changeRate);
+
+                            if (attackInitiated) {
+                                executedSuccessfully = true;
+                                this.recordEnvironmentalAttackEnd(); // Start the MAIN cooldown
+                                // Broadcast UI warning
+                                if (this._world) {
+                                    const warningMessage = isHeatAttack ? "Temperatures rising fast! 🔥" : "Temperatures dropping fast! ❄️";
+                                    const attackType = isHeatAttack ? 'heat' : 'cold';
+                                    this._world.entityManager.getAllPlayerEntities().forEach(playerEntity => {
+                                        // Optional chaining for safety
+                                        playerEntity.player?.ui?.sendData({ type: 'environmental-attack-warning', attackType: attackType, message: warningMessage });
+                                    });
+                                    this.logger.info(`Sent UI warning for ${action} to players.`);
+                                }
+                            } else {
+                                this.logger.warn(`OverseerEntity prevented ${action} initiation (likely cooldown or state issue).`);
+                                this.addRecentEvent({ type: 'attack_prevented', content: `Attempted ${finalIntensity} ${action} but was prevented.`, priority: 'medium'});
+                            }
+                            break;
+
+                        case 'taunt_shield':
+                            this.logger.info(`Attempting to perform shield taunt.`);
+                            this._overseer.performShieldTaunt();
+                            executedSuccessfully = true; // Assume taunt always 'succeeds' for cooldown purposes
+                            this.addRecentEvent({ type: 'taunt_shield', content: `KORO initiated shield taunt.`, priority: 'low'});
+                            break;
+
+                        case 'attack_blackout':
+                            this.logger.info('Attempting to initiate blackout attack.');
+                            this._overseer.playAttackAlarm();
+                            this._overseer.initiateBlackoutAttack();
+                            executedSuccessfully = true; // Assume success for cooldown
+                            this.addRecentEvent({ type: 'attack_blackout', content: 'KORO initiated blackout.', priority: 'medium' });
+                            break;
+
+                        case 'attack_uv_light':
+                            this.logger.info('Attempting to initiate UV light attack.');
+                            this._overseer.playAttackAlarm();
+                            this._overseer.initiateUVLightAttack();
+                            executedSuccessfully = true; // Assume success for cooldown
+                            this.addRecentEvent({ type: 'attack_uv_light', content: 'KORO initiated UV light attack.', priority: 'medium' });
+                            break;
                         
-                        // --- Broadcast Attack Warning UI Message --- START
-                        if (this._world) { // Check if world exists
-                          const warningMessage = isHeatAttack ? 
-                              "Temperatures rising fast! 🔥" : 
-                              "Temperatures dropping fast! ❄️";
-                          const attackType = isHeatAttack ? 'heat' : 'cold';
-                          
-                          // Iterate through all players and send UI data
-                          const players = this._world.entityManager.getAllPlayerEntities();
-                          players.forEach(playerEntity => {
-                              if (playerEntity.player && playerEntity.player.ui) {
-                                  playerEntity.player.ui.sendData({
-                                      type: 'environmental-attack-warning',
-                                      attackType: attackType,
-                                      message: warningMessage
-                                  });
-                              }
-                          });
-                          
-                          this.logger.info(`Sent UI warning for ${response.action} to ${players.length} players.`);
+                        // No 'none' case needed here as actionsToExecute excludes it
+                    } // End switch
+
+                    // --- Set Deterministic Cooldowns AFTER execution attempt ---
+                    if (executedSuccessfully && !this._llmInteractionEnabled) { // Only set deterministic cooldowns if action ran and we're in deterministic mode
+                        const now = Date.now();
+                        switch (action) {
+                            case 'attack_blackout':
+                                this._deterministicBlackoutReadyAt = now + DETERMINISTIC_BLACKOUT_COOLDOWN_MS;
+                                this.logger.info(`[Deterministic] Blackout cooldown set. Ready at: ${new Date(this._deterministicBlackoutReadyAt).toLocaleTimeString()}`);
+                                break;
+                            case 'attack_uv_light':
+                                this._deterministicUvLightReadyAt = now + DETERMINISTIC_UV_LIGHT_COOLDOWN_MS;
+                                this.logger.info(`[Deterministic] UV Light cooldown set. Ready at: ${new Date(this._deterministicUvLightReadyAt).toLocaleTimeString()}`);
+                                break;
+                            case 'taunt_shield':
+                                this._deterministicTauntReadyAt = now + DETERMINISTIC_TAUNT_COOLDOWN_MS;
+                                this.logger.info(`[Deterministic] Taunt cooldown set. Ready at: ${new Date(this._deterministicTauntReadyAt).toLocaleTimeString()}`);
+                                break;
+                            // Temperature attacks use the main _environmentalAttackCooldownUntil, handled by recordEnvironmentalAttackEnd()
                         }
-                        // --- Broadcast Attack Warning UI Message --- END
-                    } else {
-                        this.logger.warn(`OverseerEntity prevented ${response.action} initiation (likely cooldown or state issue).`);
-                         this.addRecentEvent({ type: 'attack_prevented', content: `Attempted ${intensity} ${response.action} but was prevented.`, priority: 'medium'});
                     }
-                } else {
-                    this.logger.warn(`LLM chose ${response.action} but KORO cannot attack now (cooldown/temp not normal).`);
-                     this.addRecentEvent({ type: 'attack_invalid_choice', content: `LLM chose ${response.action} when attack not possible.`, priority: 'low'});
-                }
-                break;
-                
-              case 'taunt_shield':
-                this.logger.info(`Attempting to perform shield taunt.`);
-                // Taunt doesn't trigger alarm
-                this._overseer.performShieldTaunt(); 
-                 this.addRecentEvent({ type: 'taunt_shield', content: `KORO initiated shield taunt.`, priority: 'low'});
-                break;
-                
-              case 'attack_blackout':
-                this.logger.info('Attempting to initiate blackout attack.');
-                // <<< Play Alarm Sound >>>
-                this._overseer.playAttackAlarm();
-                // Call Overseer method
-                this._overseer.initiateBlackoutAttack(); 
-                this.addTriggeredAttack('blackout'); // Log the triggered attack
-                this.addRecentEvent({ type: 'attack_blackout', content: 'KORO initiated blackout.', priority: 'medium' });
-                break;
-                
-              case 'attack_uv_light':
-                this.logger.info('Attempting to initiate UV light attack.');
-                // <<< Play Alarm Sound >>>
-                this._overseer.playAttackAlarm();
-                // Call Overseer method
-                this._overseer.initiateUVLightAttack(); 
-                this.addTriggeredAttack('uv_light'); // Log the triggered attack
-                this.addRecentEvent({ type: 'attack_uv_light', content: 'KORO initiated UV light attack.', priority: 'medium' });
-                break;
-                
-              case 'none':
-              default:
-                this.logger.debug(`KORO action: none.`);
-                break;
-            }
+                    // --- End Cooldown Setting ---
+              } // End for loop over actions
+          } else if (this._gameOver) {
+              this.logger.info('Game over flag is set. Skipping action execution.');
           } else {
-            this.logger.info('Game over flag is set. Skipping action execution.');
+              this.logger.debug('No actions to execute this cycle.');
           }
-          // --- End Action Execution Check ---
+          // --- End Action Execution ---
 
-          // Handle TTS if enabled and a message exists
-          if (this._ttsGenerationEnabled && response.message) {
-              this.logger.info('Requesting TTS generation...');
-              // TODO: Implement generateTTSForMessage method in OverseerEntity.ts
-              // Call the TTS method on OverseerEntity
-              // Note: _generateTTS is async but we don't necessarily need to wait for it here
-              this._overseer.generateTTSForMessage(response.message).catch((error: Error) => { // Added error type
-                  this.logger.error('TTS generation failed:', error);
-              });
+          // --- Messaging & TTS (ONLY if LLM was used and produced output) ---
+          if (this._llmInteractionEnabled && llmResponse && llmResponse.message) {
+                // Handle TTS if enabled
+                if (this._ttsGenerationEnabled) {
+                    this.logger.info('Requesting TTS generation...');
+                    this._overseer.generateTTSForMessage(llmResponse.message).catch((error: Error) => {
+                        this.logger.error('TTS generation failed:', error);
+                    });
+                }
+                // Broadcast UI message
+                this._overseer.broadcastOverseerUIMessage(llmResponse.message, llmResponse.action);
+          } else if (this._llmInteractionEnabled && llmResponse && llmResponse.action !== 'none' && !llmResponse.message) {
+               // If LLM chose an action but no message, still broadcast the action type to UI (for icons etc)
+               this._overseer.broadcastOverseerUIMessage('', llmResponse.action);
           }
+          // --- End Messaging & TTS ---
 
-          // Broadcast message via OverseerEntity if message exists
-          if (response.message || response.action !== 'none') {
-               // TODO: Implement broadcastOverseerUIMessage method in OverseerEntity.ts
-               this._overseer.broadcastOverseerUIMessage(response.message || '', response.action);
-          }
-          
-          // --- Set Game Over Flag After Processing --- 
-          // Check if the snapshot used for this response contained a game_over event
+
+          // --- Set Game Over Flag After Processing ---
           const gameOverEvent = snapshot.interaction_history.recent_game_events.find(e => e.type === 'game_over');
           if (gameOverEvent) {
-            this.logger.info('Game over event processed. Setting _gameOver flag to true.');
-            this._gameOver = true;
-            // Optionally disable brain processing components permanently here if desired
-            // this.setBrainProcessingEnabled(false);
-            // this.setLlmInteractionEnabled(false);
-            // this.setTtsGenerationEnabled(false);
+              this.logger.info('Game over event processed. Setting _gameOver flag to true.');
+              this._gameOver = true;
           }
           // --- End Set Game Over Flag ---
 
       } catch (error) {
           this.logger.error('Error during KORO brain update cycle:', error);
           // Maybe broadcast a generic error message?
-          // TODO: Implement broadcastOverseerUIMessage method in OverseerEntity.ts
-          this._overseer.broadcastOverseerUIMessage("System malfunction detected.", 'warn');
+          if (this._llmInteractionEnabled) { // Only broadcast error if LLM was supposed to run
+              this._overseer.broadcastOverseerUIMessage("System malfunction detected.", 'none'); // Use 'none' or a specific 'error' action type if UI supports it
+          }
       } finally {
           this.isProcessing = false;
       }
@@ -811,4 +896,79 @@ ${snapshot.interaction_history.recent_attacks_triggered.join(', ') || '(None rec
   // public toggle(enabled: boolean): void { ... }
   // getWorldState - replaced by getDebugState
   // public getWorldState(): { ... } { ... }
+
+  // --- Deterministic Logic ---
+
+  /**
+   * Determines the next action KORO should take based on a predefined sequence
+   * and cooldowns, without using the LLM.
+   * @param snapshot The current game state snapshot.
+   * @returns An array containing zero or one action details object.
+   */
+  private _determineActionWithoutLLM(snapshot: GameStateSnapshot): DeterministicActionDetail[] {
+    const now = Date.now();
+    let selectedAction: DeterministicActionDetail | null = null;
+    const maxAttempts = DETERMINISTIC_ATTACK_SEQUENCE.length; // Prevent infinite loop in edge cases
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const currentIndex = this._nextDeterministicAttackIndex % DETERMINISTIC_ATTACK_SEQUENCE.length;
+      const candidateAction = DETERMINISTIC_ATTACK_SEQUENCE[currentIndex];
+      let isValid = false;
+      let intensity: 'low' | 'medium' | 'high' | undefined = undefined;
+
+      switch (candidateAction) {
+        case 'attack_heat':
+        case 'attack_freeze':
+          if (snapshot.game_context.can_initiate_environmental_attack) {
+            isValid = true;
+            intensity = 'medium'; // Default to medium for simple mode
+            // We will start the main cooldown *after* execution in generateUpdate
+          }
+          break;
+        case 'attack_blackout':
+          if (now >= this._deterministicBlackoutReadyAt) {
+            isValid = true;
+            // We will set the cooldown *after* execution in generateUpdate
+          }
+          break;
+        case 'attack_uv_light':
+          if (now >= this._deterministicUvLightReadyAt) {
+            isValid = true;
+            // We will set the cooldown *after* execution in generateUpdate
+          }
+          break;
+        case 'taunt_shield':
+          if (now >= this._deterministicTauntReadyAt) {
+            isValid = true;
+             // We will set the cooldown *after* execution in generateUpdate
+          }
+          break;
+        case 'none': // Should not be in sequence, but handle defensively
+          isValid = true; // 'none' is always valid if selected (but we won't return it from sequence)
+          break;
+      }
+
+      if (isValid && candidateAction !== 'none') {
+        // Assert type here, as we've excluded 'none'
+        selectedAction = { action: candidateAction as Exclude<KoroActionType, 'none'>, intensity };
+        this._nextDeterministicAttackIndex = (currentIndex + 1) % DETERMINISTIC_ATTACK_SEQUENCE.length; // Advance index only if action found
+        this.logger.info(`[Deterministic] Selected action: ${candidateAction} ${intensity ? `(Intensity: ${intensity})` : ''}`);
+        break; // Found a valid action, exit loop
+      } else {
+          // If the current action is not valid, just increment the index to try the next one
+          this._nextDeterministicAttackIndex = (currentIndex + 1) % DETERMINISTIC_ATTACK_SEQUENCE.length;
+          if (!isValid) {
+              this.logger.debug(`[Deterministic] Skipped action ${candidateAction} (Not ready/valid). Trying next.`);
+          }
+      }
+      // If loop completes without break, selectedAction remains null
+    }
+
+    if (!selectedAction) {
+        this.logger.info('[Deterministic] No valid actions available in sequence this cycle.');
+        return []; // Return empty array if no valid action found
+    }
+
+    return [selectedAction]; // Return array with the single selected action
+  }
 } 
