@@ -38,8 +38,8 @@ export default class HealthPackItem extends BaseItem {
           {
             shape: ColliderShape.BLOCK,
             halfExtents: { x: 0.25, y: 0.25, z: 0.25 }, // Larger, easier to hit block
-            mass: 1,
-            friction: 0.8,
+            // mass: 1,
+            // friction: 0.8,
             // restitution: 0.2
             // --- Add Collision Groups --- 
             collisionGroups: {

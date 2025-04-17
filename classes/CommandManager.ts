@@ -1,5 +1,5 @@
-import { World, Player, Quaternion, PlayerEntity, PlayerEvent, SceneUI, CollisionGroup, Collider, RigidBodyType, ColliderShape, Entity } from 'hytopia';
-import type { Vector3Like } from 'hytopia';
+import { World, Player, Quaternion, PlayerEntity, PlayerEvent, SceneUI, CollisionGroup, Collider, RigidBodyType, ColliderShape, Entity, BlockType } from 'hytopia';
+import type { Vector3Like, RgbColor } from 'hytopia';
 import { Logger } from '../utils/logger';
 import GameManager from './GameManager'; // Import GameManager
 import OverseerEntity from './entities/OverseerEntity';
@@ -15,6 +15,7 @@ export default class CommandManager {
   private _world: World;
   private _logger = new Logger('CommandManager');
   private _gameManager: GameManager;
+  private _debugBlocks: Set<Entity> = new Set(); // <-- Added storage for debug blocks
 
   constructor(world: World) {
     this._world = world;
@@ -730,6 +731,71 @@ export default class CommandManager {
     });
     // --- END NEW COMMAND ---
 
+    // --- NEW COMMAND: /newblock x y z ---
+    chatManager.registerCommand('/newblock', (player, args) => {
+      if (args.length < 3 || !args[0] || !args[1] || !args[2]) {
+        chatManager.sendPlayerMessage(player, 'Usage: /newblock <x> <y> <z>', 'FFFF00');
+        return;
+      }
+      const x = parseFloat(args[0]);
+      const y = parseFloat(args[1]);
+      const z = parseFloat(args[2]);
+
+      if (isNaN(x) || isNaN(y) || isNaN(z)) {
+        chatManager.sendPlayerMessage(player, 'Invalid coordinates. x, y, and z must be numbers.', 'FF0000');
+        return;
+      }
+
+      const block = new Entity({
+        name: 'DebugBlock',
+        blockTextureUri: 'blocks/voidgrass-electrified', // Use specific electrified texture
+        blockHalfExtents: { x: 0.5, y: 0.5, z: 0.5 },
+        rigidBodyOptions: {
+          type: RigidBodyType.FIXED, // Make it static
+          colliders: [ // Add colliders array
+            {
+              shape: ColliderShape.BLOCK,
+              halfExtents: { x: 0.5, y: 0.5, z: 0.5 },
+              isSensor: true, // Make it a sensor
+              collisionGroups: { // Define collision interactions
+                belongsTo: [CollisionGroup.GROUP_1], // Belongs to general entity group
+                collidesWith: [CollisionGroup.PLAYER] // Only detect collisions with players
+              },
+              onCollision: (otherEntity: Entity | BlockType, started: boolean) => { // <-- Added explicit types
+                if (started && otherEntity instanceof GamePlayerEntity) {
+                  otherEntity.takeDamage(0.5);
+                  // Optional: Log the damage event
+                  // this._logger.debug(`Debug block damaged player ${otherEntity.player.username || otherEntity.player.id} by 0.5`);
+                }
+              }
+            }
+          ]
+        },
+        // tintColor: { r: 255, g: 255, b: 0 } // Removed tintColor
+      });
+
+      // Spawn the block, offsetting by 0.5 on each axis to center the volume
+      block.spawn(this._world, { x: x + 0.5, y: y + 0.5, z: z + 0.5 });
+      this._debugBlocks.add(block); // Store the block
+
+      chatManager.sendPlayerMessage(player, `Spawned yellow debug block at (${x}, ${y}, ${z})`, '00FF00');
+    });
+    // --- END NEW COMMAND ---
+
+    // --- NEW COMMAND: /removeblocks ---
+    chatManager.registerCommand('/removeblocks', (player) => {
+      let count = 0;
+      this._debugBlocks.forEach(block => {
+        if (block.isSpawned) {
+          block.despawn();
+          count++;
+        }
+      });
+      this._debugBlocks.clear(); // Clear the set
+      chatManager.sendPlayerMessage(player, `Removed ${count} debug blocks.`, '00FF00');
+    });
+    // --- END NEW COMMAND ---
+
     // --- End Moved Commands ---
 
     // --- Add Player Join Listener for Debug Commands --- 
@@ -767,6 +833,8 @@ export default class CommandManager {
       chatManager.sendPlayerMessage(player, '/korostatus - Show KORO AI status', 'FFA500');
       chatManager.sendPlayerMessage(player, '/blackout [duration] - Trigger blackout attack', 'FFA500');
       chatManager.sendPlayerMessage(player, '/uvlight [dur] [rate] [offset] - Trigger UV light attack', 'FFA500');
+      chatManager.sendPlayerMessage(player, '/newblock x y z - Spawn a yellow debug block', 'FFA500');
+      chatManager.sendPlayerMessage(player, '/removeblocks - Remove all debug blocks', 'FFA500');
       this._logger.debug(`Sent debug command list to joining player: ${player.username || player.id}`);
     });
     // --- End Player Join Listener ---

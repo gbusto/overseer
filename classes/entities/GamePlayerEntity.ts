@@ -5,7 +5,8 @@ import {
   BaseEntityControllerEvent,
   PlayerEntityController,
   World,
-  PlayerCameraMode
+  PlayerCameraMode,
+  CollisionGroup
 } from 'hytopia';
 import type { Vector3Like, QuaternionLike } from 'hytopia';
 import { Logger } from '../../utils/logger';
@@ -58,6 +59,10 @@ export default class GamePlayerEntity extends PlayerEntity {
   private _nextInjuredSoundTime: number = 0; // Timestamp when the next sound can play
   // --- NEW Injured Sound Properties --- END
   
+  // --- NEW Electric Hit Sound Property --- START
+  private _electricHitAudio: Audio | null = null;
+  // --- NEW Electric Hit Sound Property --- END
+  
   constructor(player: Player) {
     super({
       player,
@@ -73,6 +78,16 @@ export default class GamePlayerEntity extends PlayerEntity {
     this._setupPlayerCamera();
     // Call the renamed public method
     this.resetAnimations();
+    
+    // --- Initialize Electric Hit Audio --- START
+    this._electricHitAudio = new Audio({
+      attachedToEntity: this,
+      uri: 'audio/sfx/player/electric-shock.mp3',
+      loop: false,
+      volume: 0.8, // Adjust volume as needed
+      // referenceDistance: 10 // Adjust falloff
+    });
+    // --- Initialize Electric Hit Audio --- END
   }
   
   /**
@@ -80,6 +95,23 @@ export default class GamePlayerEntity extends PlayerEntity {
    */
   public override spawn(world: World, position: Vector3Like, rotation?: QuaternionLike): void {
     super.spawn(world, position, rotation);
+
+    // Configure the MAIN player collider groups
+    this.setCollisionGroupsForSolidColliders({
+      belongsTo: [CollisionGroup.PLAYER], // Player belongs to the PLAYER group
+      collidesWith: [
+        CollisionGroup.BLOCK,          // Collide with map blocks
+        CollisionGroup.ENTITY,         // Collide with other standard entities
+        CollisionGroup.ENTITY_SENSOR,  // Interact with entity sensors
+        CollisionGroup.GROUP_1         // Collide with debug blocks (which belong to GROUP_1)
+      ]
+    });
+    /* Remove or keep if you have separate sensors that need different rules
+    this.setCollisionGroupsForSensorColliders({
+      belongsTo: [CollisionGroup.PLAYER],
+      collidesWith: [CollisionGroup.GROUP_1]
+    });
+    */
     
     // Load the main UI
     this.player.ui.load('ui/index.html');
@@ -123,7 +155,7 @@ export default class GamePlayerEntity extends PlayerEntity {
   /**
    * Take damage from sources
    */
-  public takeDamage(amount: number): void {
+  public takeDamage(amount: number, hitBy: string | undefined = undefined): void {
     // Prevent taking damage or showing effects if already dead
     if (!this.isSpawned || !this.world || this._dead) return;
     
@@ -163,6 +195,13 @@ export default class GamePlayerEntity extends PlayerEntity {
         }
     }
     // --- NEW Periodic Injured Sound Logic --- END
+    
+    // --- NEW Electric Hit Sound Logic --- START
+    if (hitBy === 'electricity' && this._electricHitAudio && this.world) {
+      this._logger.debug('Playing electric hit sound.');
+      this._electricHitAudio.play(this.world, true); // Play and restart if already playing
+    }
+    // --- NEW Electric Hit Sound Logic --- END
     
     // Update health UI elements
     this._updateHealthUI();

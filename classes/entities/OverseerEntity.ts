@@ -24,6 +24,9 @@ import GameManager from '../GameManager';
 import { GameState } from '../GameManager';
 import BiodomeController from '../BiodomeController';
 import RipperBossEntity from './RipperBossEntity';
+import { electrifiedBlockPositions } from '../misc/ElectrifiedBlockPositions';
+import ElectrifiedBlockEntity from './ElectrifiedBlockEntity';
+import GamePlayerEntity from './GamePlayerEntity';
 
 // Configuration for TTS API
 const TTS_API_URL = process.env.TTS_API_URL || 'http://localhost:8000/tts';
@@ -130,6 +133,18 @@ export default class OverseerEntity extends Entity {
   // Active Minion Tracking
   private _activeMinion: RipperBossEntity | null = null;
 
+  // --- Electrify Ground Attack State ---
+  private _groundCoordinates: Array<{x: number, y: number, z: number, textureUri: string}> | null = null;
+  private _isElectrifyingGround: boolean = false;
+  private _electrifyIntervalId: NodeJS.Timeout | null = null;
+  private _electrifyTimeoutId: NodeJS.Timeout | null = null; // To stop the whole attack
+  private _activeElectrifiedBlocks: Set<Entity> = new Set();
+  private readonly ELECTRIFY_SPAWN_INTERVAL_MS = 500;
+  private readonly ELECTRIFY_BLOCK_LIFESPAN_MS = 1000;
+  private readonly ELECTRIFY_BLOCKS_PER_INTERVAL_MIN = 50;
+  private readonly ELECTRIFY_BLOCKS_PER_INTERVAL_MAX = 100;
+  // --- End Electrify Ground Attack State ---
+
   constructor(options: Partial<EntityOptions> = {}) {
     // Set up the entity with fixed physics to stay in place
     super({
@@ -210,6 +225,10 @@ export default class OverseerEntity extends Entity {
     } else {
       this._logger.info('TTS API token found - speech functionality potentially available.');
     }
+
+    // --- Load Ground Coordinates ---
+    this._loadGroundCoordinates();
+    // --- End Load Ground Coordinates ---
   }
 
   /**
@@ -1791,6 +1810,9 @@ export default class OverseerEntity extends Entity {
          this._messageDisplayTimeoutId = null;
          this.broadcastOverseerUIMessage('', 'none');
        }
+       // --- Stop electrify ground attack if active ---
+       this._stopElectrifyGroundAttack();
+       // --- End stop electrify ground attack ---
 
 
       this._logger.info('Overseer state reset complete.');
@@ -1803,9 +1825,11 @@ export default class OverseerEntity extends Entity {
        this._logger.info(`KORO max health set to ${this._maxHealth}`);
        this.setHealth(this._health); 
    }
+
    public getMaxHealth(): number {
        return this._maxHealth;
    }
+
    public playShieldHitSound(type: 'ricochet' | 'malfunction', position: Vector3Like): void {
      if (!this.world || !this.isSpawned) return;
      let audioToPlay: Audio | null = null;
@@ -1814,10 +1838,172 @@ export default class OverseerEntity extends Entity {
      if (audioToPlay) { this._logger.debug(`Playing shield hit sound (${type}) at position: ${JSON.stringify(position)}`); audioToPlay.play(this.world, true); }
      else { this._logger.warn(`Could not find audio component for shield hit type: ${type}`); }
    }
+   
    public playAttackAlarm(): void {
      if (!this.world || !this.isSpawned) return;
      if (this._attackAlarmAudio) { this._logger.debug('Playing global attack alarm sound.'); this._attackAlarmAudio.play(this.world, true); }
      else { this._logger.warn('Could not find audio component for attack alarm.'); }
    }
+
+  // --- Load Ground Coordinates ---
+  private _loadGroundCoordinates(): void {
+    if (electrifiedBlockPositions && electrifiedBlockPositions.length > 0) {
+        this._groundCoordinates = electrifiedBlockPositions;
+        this._logger.info(`Loaded ${this._groundCoordinates.length} pre-defined ground coordinates for electrify attack.`);
+    } else {
+        this._logger.error('Failed to load ground coordinates from ElectrifiedBlockPositions.ts or it was empty.');
+        this._groundCoordinates = null; // Ensure it's null if loading fails
+    }
+  }
+  // --- End _loadGroundCoordinates method ---
+
+  // --- Electrify Ground Attack Methods ---
+
+  /**
+   * Initiates the electrify ground environmental attack.
+   * @param duration Duration of the attack in milliseconds (default: 15000).
+   * @returns True if the attack was successfully started, false otherwise.
+   */
+  public initiateElectrifyGroundAttack(duration: number = 15000): boolean {
+    if (this._isElectrifyingGround) {
+      this._logger.warn('Electrify Ground attack already in progress.');
+      return false;
+    }
+    if (!this._groundCoordinates || this._groundCoordinates.length === 0) {
+      this._logger.error('Cannot initiate Electrify Ground attack: Ground coordinates not loaded or empty.');
+      return false;
+    }
+    if (!this._world) {
+      this._logger.error('Cannot initiate Electrify Ground attack: World not available.');
+      return false;
+    }
+
+    this._logger.info(`Initiating Electrify Ground attack for ${duration / 1000} seconds...`);
+    this._isElectrifyingGround = true;
+    this.playAttackAlarm(); // Play general alarm sound
+
+    // --- Broadcast UI Warning --- START
+    if (this._world) {
+        const warningMessage = "WARNING: Ground Electrification Detected!";
+        this._world.entityManager.getAllPlayerEntities().forEach(playerEntity => {
+            // ADDED instanceof check for safety
+            if (playerEntity instanceof GamePlayerEntity) {
+                playerEntity.player?.ui?.sendData({
+                    type: 'environmental-attack-warning', // Reusing existing type
+                    attackType: 'electrify', // New specific type value
+                    message: warningMessage
+                });
+            }
+        });
+        this._logger.info(`Sent UI warning for electrify ground attack to players.`);
+    }
+    // --- Broadcast UI Warning --- END
+
+    // Interval to spawn batches of electrified blocks
+    this._electrifyIntervalId = setInterval(() => {
+      if (!this._isElectrifyingGround || !this._world) return; // Stop if attack ended or world gone
+
+      const count = Math.floor(Math.random() * (this.ELECTRIFY_BLOCKS_PER_INTERVAL_MAX - this.ELECTRIFY_BLOCKS_PER_INTERVAL_MIN + 1)) + this.ELECTRIFY_BLOCKS_PER_INTERVAL_MIN;
+      const indices = this._getRandomIndices(this._groundCoordinates!.length, count);
+
+      this._logger.debug(`Spawning ${indices.length} electrified blocks this interval.`);
+
+      indices.forEach(index => {
+        const coord = this._groundCoordinates![index];
+        if (!coord) return; // Should not happen with valid indices
+
+        const block = new ElectrifiedBlockEntity({ textureUri: coord.textureUri });
+        const spawnPos = { x: coord.x + 0.5, y: coord.y + 0.5, z: coord.z + 0.5 }; // Center the block volume
+
+        block.spawn(this._world!, spawnPos);
+        this._activeElectrifiedBlocks.add(block);
+
+        // Schedule despawn for this block
+        block.scheduleDespawn(this.ELECTRIFY_BLOCK_LIFESPAN_MS);
+        // Also remove from active set after lifespan (scheduleDespawn handles if already gone)
+        setTimeout(() => {
+            this._activeElectrifiedBlocks.delete(block);
+        }, this.ELECTRIFY_BLOCK_LIFESPAN_MS + 50); // Slight buffer after despawn
+      });
+
+    }, this.ELECTRIFY_SPAWN_INTERVAL_MS);
+
+    // Timeout to stop the entire attack
+    this._electrifyTimeoutId = setTimeout(() => {
+      this._stopElectrifyGroundAttack();
+    }, duration);
+
+    return true;
+  }
+
+  /**
+   * Stops the electrify ground attack and cleans up active blocks.
+   */
+  private _stopElectrifyGroundAttack(): void {
+    if (!this._isElectrifyingGround) return;
+
+    this._logger.info('Stopping Electrify Ground attack...');
+    this._isElectrifyingGround = false;
+
+    // Clear interval and timeout
+    if (this._electrifyIntervalId) {
+      clearInterval(this._electrifyIntervalId);
+      this._electrifyIntervalId = null;
+    }
+    if (this._electrifyTimeoutId) {
+      clearTimeout(this._electrifyTimeoutId);
+      this._electrifyTimeoutId = null;
+    }
+
+    // Despawn any remaining active blocks immediately
+    this._logger.debug(`Cleaning up ${this._activeElectrifiedBlocks.size} remaining electrified blocks.`);
+    this._activeElectrifiedBlocks.forEach(block => {
+      if (block.isSpawned) {
+        block.despawn();
+      }
+    });
+    this._activeElectrifiedBlocks.clear();
+
+    // Optional: Report attack end to brain?
+    // this.reportSignificantEvent('attack_end', 'Electrify Ground attack finished.', 'low');
+  }
+
+  /**
+   * Helper function to get unique random indices from an array range.
+   * @param maxIndex The maximum index (exclusive, corresponds to array length).
+   * @param count The number of unique indices to retrieve.
+   * @returns An array of unique random indices.
+   */
+  private _getRandomIndices(maxIndex: number, count: number): number[] {
+    // Add check for invalid maxIndex
+    if (maxIndex <= 0 || count <= 0) {
+      return [];
+    }
+    
+    // Ensure count doesn't exceed maxIndex
+    const effectiveCount = Math.min(count, maxIndex);
+    
+    if (effectiveCount >= maxIndex) {
+      // If requesting more or equal indices than available, return all indices shuffled
+      const allIndices = Array.from({ length: maxIndex }, (_, i) => i);
+      // Fisher-Yates (Knuth) Shuffle - More robust and type-safe
+      for (let i = allIndices.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          // Directly swap elements, ensuring types are preserved
+          const temp = allIndices[i];
+          allIndices[i] = allIndices[j] as number; // Type assertion might be needed if TS is overly cautious
+          allIndices[j] = temp as number;
+      }
+      return allIndices;
+    }
+
+    const indices = new Set<number>();
+    while (indices.size < effectiveCount) {
+      indices.add(Math.floor(Math.random() * maxIndex));
+    }
+    return Array.from(indices);
+  }
+
+  // --- End Electrify Ground Attack Methods ---
 
 } // End OverseerEntity class

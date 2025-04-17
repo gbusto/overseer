@@ -681,6 +681,14 @@
       text-shadow: 0 0 5px rgba(0, 204, 255, 0.8);
   }
 
+  /* NEW: Electrify Warning Style */
+  .attack-warning-panel.electrify-warning {
+      border-color: #FFDA00; /* Bright Yellow */
+      color: #FFDA00;
+      box-shadow: 0 0 15px rgba(255, 218, 0, 0.6);
+      text-shadow: 0 0 5px rgba(255, 218, 0, 0.8);
+  }
+
   /* NEW: Minion Warning Style */
   .attack-warning-panel.minion-warning {
       border-color: #FFD700; /* Gold */
@@ -1250,11 +1258,13 @@
             // Set message and class
             attackWarningContent.textContent = data.message || 'Environmental Anomaly Detected!';
             // Make sure to clear all warning classes first
-            attackWarningPanel.classList.remove('heat-warning', 'cold-warning', 'minion-warning'); 
+            attackWarningPanel.classList.remove('heat-warning', 'cold-warning', 'minion-warning', 'electrify-warning');
             if (data.attackType === 'heat') {
                 attackWarningPanel.classList.add('heat-warning');
             } else if (data.attackType === 'cold') {
                 attackWarningPanel.classList.add('cold-warning');
+            } else if (data.attackType === 'electrify') {
+                attackWarningPanel.classList.add('electrify-warning');
             }
             
             // Show the panel
@@ -1268,7 +1278,7 @@
                 setTimeout(() => {
                     attackWarningPanel.style.display = 'none';
                     // Also clear classes after hiding
-                    attackWarningPanel.classList.remove('heat-warning', 'cold-warning');
+                    attackWarningPanel.classList.remove('heat-warning', 'cold-warning', 'minion-warning', 'electrify-warning');
                 }, 300); // Match CSS transition duration
                 attackWarningTimeout = null; // Clear timeout reference
             }, 3000); // Display duration

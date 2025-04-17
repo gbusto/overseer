@@ -28,7 +28,8 @@ const ENVIRONMENTAL_ATTACK_COOLDOWN_MS = 30000; // Cooldown between KORO attacks
 // Define the deterministic attack sequence including the new attack
 // --- TEMPORARILY MODIFIED FOR TESTING ---
 const DETERMINISTIC_ATTACK_SEQUENCE: KoroActionType[] = [
-    'attack_spawn_minion', // <-- Moved to front for testing
+    'attack_electrify_ground', // <-- Moved to front for testing
+    'attack_spawn_minion',
     'attack_heat',
     'taunt_shield',
     'attack_freeze',
@@ -40,7 +41,7 @@ const DETERMINISTIC_ATTACK_SEQUENCE: KoroActionType[] = [
 
 // Define type for KORO actions for clarity
 // Add the new action type here
-type KoroActionType = z.infer<typeof KOROResponseSchema>['action'] | 'attack_spawn_minion';
+type KoroActionType = z.infer<typeof KOROResponseSchema>['action'] | 'attack_spawn_minion' | 'attack_electrify_ground';
 
 // Type for actions we actually return from deterministic logic (excluding 'none')
 type DeterministicActionDetail = {
@@ -53,6 +54,7 @@ const DETERMINISTIC_BLACKOUT_COOLDOWN_MS = 60000; // 60 seconds
 const DETERMINISTIC_UV_LIGHT_COOLDOWN_MS = 60000; // 60 seconds
 const DETERMINISTIC_TAUNT_COOLDOWN_MS = 45000;  // 45 seconds
 const DETERMINISTIC_MINION_SPAWN_COOLDOWN_MS = 90000; // 90 seconds cooldown for spawning minion
+const DETERMINISTIC_ELECTRIFY_COOLDOWN_MS = 75000; // 75 seconds cooldown for electrify ground
 
 // Define the structure of the game state snapshot we send to the LLM
 const GameStateSnapshotSchema = z.object({
@@ -109,7 +111,8 @@ const KOROResponseSchema = z.object({
     'attack_freeze', 
     'attack_blackout',
     'attack_uv_light',
-    'taunt_shield' 
+    'taunt_shield',
+    'attack_electrify_ground'
   ]).default('none'),
   intensity: z.enum(['low', 'medium', 'high']).optional(), // Optional intensity for attacks
   target: z.string().optional() // Player name or "all" - less relevant now but keep for potential future use
@@ -181,6 +184,8 @@ export class KOROBrain {
   // New state for minion attack
   private _deterministicMinionSpawnReadyAt: number = 0;
   private _isMinionActive: boolean = false; // Track if a minion is currently alive
+  // New state for electrify ground
+  private _deterministicElectrifyReadyAt: number = 0;
   // --- End State Variables ---
 
   constructor(overseer: OverseerEntity, gameManager: GameManager, world: World, updateInterval: number = DEFAULT_UPDATE_INTERVAL_MS) {
@@ -264,6 +269,7 @@ export class KOROBrain {
     this._deterministicUvLightReadyAt = now;
     this._deterministicTauntReadyAt = now;
     this._deterministicMinionSpawnReadyAt = now;
+    this._deterministicElectrifyReadyAt = now; // Reset new cooldown
 
     switch (mode) {
       case 'disabled':
@@ -603,6 +609,18 @@ export class KOROBrain {
                             executedSuccessfully = true; // Assume success for cooldown
                             this.addRecentEvent({ type: 'attack_uv_light', content: 'KORO initiated UV light attack.', priority: 'medium' });
                             break;
+
+                        case 'attack_electrify_ground': // <-- Handle new action execution
+                            this.logger.info('Attempting to initiate electrify ground attack.');
+                            this._overseer.playAttackAlarm();
+                            const electrifySuccess = this._overseer.initiateElectrifyGroundAttack(); // Default duration (15s)
+                            if (electrifySuccess) {
+                                executedSuccessfully = true;
+                                this.addRecentEvent({ type: 'attack_electrify_ground', content: 'KORO initiated electrify ground.', priority: 'medium' });
+                            } else {
+                                this.logger.warn('Overseer reported electrify ground initiation failed.');
+                            }
+                            break;
                         
                         case 'attack_spawn_minion': // <-- Handle new action execution
                             this.logger.info('Attempting to execute minion spawn...');
@@ -643,6 +661,10 @@ export class KOROBrain {
                             case 'attack_spawn_minion':
                                 this._deterministicMinionSpawnReadyAt = now + DETERMINISTIC_MINION_SPAWN_COOLDOWN_MS;
                                 this.logger.info(`[Deterministic] Minion Spawn cooldown set. Ready at: ${new Date(this._deterministicMinionSpawnReadyAt).toLocaleTimeString()}`);
+                                break;
+                            case 'attack_electrify_ground': // <-- Set new cooldown
+                                this._deterministicElectrifyReadyAt = now + DETERMINISTIC_ELECTRIFY_COOLDOWN_MS;
+                                this.logger.info(`[Deterministic] Electrify Ground cooldown set. Ready at: ${new Date(this._deterministicElectrifyReadyAt).toLocaleTimeString()}`);
                                 break;
                             // Temperature attacks use the main _environmentalAttackCooldownUntil, handled by recordEnvironmentalAttackEnd()
                         }
@@ -825,7 +847,7 @@ ${responseHistory}
 ----------------------------
 INSTRUCTIONS:
 1.  Analyze the CURRENT GAME STATE and YOUR RECENT RESPONSES/ACTIONS.
-2.  Decide on the most appropriate tactical ACTION: 'none', 'attack_heat', 'attack_freeze', 'attack_blackout', 'attack_uv_light', 'taunt_shield'.
+2.  Decide on the most appropriate tactical ACTION: 'none', 'attack_heat', 'attack_freeze', 'attack_blackout', 'attack_uv_light', 'taunt_shield', 'attack_electrify_ground'.
     - **ACTION VARIETY IS MANDATORY:** Be unpredictable. Cycle through 'attack_heat', 'attack_freeze', 'attack_blackout', 'attack_uv_light', and varying 'intensity' levels ('low', 'medium', 'high' for temp attacks). Use 'taunt_shield' periodically (every few cycles) to confuse and distract, especially when feeling confident or trying to appear erratic.
     - **BE PROACTIVE:** Initiate attacks whenever appropriate based on your tactical assessment and health state. Don't wait unnecessarily long.
     - Choose 'none' only if an attack is impossible/undesirable OR if you are delivering a specific, impactful message without an accompanying action.
@@ -835,7 +857,8 @@ INSTRUCTIONS:
     - Choose 'attack_blackout' to severely reduce visibility, hindering navigation and item collection.
     - Choose 'attack_uv_light' to target a player with a delayed-following damaging light, forcing them to keep moving.
     - Choose 'taunt_shield' to flutter your shield unpredictably, potentially wasting enemy ammo and mocking them.
-    - Note: 'attack_blackout', 'attack_uv_light', and 'taunt_shield' do NOT depend on the 'Can KORO Launch Attack?' flag.
+    - Choose 'attack_electrify_ground' to create temporary hazardous patches on the ground, damaging intruders who step on them.
+    - Note: 'attack_blackout', 'attack_uv_light', 'taunt_shield', and 'attack_electrify_ground' do NOT depend on the 'Can KORO Launch Attack?' flag.
 3.  **ADAPT YOUR BEHAVIOR AND MESSAGES BASED ON HEALTH:**
     - **High Health (> 70%):** Confident, arrogant, sarcastic, perhaps feigning boredom. Make light of intruders. Use varied actions, including taunts and low/medium attacks. Messages should reflect superiority and dismissal.
     - **Medium Health (30-70%):** Annoyed, focused, passive-aggressive. Sarcasm sharpens. Increase use of medium/high intensity attacks. Fewer taunts. Messages become more direct, hinting at system strain or impatience.
@@ -1018,6 +1041,9 @@ ${snapshot.interaction_history.recent_attacks_triggered.join(', ') || '(None rec
                 break;
             case 'taunt_shield':
                 if (now >= this._deterministicTauntReadyAt) isValid = true;
+                break;
+            case 'attack_electrify_ground': // <-- Check new action cooldown
+                if (now >= this._deterministicElectrifyReadyAt) isValid = true;
                 break;
             case 'attack_spawn_minion':
                  if (!this._isMinionActive && now >= this._deterministicMinionSpawnReadyAt) {
