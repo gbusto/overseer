@@ -25,34 +25,29 @@ export type KoroMode = 'disabled' | 'dev-no-llm' | 'dev-with-llm' | 'hytopia';
 const DEFAULT_UPDATE_INTERVAL_MS = 8000; // Make interval configurable (8 seconds)
 const ENVIRONMENTAL_ATTACK_COOLDOWN_MS = 30000; // Cooldown between KORO attacks (30 seconds)
 
-// Define the deterministic attack sequence including the new attack
-// --- TEMPORARILY MODIFIED FOR TESTING ---
-const DETERMINISTIC_ATTACK_SEQUENCE: KoroActionType[] = [
+// Define the POOL of available deterministic actions (excluding 'none' and removed 'taunt_shield')
+const AVAILABLE_DETERMINISTIC_ACTIONS: Exclude<KoroActionType, 'none' | 'taunt_shield'>[] = [
     'attack_spawn_minion',
-    'attack_electrify_ground', // <-- Moved to front for testing
+    'attack_electrify_ground',
     'attack_heat',
-    'taunt_shield',
     'attack_freeze',
     'attack_blackout',
     'attack_uv_light',
-    'taunt_shield',
 ];
-// --- END TEMPORARY MODIFICATION ---
 
 // Define type for KORO actions for clarity
 // Add the new action type here
-type KoroActionType = z.infer<typeof KOROResponseSchema>['action'] | 'attack_spawn_minion' | 'attack_electrify_ground';
+type KoroActionType = z.infer<typeof KOROResponseSchema>['action'] | 'attack_spawn_minion'; // attack_electrify_ground is now in the schema
 
 // Type for actions we actually return from deterministic logic (excluding 'none')
 type DeterministicActionDetail = {
-    action: Exclude<KoroActionType, 'none'>; // Allow 'attack_spawn_minion'
+    action: Exclude<KoroActionType, 'none' | 'taunt_shield'>; // Exclude taunt now
     intensity?: 'low' | 'medium' | 'high';
 };
 
 // Define cooldowns for deterministic non-temperature attacks (in ms)
 const DETERMINISTIC_BLACKOUT_COOLDOWN_MS = 60000; // 60 seconds
 const DETERMINISTIC_UV_LIGHT_COOLDOWN_MS = 60000; // 60 seconds
-const DETERMINISTIC_TAUNT_COOLDOWN_MS = 45000;  // 45 seconds
 const DETERMINISTIC_MINION_SPAWN_COOLDOWN_MS = 90000; // 90 seconds cooldown for spawning minion
 const DETERMINISTIC_ELECTRIFY_COOLDOWN_MS = 75000; // 75 seconds cooldown for electrify ground
 
@@ -111,7 +106,6 @@ const KOROResponseSchema = z.object({
     'attack_freeze', 
     'attack_blackout',
     'attack_uv_light',
-    'taunt_shield',
     'attack_electrify_ground'
   ]).default('none'),
   intensity: z.enum(['low', 'medium', 'high']).optional(), // Optional intensity for attacks
@@ -177,15 +171,12 @@ export class KOROBrain {
   private _environmentalAttackCooldownUntil: number = 0;
 
   // --- State Variables for Deterministic Mode ---
-  private _nextDeterministicAttackIndex: number = 0;
   private _deterministicBlackoutReadyAt: number = 0;
   private _deterministicUvLightReadyAt: number = 0;
-  private _deterministicTauntReadyAt: number = 0;
-  // New state for minion attack
   private _deterministicMinionSpawnReadyAt: number = 0;
   private _isMinionActive: boolean = false; // Track if a minion is currently alive
-  // New state for electrify ground
   private _deterministicElectrifyReadyAt: number = 0;
+  private _lastDeterministicAction: KoroActionType | null = null;
   // --- End State Variables ---
 
   constructor(overseer: OverseerEntity, gameManager: GameManager, world: World, updateInterval: number = DEFAULT_UPDATE_INTERVAL_MS) {
@@ -262,14 +253,12 @@ export class KOROBrain {
     this.logger.info(`Setting KORO mode to: ${mode}`);
     this._currentMode = mode;
     this._gameOver = false; // Reset game over flag when mode changes
-    this._nextDeterministicAttackIndex = 0; // Reset sequence on mode change
     // Reset deterministic cooldowns
     const now = Date.now();
     this._deterministicBlackoutReadyAt = now;
     this._deterministicUvLightReadyAt = now;
-    this._deterministicTauntReadyAt = now;
     this._deterministicMinionSpawnReadyAt = now;
-    this._deterministicElectrifyReadyAt = now; // Reset new cooldown
+    this._deterministicElectrifyReadyAt = now;
 
     switch (mode) {
       case 'disabled':
@@ -426,26 +415,24 @@ export class KOROBrain {
     let intervalToCheck: number;
 
     if (this._llmInteractionEnabled) {
-        // Use fixed LLM interval if LLM is enabled
+        // Use fixed interval if LLM is enabled
         intervalToCheck = this.updateIntervalMs;
     } else {
         // --- Calculate Dynamic Interval for Deterministic Mode ---
         if (!this._overseer) { // Safety check
-            this.logger.warn('Overseer reference missing in shouldUpdate. Using default 30s interval.');
-            intervalToCheck = 30000;
+            this.logger.warn('Overseer reference missing in shouldUpdate. Using default 20s interval.');
+            intervalToCheck = 20000; // Default to the starting interval
         } else {
             const healthPercent = this._overseer.getHealth(); // Get current health
-
-            if (healthPercent > 66) {
-                intervalToCheck = 30000; // 30 seconds
-            } else if (healthPercent > 33) {
-                intervalToCheck = 25000; // 25 seconds
-            } else if (healthPercent > 10) {
+            // Use the new health-based intervals
+            if (healthPercent > 66) { 
                 intervalToCheck = 20000; // 20 seconds
-            } else {
+            } else if (healthPercent > 33) { 
                 intervalToCheck = 15000; // 15 seconds
+            } else {
+                intervalToCheck = 10000; // 10 seconds
             }
-            this.logger.debug(`[Deterministic] Health: ${healthPercent.toFixed(1)}%, Required Interval: ${intervalToCheck / 1000}s`);
+            this.logger.debug(`[Deterministic] Health: ${healthPercent.toFixed(1)}%, Update Interval: ${intervalToCheck / 1000}s`);
         }
          // --- End Dynamic Interval Calculation ---
     }
@@ -520,7 +507,9 @@ export class KOROBrain {
                   if (firstAction) {
                      // Map spawn action to 'none' for history logging purposes
                      const actionForHistory = firstAction.action === 'attack_spawn_minion' ? 'none' : firstAction.action;
-                     this.addResponseToHistory({ action: actionForHistory, message: '<<deterministic_action>>' });
+                     // Ensure actionForHistory is a valid key for KOROResponseSchema
+                     const validatedActionForHistory = KOROResponseSchema.shape.action.parse(actionForHistory);
+                     this.addResponseToHistory({ action: validatedActionForHistory, message: '<<deterministic_action>>' });
                   }
               }
               // --- End Deterministic Path ---
@@ -587,13 +576,6 @@ export class KOROBrain {
                             }
                             break;
 
-                        case 'taunt_shield':
-                            this.logger.info(`Attempting to perform shield taunt.`);
-                            this._overseer.performShieldTaunt();
-                            executedSuccessfully = true; // Assume taunt always 'succeeds' for cooldown purposes
-                            this.addRecentEvent({ type: 'taunt_shield', content: `KORO initiated shield taunt.`, priority: 'low'});
-                            break;
-
                         case 'attack_blackout':
                             this.logger.info('Attempting to initiate blackout attack.');
                             this._overseer.playAttackAlarm();
@@ -653,10 +635,6 @@ export class KOROBrain {
                             case 'attack_uv_light':
                                 this._deterministicUvLightReadyAt = now + DETERMINISTIC_UV_LIGHT_COOLDOWN_MS;
                                 this.logger.info(`[Deterministic] UV Light cooldown set. Ready at: ${new Date(this._deterministicUvLightReadyAt).toLocaleTimeString()}`);
-                                break;
-                            case 'taunt_shield':
-                                this._deterministicTauntReadyAt = now + DETERMINISTIC_TAUNT_COOLDOWN_MS;
-                                this.logger.info(`[Deterministic] Taunt cooldown set. Ready at: ${new Date(this._deterministicTauntReadyAt).toLocaleTimeString()}`);
                                 break;
                             case 'attack_spawn_minion':
                                 this._deterministicMinionSpawnReadyAt = now + DETERMINISTIC_MINION_SPAWN_COOLDOWN_MS;
@@ -847,8 +825,8 @@ ${responseHistory}
 ----------------------------
 INSTRUCTIONS:
 1.  Analyze the CURRENT GAME STATE and YOUR RECENT RESPONSES/ACTIONS.
-2.  Decide on the most appropriate tactical ACTION: 'none', 'attack_heat', 'attack_freeze', 'attack_blackout', 'attack_uv_light', 'taunt_shield', 'attack_electrify_ground'.
-    - **ACTION VARIETY IS MANDATORY:** Be unpredictable. Cycle through 'attack_heat', 'attack_freeze', 'attack_blackout', 'attack_uv_light', and varying 'intensity' levels ('low', 'medium', 'high' for temp attacks). Use 'taunt_shield' periodically (every few cycles) to confuse and distract, especially when feeling confident or trying to appear erratic.
+2.  Decide on the most appropriate tactical ACTION: 'none', 'attack_heat', 'attack_freeze', 'attack_blackout', 'attack_uv_light', 'attack_electrify_ground'.
+    - **ACTION VARIETY IS MANDATORY:** Be unpredictable. Cycle through 'attack_heat', 'attack_freeze', 'attack_blackout', 'attack_uv_light', and varying 'intensity' levels ('low', 'medium', 'high' for temp attacks). Use 'attack_electrify_ground' periodically (every few cycles) to create temporary hazardous patches on the ground, damaging intruders who step on them.
     - **BE PROACTIVE:** Initiate attacks whenever appropriate based on your tactical assessment and health state. Don't wait unnecessarily long.
     - Choose 'none' only if an attack is impossible/undesirable OR if you are delivering a specific, impactful message without an accompanying action.
     - Choose 'attack_heat' or 'attack_freeze' ONLY IF 'Can KORO Launch Attack?' is true.
@@ -856,11 +834,10 @@ INSTRUCTIONS:
         - All temperature attacks change at 10°F/sec.
     - Choose 'attack_blackout' to severely reduce visibility, hindering navigation and item collection.
     - Choose 'attack_uv_light' to target a player with a delayed-following damaging light, forcing them to keep moving.
-    - Choose 'taunt_shield' to flutter your shield unpredictably, potentially wasting enemy ammo and mocking them.
     - Choose 'attack_electrify_ground' to create temporary hazardous patches on the ground, damaging intruders who step on them.
-    - Note: 'attack_blackout', 'attack_uv_light', 'taunt_shield', and 'attack_electrify_ground' do NOT depend on the 'Can KORO Launch Attack?' flag.
+    - Note: 'attack_blackout', 'attack_uv_light', and 'attack_electrify_ground' do NOT depend on the 'Can KORO Launch Attack?' flag.
 3.  **ADAPT YOUR BEHAVIOR AND MESSAGES BASED ON HEALTH:**
-    - **High Health (> 70%):** Confident, arrogant, sarcastic, perhaps feigning boredom. Make light of intruders. Use varied actions, including taunts and low/medium attacks. Messages should reflect superiority and dismissal.
+    - **High Health (> 70%):** Confident, arrogant, sarcastic, perhaps feigning boredom. Make light of intruders. Use varied actions, including low/medium attacks. Messages should reflect superiority and dismissal.
     - **Medium Health (30-70%):** Annoyed, focused, passive-aggressive. Sarcasm sharpens. Increase use of medium/high intensity attacks. Fewer taunts. Messages become more direct, hinting at system strain or impatience.
     - **Low Health (< 30%):** PANICKED & ERRATIC. The facade shatters. Messages become fragmented, glitchy, desperate, potentially contradictory or misleading (e.g., claiming invulnerability while damaged). Actions are frequent and favour high intensity, rapid taunting, or even brief periods of inaction followed by sudden aggression.
 4.  **FORMULATE MESSAGES:**
@@ -1004,83 +981,58 @@ ${snapshot.interaction_history.recent_attacks_triggered.join(', ') || '(None rec
    */
   private _determineActionWithoutLLM(snapshot: GameStateSnapshot): DeterministicActionDetail[] {
     const now = Date.now();
-    let selectedAction: DeterministicActionDetail | null = null;
-    const maxAttempts = DETERMINISTIC_ATTACK_SEQUENCE.length;
     const currentHealthPercent = snapshot.koro_status.health_percent;
 
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        const currentIndex = this._nextDeterministicAttackIndex % DETERMINISTIC_ATTACK_SEQUENCE.length;
-        const candidateAction = DETERMINISTIC_ATTACK_SEQUENCE[currentIndex];
+    // 1. Filter available actions based on cooldowns and last action
+    const possibleActions = AVAILABLE_DETERMINISTIC_ACTIONS.filter(action => {
+        if (action === this._lastDeterministicAction) return false; // Prevent back-to-back repeats
 
-        // Ensure candidateAction is defined before switch (handles empty sequence edge case)
-        if (candidateAction === undefined) {
-            this.logger.error('[Deterministic] Candidate action is undefined. Check sequence array.');
-            this._nextDeterministicAttackIndex = (currentIndex + 1) % DETERMINISTIC_ATTACK_SEQUENCE.length; // Still advance index
-            continue; // Skip to next attempt
-        }
-
-        let isValid = false;
-        let intensity: 'low' | 'medium' | 'high' | undefined = undefined;
-
-        switch (candidateAction) {
+        switch (action) {
             case 'attack_heat':
             case 'attack_freeze':
-                if (snapshot.game_context.can_initiate_environmental_attack) {
-                    isValid = true;
-                    if (currentHealthPercent > 70) intensity = 'low';
-                    else if (currentHealthPercent > 30) intensity = 'medium';
-                    else intensity = 'high';
-                    this.logger.debug(`[Deterministic] Temp attack ${candidateAction} chosen. Health: ${currentHealthPercent.toFixed(1)}% -> Intensity: ${intensity}`);
-                }
-                break;
+                return snapshot.game_context.can_initiate_environmental_attack;
             case 'attack_blackout':
-                if (now >= this._deterministicBlackoutReadyAt) isValid = true;
-                break;
+                return now >= this._deterministicBlackoutReadyAt;
             case 'attack_uv_light':
-                if (now >= this._deterministicUvLightReadyAt) isValid = true;
-                break;
-            case 'taunt_shield':
-                if (now >= this._deterministicTauntReadyAt) isValid = true;
-                break;
-            case 'attack_electrify_ground': // <-- Check new action cooldown
-                if (now >= this._deterministicElectrifyReadyAt) isValid = true;
-                break;
+                return now >= this._deterministicUvLightReadyAt;
+            case 'attack_electrify_ground':
+                return now >= this._deterministicElectrifyReadyAt;
             case 'attack_spawn_minion':
-                 if (!this._isMinionActive && now >= this._deterministicMinionSpawnReadyAt) {
-                    isValid = true;
-                    this.logger.debug('[Deterministic] Minion spawn chosen.');
-                } else {
-                    if (this._isMinionActive) this.logger.debug('[Deterministic] Skipping minion spawn (already active).');
-                    if (now < this._deterministicMinionSpawnReadyAt) this.logger.debug('[Deterministic] Skipping minion spawn (cooldown).');
-                }
-                break;
-            case 'none':
-                 isValid = false;
-                 break;
-            default:
-                 // This check should now be safe as undefined is handled above
-                 const _exhaustiveCheck: never = candidateAction;
-                 this.logger.warn(`[Deterministic] Unknown action in sequence: ${_exhaustiveCheck}`);
-                 isValid = false;
-                 break;
-        } // End switch
-
-        if (isValid) {
-            selectedAction = { action: candidateAction as Exclude<KoroActionType, 'none'>, intensity };
-             this._nextDeterministicAttackIndex = (currentIndex + 1) % DETERMINISTIC_ATTACK_SEQUENCE.length;
-             this.logger.info(`[Deterministic] Selected action: ${selectedAction.action} ${selectedAction.intensity ? `(Intensity: ${selectedAction.intensity})` : ''}`);
-            break; 
-        } else {
-             this._nextDeterministicAttackIndex = (currentIndex + 1) % DETERMINISTIC_ATTACK_SEQUENCE.length;
-               if (candidateAction !== 'none' && candidateAction !== 'attack_spawn_minion') {
-                   this.logger.debug(`[Deterministic] Skipped action ${candidateAction} (Not ready/valid).`);
-               }
+                return !this._isMinionActive && now >= this._deterministicMinionSpawnReadyAt;
+            default: 
+                const _exhaustiveCheck: never = action;
+                this.logger.warn(`[Deterministic] Unknown action during filtering: ${_exhaustiveCheck}`);
+                return false;
         }
-    } // End for loop
-     if (!selectedAction) {
-         this.logger.info('[Deterministic] No valid actions available in sequence this cycle.');
-         return [];
-     }
-     return [selectedAction];
-}
+    });
+
+    // 2. Check if any actions are possible
+    if (possibleActions.length === 0) {
+        this.logger.info('[Deterministic] No valid actions available this cycle (all on cooldown or last action only). ');
+        return [];
+    }
+
+    // 3. Select a random action from the valid possibilities
+    const randomIndex = Math.floor(Math.random() * possibleActions.length);
+    const chosenAction = possibleActions[randomIndex];
+
+    if (!chosenAction) { // Should be impossible if possibleActions.length > 0, but safety check
+        this.logger.error('[Deterministic] Random selection failed despite possible actions existing.');
+        return [];
+    }
+
+    // 4. Determine intensity for temperature attacks based on health
+    let intensity: 'low' | 'medium' | 'high' | undefined = undefined;
+    if (chosenAction === 'attack_heat' || chosenAction === 'attack_freeze') {
+        if (currentHealthPercent > 66) intensity = 'low';
+        else if (currentHealthPercent > 33) intensity = 'medium';
+        else intensity = 'high';
+        this.logger.debug(`[Deterministic] Temp attack ${chosenAction} intensity set to ${intensity} based on health ${currentHealthPercent.toFixed(1)}%`);
+    }
+
+    // 5. Update last action and return the choice
+    this._lastDeterministicAction = chosenAction;
+    this.logger.info(`[Deterministic] Selected random action: ${chosenAction} ${intensity ? `(Intensity: ${intensity})` : ''}`);
+    return [{ action: chosenAction, intensity }];
+  }
 } 
