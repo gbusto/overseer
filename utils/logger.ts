@@ -12,6 +12,25 @@ export enum LogLevel {
 // Default to INFO level in development, can be changed at runtime
 let currentLogLevel: LogLevel = LogLevel.INFO;
 
+// --- Read LOG_LEVEL from environment --- START
+const envLogLevel = process.env.LOG_LEVEL?.toUpperCase();
+const levelMapping: { [key: string]: LogLevel } = {
+  'NONE': LogLevel.NONE,
+  'ERROR': LogLevel.ERROR,
+  'WARN': LogLevel.WARN,
+  'INFO': LogLevel.INFO,
+  'DEBUG': LogLevel.DEBUG,
+  'TRACE': LogLevel.TRACE,
+};
+
+if (envLogLevel && envLogLevel in levelMapping) {
+  // We know envLogLevel is a valid key here due to the 'in' check
+  currentLogLevel = levelMapping[envLogLevel] as LogLevel;
+} else {
+  // Default based on NODE_ENV if LOG_LEVEL is not set or invalid
+  currentLogLevel = process.env.NODE_ENV === 'production' ? LogLevel.WARN : LogLevel.DEBUG;
+}
+
 export class Logger {
   private context: string;
 

@@ -50,14 +50,6 @@ import HealthPackItem from './classes/items/HealthPackItem';
 import type { WorldMap } from 'hytopia';
 
 // ModelRegistry.instance.optimize = false;
-
-// Initialize logger
-// If ENVIRONMENT is development, set the log level to DEBUG
-if (env.ENVIRONMENT === 'production') {
-  Logger.setLevel(LogLevel.INFO);
-} else {
-  Logger.setLevel(LogLevel.DEBUG);
-}
 const logger = new Logger('Main');
 
 /**
