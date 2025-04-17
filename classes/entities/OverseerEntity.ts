@@ -52,7 +52,8 @@ export default class OverseerEntity extends Entity {
   private _shieldMalfunctionAudio: Audio | null = null;
   private _directHitAudio: Audio | null = null;
   private _attackAlarmAudio: Audio | null = null;
-  
+  private _minionLaughAudio: Audio | null = null;
+
   // AI Brain
   private _brain: KOROBrain | null = null;
   
@@ -182,7 +183,6 @@ export default class OverseerEntity extends Entity {
     // Set up despawn handler for cleanup
     this.on(EntityEvent.DESPAWN, this._onDespawned);
     
-    // --- Initialize Shield Hit Audio Components --- START
     this._shieldRicochetAudio = new Audio({
       // attachedToEntity: undefined, // Play at specified position
       uri: 'audio/sfx/weapons/laser-ricochet.mp3',
@@ -198,9 +198,7 @@ export default class OverseerEntity extends Entity {
       volume: 0.9, // Louder for BFG impact
       // referenceDistance: 25 // Adjust falloff
     });
-    // --- Initialize Shield Hit Audio Components --- END
-    
-    // --- Initialize Direct Hit Audio Component --- START
+
     this._directHitAudio = new Audio({
         attachedToEntity: this, // Sound comes from KORO
         uri: 'audio/sfx/overseer/direct-hit.mp3',
@@ -208,16 +206,20 @@ export default class OverseerEntity extends Entity {
         volume: 1.0, // Make it noticeable
         referenceDistance: 100 // Adjust falloff
     });
-    // --- Initialize Direct Hit Audio Component --- END
-    
-    // --- Initialize Attack Alarm Audio Component --- START
+
     this._attackAlarmAudio = new Audio({
         // No attachedToEntity for global playback
         uri: 'audio/sfx/overseer/alarm.mp3',
         loop: false,
-        volume: 0.6 // Slightly lower volume for ambient alarm
+        volume: 0.5 // Slightly lower volume for ambient alarm
     });
-    // --- Initialize Attack Alarm Audio Component --- END
+
+    this._minionLaughAudio = new Audio({
+        // No attachedToEntity for global playback
+        uri: 'audio/sfx/overseer/evil-laugh.mp3',
+        loop: false,
+        volume: 0.7
+    });
     
     // Check if TTS is configured
     if (!TTS_API_TOKEN) {
@@ -1697,7 +1699,7 @@ export default class OverseerEntity extends Entity {
       }
 
       // Play alarm sound
-      this.playAttackAlarm();
+      this.playMinionLaugh();
       this._logger.info('Overseer playing attack alarm for minion spawn.');
 
       // --- Determine spawn position --- START
@@ -1723,7 +1725,7 @@ export default class OverseerEntity extends Entity {
       this._logger.info('Ripper Minion spawned successfully.');
 
       // --- Broadcast UI Warning --- 
-      const warningMessage = "WARNING: Overseer Minion Detected!";
+      const warningMessage = "WARNING: Biodome Guard Minion Has Spawned!";
       const players = this._world.entityManager.getAllPlayerEntities();
       players.forEach(playerEntity => {
           // Optional chaining for safety
@@ -1838,11 +1840,17 @@ export default class OverseerEntity extends Entity {
      if (audioToPlay) { this._logger.debug(`Playing shield hit sound (${type}) at position: ${JSON.stringify(position)}`); audioToPlay.play(this.world, true); }
      else { this._logger.warn(`Could not find audio component for shield hit type: ${type}`); }
    }
-   
+
    public playAttackAlarm(): void {
      if (!this.world || !this.isSpawned) return;
      if (this._attackAlarmAudio) { this._logger.debug('Playing global attack alarm sound.'); this._attackAlarmAudio.play(this.world, true); }
      else { this._logger.warn('Could not find audio component for attack alarm.'); }
+   }
+
+   public playMinionLaugh(): void {
+    if (!this.world || !this.isSpawned) return;
+    if (this._minionLaughAudio) { this._logger.debug('Playing minion laugh sound.'); this._minionLaughAudio.play(this.world, true); }
+    else { this._logger.warn('Could not find audio component for minion laugh.'); }
    }
 
   // --- Load Ground Coordinates ---
