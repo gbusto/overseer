@@ -538,7 +538,6 @@ export default class BiodomeController {
               // this._world.setDirectionalLightColor({ r: 0, g: 0, b: 0 }); // Keep existing color
               this._world.setAmbientLightIntensity(0);
               this._world.setDirectionalLightIntensity(0);
-              // console.log("SHOULD BE DARK RIGHT NOW"); // Optional debug log
           } else {
               // Restore lighting using the existing reset method
               // This resets colors AND intensities to defaults.

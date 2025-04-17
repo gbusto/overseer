@@ -90,8 +90,6 @@ export default abstract class BaseEnergyWeaponEntity extends BaseWeaponEntity {
             this._needsToStartFullRecharge = false; // Reset flag
             this._logger.info(`Deferred start of full recharge initiated on tick.`);
 
-            console.log(`IS FULL RECHARGE WHEN TICKING ${this._isFullRecharging}`);
-
             // Send the initial depletion message from here now
             if (owner && owner.player) {
                 owner.player.ui.sendData({
@@ -360,8 +358,6 @@ export default abstract class BaseEnergyWeaponEntity extends BaseWeaponEntity {
      */
     public override equip(): void {
         super.equip(); // Call the base equip logic (positioning, animations)
-
-        console.log(`IS FUL RECHARGE WHEN EQUIPPED ${this._isFullRecharging}`);
         
         // Send the initial energy state to the UI when equipped
         this._updateOwnerEnergyUI(); 
