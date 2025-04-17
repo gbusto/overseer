@@ -8,7 +8,8 @@ import {
     SimpleEntityController,
     Vector3, // Keep Vector3
     SceneUI,
-    CollisionGroup // <-- Import CollisionGroup
+    CollisionGroup, // <-- Import CollisionGroup
+    Audio
 } from 'hytopia';
 import type { EntityOptions, Vector3Like } from 'hytopia';
 import { Logger } from '../../utils/logger';
@@ -171,7 +172,18 @@ export default class RipperBossEntity extends Entity {
                      // Play target animation once when starting chase
                      this._logger.info(`Starting Animation: ${this.ANIM_TARGET} (oneshot)`);
                      this.startModelOneshotAnimations([this.ANIM_TARGET]);
-                 }
+
+                     if (this.world) {
+                        const targetSound = new Audio({
+                            attachedToEntity: this,
+                            uri: 'audio/sfx/ripper/target.mp3',
+                            loop: false,
+                            volume: 0.5,
+                            referenceDistance: 30
+                         });
+                         targetSound.play(this.world, true);
+                     }
+                }
                 this._state = 'chasing';
                 this._moveTowardsTarget();
             }
@@ -270,6 +282,17 @@ export default class RipperBossEntity extends Entity {
             this.stopModelAnimations([...this.modelLoopedAnimations]);
          }
 
+         if (this.world) {
+            const attackSound = new Audio({
+                attachedToEntity: this,
+                uri: 'audio/sfx/ripper/attack.mp3',
+                loop: false,
+                volume: 0.5,
+                referenceDistance: 30
+             });
+             attackSound.play(this.world, true);
+        }
+
          this._logger.info(`Starting Animation: ${this.ANIM_ATTACK} (oneshot)`);
          this.startModelOneshotAnimations([this.ANIM_ATTACK]);
          this._attackCooldown = this._attackDuration;
@@ -327,6 +350,27 @@ export default class RipperBossEntity extends Entity {
         // NEW: Broadcast health update if world exists
         if (this.world) { 
             this._broadcastHealthUpdate(this.world, true);
+
+            if (this._health > 0) {
+                const hurtSound = new Audio({
+                    attachedToEntity: this,
+                    uri: 'audio/sfx/ripper/injure.mp3',
+                    loop: false,
+                    volume: 0.5,
+                    referenceDistance: 30
+                });
+                hurtSound.play(this.world, true);
+            }
+            else {
+                const deathSound = new Audio({
+                    attachedToEntity: this,
+                    uri: 'audio/sfx/ripper/die.mp3',
+                    loop: false,
+                    volume: 0.5,
+                    referenceDistance: 30
+                });
+                deathSound.play(this.world, true);
+            }
         }
 
         if (this._health <= 0) {
