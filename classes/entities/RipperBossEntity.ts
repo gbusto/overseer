@@ -100,16 +100,18 @@ export default class RipperBossEntity extends Entity {
     }
 
     private _onSpawned({ entity }: { entity: Entity }): void {
-        const world = entity.world;
+        // Ensure world exists before proceeding
+        const world = this.world;
         if (!world) {
-            this._logger.error('Cannot execute _onSpawned: entity.world is undefined');
+            this._logger.error('Cannot execute _onSpawned: this.world is undefined');
             return;
         }
-
+        
         this._logger.info(`Spawned at ${JSON.stringify(this.position)}`);
+
         this._health = this._maxHealth;
-        this._state = 'idle';
-        this.startModelLoopedAnimations([this.ANIM_IDLE]);
+        this._state = 'chasing'; // <-- Start in chasing state
+        // Don't start idle animation, let the first tick handle chase animation
         this._jumpTimer = 0;
 
         // Create and load the SceneUI label
@@ -130,7 +132,15 @@ export default class RipperBossEntity extends Entity {
     }
 
     private _onTick({ entity, tickDeltaMs }: { entity: Entity, tickDeltaMs: number }): void {
-        if (this._state === 'dying') return;
+        // --- Fall Check --- START
+        if (this.isSpawned && this.position.y < -50) {
+            this._logger.warn(`Entity fell out of the map (Y < -50). Triggering death.`);
+            this._handleDeath();
+            return; // Stop further processing this tick
+        }
+        // --- Fall Check --- END
+        
+        if (!this.isSpawned || this._state === 'dying') return;
 
         // Update cooldowns
         if (this._attackCooldown > 0) {
@@ -141,54 +151,50 @@ export default class RipperBossEntity extends Entity {
             this._jumpTimer -= tickDeltaMs;
         }
 
-        // --- AI Logic ---
-        const previousState = this._state; // Track previous state for logging
-        this._findTarget(); // Find nearest player
+        // --- AI State Machine --- START
+        this._findTarget(); // Always find the nearest target
 
         if (this._targetPlayer) {
             const distance = calculateDistance(this.position, this._targetPlayer.position);
 
+            // Check if in attack range
             if (distance <= this._attackRange && this._attackCooldown <= 0) {
-                // State change handled in _performAttack
-                this._performAttack();
-            } else if (distance <= this._aggroRange) {
-                // --- Chase State --- 
+                if (this._state !== 'attacking') {
+                    this._logger.info(`State Change: -> Attacking player ${this._targetPlayer.player?.username}`);
+                }
+                this._performAttack(); // Sets state to attacking internally
+            }
+            // Otherwise, chase the target
+            else if (this._state !== 'attacking') { // Don't interrupt attack for chase
                 if (this._state !== 'chasing') {
-                     this._logger.info(`State Change: Idle/Attacking -> Chasing player ${this._targetPlayer.player?.username}`);
+                    this._logger.info(`State Change: -> Chasing player ${this._targetPlayer.player?.username}`);
                      // Play target animation once when starting chase
                      this._logger.info(`Starting Animation: ${this.ANIM_TARGET} (oneshot)`);
                      this.startModelOneshotAnimations([this.ANIM_TARGET]);
-                     // Movement animation handled in _moveTowardsTarget
                  }
                 this._state = 'chasing';
-                this._moveTowardsTarget(); 
-            } else {
-                 // --- Target Lost/Out of Range --- 
-                 if (this._state !== 'idle') {
-                     this._logger.info(`State Change: Chasing/Attacking -> Idle (Target out of range)`);
-                     this._state = 'idle';
-                     this._stopMovement(); // Stops moving and sets idle animation
-                 }
-                 this._targetPlayer = null; // Lose target
+                this._moveTowardsTarget();
             }
-        } else {
-            // --- No Target --- 
-             if (this._state !== 'idle') {
-                 this._logger.info(`State Change: Chasing/Attacking -> Idle (No target found)`);
-                 this._state = 'idle';
-                 this._stopMovement(); // Stops moving and sets idle animation
-             }
         }
-        // --- End AI Logic ---
+        // No target found, go idle
+        else {
+            if (this._state !== 'idle') {
+                this._logger.info(`State Change: -> Idle (No target found)`);
+                this._state = 'idle';
+                this._stopMovement(); // Stop movement and set idle animation
+            }
+        }
+        // --- AI State Machine --- END
     }
 
     private _findTarget(): void {
         if (!this.world) return;
 
         let nearestPlayer: GamePlayerEntity | null = null;
-        let minDistance = this._aggroRange; // Only consider players within aggro range initially
+        // Start with Infinity to find the *absolute* nearest player
+        let minDistance = Infinity; 
 
-        const players = this.world.entityManager.getAllPlayerEntities(); // Assuming this gets GamePlayerEntity[]
+        const players = this.world.entityManager.getAllPlayerEntities(); 
 
         for (const player of players) {
             // Ensure it's a GamePlayerEntity and is alive
