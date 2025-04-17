@@ -28,8 +28,8 @@ const ENVIRONMENTAL_ATTACK_COOLDOWN_MS = 30000; // Cooldown between KORO attacks
 // Define the deterministic attack sequence including the new attack
 // --- TEMPORARILY MODIFIED FOR TESTING ---
 const DETERMINISTIC_ATTACK_SEQUENCE: KoroActionType[] = [
+  'attack_spawn_minion',
     'attack_electrify_ground', // <-- Moved to front for testing
-    'attack_spawn_minion',
     'attack_heat',
     'taunt_shield',
     'attack_freeze',

@@ -855,6 +855,15 @@
   </div>
 </template>
 
+<!-- Template for minion labels -->
+<template id="minion-label-template">
+  <div class="weapon-label"> <!-- Reuse existing style for consistency -->
+    <div class="item-label-name">Minion Name</div> <!-- Placeholder, will be replaced -->
+    <!-- No pickup prompt needed -->
+    <div class="item-label-caret"></div>
+  </div>
+</template>
+
 <script>
   // Get UI elements
   const messagePanel = document.getElementById('overseer-message-panel');
@@ -922,6 +931,23 @@
     const template = document.getElementById('item-label-template');
     const clone = template.content.cloneNode(true);
     const nameElement = clone.querySelector('.item-label-name');
+
+    // Update the name based on the state sent from the server
+    onState(state => {
+      if (state.name && nameElement) {
+        nameElement.textContent = state.name;
+      }
+      // Visibility controlled by load/unload on the server
+    });
+    
+    return clone;
+  });
+  
+  // Register the minion label template
+  hytopia.registerSceneUITemplate('minion-label', (id, onState) => {
+    const template = document.getElementById('minion-label-template');
+    const clone = template.content.cloneNode(true);
+    const nameElement = clone.querySelector('.item-label-name'); // Find the name element
 
     // Update the name based on the state sent from the server
     onState(state => {
