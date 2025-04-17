@@ -54,6 +54,15 @@ export default class OverseerEntity extends Entity {
   private _attackAlarmAudio: Audio | null = null;
   private _minionLaughAudio: Audio | null = null;
 
+  // --- NEW Announcement Audio --- START
+  private _announceBlackoutAudio: Audio | null = null;
+  private _announceFreezeAudio: Audio | null = null;
+  private _announceGroundElectrifyAudio: Audio | null = null;
+  private _announceGuardMinionAudio: Audio | null = null;
+  private _announceHeatAudio: Audio | null = null;
+  private _announceUvLightAudio: Audio | null = null;
+  // --- NEW Announcement Audio --- END
+
   // AI Brain
   private _brain: KOROBrain | null = null;
   
@@ -231,6 +240,33 @@ export default class OverseerEntity extends Entity {
     // --- Load Ground Coordinates ---
     this._loadGroundCoordinates();
     // --- End Load Ground Coordinates ---
+
+    // --- Initialize Announcement Audio Components --- START
+    this._announceBlackoutAudio = new Audio({
+        uri: 'audio/sfx/announce/announce-blackout.mp3',
+        loop: false, volume: 0.9, attachedToEntity: undefined
+    });
+    this._announceFreezeAudio = new Audio({
+        uri: 'audio/sfx/announce/announce-freeze-attack.mp3',
+        loop: false, volume: 0.9, attachedToEntity: undefined
+    });
+    this._announceGroundElectrifyAudio = new Audio({
+        uri: 'audio/sfx/announce/announce-ground-electrify.mp3',
+        loop: false, volume: 0.9, attachedToEntity: undefined
+    });
+    this._announceGuardMinionAudio = new Audio({
+        uri: 'audio/sfx/announce/announce-guard-minion.mp3',
+        loop: false, volume: 0.9, attachedToEntity: undefined
+    });
+    this._announceHeatAudio = new Audio({
+        uri: 'audio/sfx/announce/announce-heat-attack.mp3',
+        loop: false, volume: 0.9, attachedToEntity: undefined
+    });
+    this._announceUvLightAudio = new Audio({
+        uri: 'audio/sfx/announce/announce-uv-light.mp3',
+        loop: false, volume: 0.9, attachedToEntity: undefined
+    });
+    // --- Initialize Announcement Audio Components --- END
   }
 
   /**
@@ -1574,6 +1610,9 @@ export default class OverseerEntity extends Entity {
   public initiateTemperatureAttack(targetTemperature: number, changeRate: number): boolean {
       // Call the existing method, forcing autoReset to true for AI attacks
       this.setBiodomeTemperature(targetTemperature, changeRate, true);
+      // Determine if heat or freeze for announcement
+      const attackType = targetTemperature > this.getBiodomeNormalTemperature() ? 'heat' : 'freeze';
+      this.playAttackAnnouncement(attackType); // Play specific announcement
       // Log the action (logging inside setBiodomeTemperature might be sufficient, but keeping here for clarity on AI action)
       this._logger.info(`AI initiated temperature attack via setBiodomeTemperature: Target ${targetTemperature}°F, Rate ${changeRate}°/s`);
       return true; // Indicate the command was processed
@@ -1585,7 +1624,9 @@ export default class OverseerEntity extends Entity {
    */
   public initiateBlackoutAttack(): void {
       if (this._biodome) {
-          // Duration could be made dynamic later based on intensity or state
+          this.playAttackAlarm(); // Play general alarm first
+          // Then play specific announcement after a delay
+          setTimeout(() => this.playAttackAnnouncement('blackout'), 1000);
           this._biodome.triggerBlackoutAttack(); 
       } else {
           this._logger.error('Cannot initiate blackout: BiodomeController not found.');
@@ -1699,7 +1740,9 @@ export default class OverseerEntity extends Entity {
       }
 
       // Play alarm sound
-      this.playMinionLaugh();
+      this.playMinionLaugh(); // Play laugh first
+      // Then play specific announcement after a delay
+      setTimeout(() => this.playAttackAnnouncement('minion'), 1000);
       this._logger.info('Overseer playing attack alarm for minion spawn.');
 
       // --- Determine spawn position --- START
@@ -1889,6 +1932,8 @@ export default class OverseerEntity extends Entity {
     this._logger.info(`Initiating Electrify Ground attack for ${duration / 1000} seconds...`);
     this._isElectrifyingGround = true;
     this.playAttackAlarm(); // Play general alarm sound
+    // Then play specific announcement after a delay
+    setTimeout(() => this.playAttackAnnouncement('electrify'), 1000);
 
     // --- Broadcast UI Warning --- START
     if (this._world) {
@@ -2013,5 +2058,36 @@ export default class OverseerEntity extends Entity {
   }
 
   // --- End Electrify Ground Attack Methods ---
+
+  // New method to play the specific announcement
+  public playAttackAnnouncement(attackType: 'blackout' | 'freeze' | 'electrify' | 'minion' | 'heat' | 'uv'): void {
+    if (!this.world || !this.isSpawned) {
+        this._logger.warn(`Cannot play announcement for ${attackType}: World or entity not ready.`);
+        return;
+    }
+
+    let audioToPlay: Audio | null = null;
+
+    switch (attackType) {
+        case 'blackout':    audioToPlay = this._announceBlackoutAudio; break;
+        case 'freeze':      audioToPlay = this._announceFreezeAudio; break;
+        case 'electrify':   audioToPlay = this._announceGroundElectrifyAudio; break;
+        case 'minion':      audioToPlay = this._announceGuardMinionAudio; break;
+        case 'heat':        audioToPlay = this._announceHeatAudio; break;
+        case 'uv':          audioToPlay = this._announceUvLightAudio; break;
+        default:
+            // Should be impossible due to TypeScript type checking, but good practice
+            const _exhaustiveCheck: never = attackType;
+            this._logger.warn(`Unknown attack type for announcement: ${_exhaustiveCheck}`);
+            return;
+    }
+
+    if (audioToPlay) {
+        this._logger.debug(`Playing global announcement sound for ${attackType}.`);
+        audioToPlay.play(this.world, true); // Play globally, restart if already playing
+    } else {
+        this._logger.warn(`Could not find audio component for announcement: ${attackType}`);
+    }
+  }
 
 } // End OverseerEntity class
