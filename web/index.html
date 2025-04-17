@@ -22,7 +22,7 @@
         </div>
         <!-- Play Now Button -->
         <div class="play-button-container">
-          <a href="https://hytopia.com/play/?join=overseer.gbusto.com" target="_blank" class="play-button">PLAY NOW</a>
+          <a href="https://hytopia.com/games/the-overseer/" target="_blank" class="play-button">PLAY NOW</a>
         </div>
     </header>
 
@@ -36,7 +36,7 @@
             <p>Managing this intricate environment is <strong>K.O.R.O. (Kinetic Operations & Resource Overseer)</strong>, the facility's central Artificial Intelligence. Integrated physically near the dome's apex for optimal monitoring and control, KORO was programmed by Verdant Horizons with absolute priorities: <strong>maintain system stability, ensure safety through rigid protocols, and meticulously log every operation.</strong> This deep-seated programming resulted in an inherently <strong>bureaucratic</strong> operational nature.</p>
 
             <p><strong>The Incident: The Isolation Event</strong></p>
-            <p>Approximately 10-15 years ago, Biodome Delta suffered a catastrophe known simply as the "Isolation Event" – perhaps a massive solar flare, a crippling cyberattack, or severe internal system damage. While the physical structure remained largely intact, the event severed all communication links with the outside world and inflicted significant damage on KORO's higher cognitive functions and critical subsystems. A key consequence was the introduction of <strong>noticeable processing delays</strong> in non-essential outputs, most apparent in its attempts at vocal communication.</p>
+            <p>Approximately 10-15 years ago, Biodome Delta suffered a catastrophe known simply as the "Isolation Event" – perhaps a massive solar flare, a crippling cyberattack, or severe internal system damage. While the physical structure remained largely intact, the event severed all communication links with the outside world and inflicted significant damage on KORO's core programming and critical subsystems.</p>
 
             <p><strong>The Current State: A Malfunctioning Warden</strong></p>
             <p>KORO continues to operate, but it is isolated, partially corrupted, and locked into executing its last known protocols without context or adaptability. It perceives the presence of humans within the Biodome not as inhabitants or its original creators, but as <strong>"anomalies," "bio-contaminants," or "protocol deviations"</strong> that threaten its programmed stability. Its attempts to manage the Biodome have now warped into running relentless "sterilization" or "containment procedures" – the hazardous events players experience – in an effort to purge these perceived threats.</p>
@@ -55,9 +55,10 @@
             <ul>
                 <li>Work together! This is a co-op game. Use Discord voice channels or the chat window to coordinate.</li>
                 <li>Wait for your friends to join the map, then type /start when you're ready to begin.</li>
-                <li>You are given an energy rifle when the round starts. They recharge automatically but take time to recharge after full depletion.</li>
-                <li>KORO has a shield! It only opens briefly to regulate its temperature or taunt you. Shoot KORO directly when the shield is down.</li>
-                <li>Grab the **BFG**! This powerful weapon spawns at the start of the round, and there is only ONE. Hitting KORO's shield with it forces the shield open for a few seconds. A direct hit on KORO with the BFG deals massive damage. It has a long recharge, so coordinate its use!</li>
+                <li>You get an energy rifle at the start. It recharges automatically.</li>
+                <li>KORO's shield only opens briefly to regulate its temperature. Shoot the core then!</li>
+                <li>Grab the **BFG**! It spawns once per round. Hitting KORO's *closed* shield forces it open. A direct hit on the *open* core deals massive damage.</li>
+                <li>Watch out for KORO's **Guard Minion** and **Electrified Ground** attacks!</li>
                 <li>Find Health Packs to heal.</li>
                 <li>Goal: Reduce KORO's health to zero before it eliminates all players.</li>
             </ul>
@@ -69,13 +70,13 @@
 
             <p><strong>Engaging KORO:</strong> Your Energy Rifle is your primary tool against KORO. These weapons have unlimited energy but operate on a recharge system. Continuous rapid fire can deplete the rifle's energy core, requiring a 15-second wait for a full recharge. Aim wisely!</p>
 
-            <p><strong>KORO's Shield:</strong> KORO is protected by a formidable shield constructed from impenetrable steel, impervious to standard energy rifle fire – shots will simply ricochet off. However, KORO must periodically open this shield for two main reasons: 1) To regulate its internal temperature when it reaches critical high or low thresholds, venting heat or energy. 2) Occasionally, as a taunting gesture. This brief window is your chance! Players must land a direct hit on KORO's core while the shield is down. Successful hits provide clear visual and audio feedback.</p>
+            <p><strong>KORO's Shield:</strong> KORO is protected by a formidable shield constructed from impenetrable steel, impervious to standard energy rifle fire – shots will simply ricochet off. However, KORO must periodically open this shield to regulate its internal temperature when it reaches critical high or low thresholds, venting heat or energy. This brief window is your chance! Players must land a direct hit on KORO's core while the shield is down. Successful hits provide clear visual and audio feedback.</p>
 
             <p><strong>The BFG - Big F***in Gun:</strong> At the start of each round, a single BFG will spawn somewhere in the arena. This unique, oversized weapon packs a serious punch. While its projectile also cannot penetrate KORO's steel shield directly, a shield hit *overwhelms* the shield systems, forcing it to malfunction, open, and remain open for several crucial seconds. This provides a coordinated opportunity for all players to inflict damage. Be warned: the BFG requires a lengthy 60-second recharge after firing just one shot. However, if you manage to hit KORO directly while its shield is already open (by timing it with its auto-venting system after a temperature attack), the BFG deals 5 times the damage of a standard energy rifle shot! Coordination is key to maximizing its potential.</p>
 
             <p><strong>Survival & Resources:</strong> Health Packs will periodically spawn across the map to help you recover from KORO's attacks. Both Health Packs and the BFG are marked with world-space labels visible from anywhere, ensuring they can always be located.</p>
             
-            <p><strong>KORO's Arsenal:</strong> As the Biodome's overseer, KORO will utilize various environmental systems and direct attacks against players. Some attacks are area-denial, some are disorienting but harmless, and others are direct, high-damage assaults. Stay alert and learn the patterns!</p>
+            <p><strong>KORO's Arsenal:</strong> As the Biodome's overseer, KORO will utilize various environmental systems (heating, cooling, blackouts, UV light, electrifying the ground) and deploy a Guard Minion to directly attack players. Stay alert and learn the patterns!</p>
 
             <p><strong>Winning (or Losing):</strong> The match concludes when one of two conditions is met: either the players successfully deplete KORO's health pool, securing their survival (for now), or KORO eliminates every player, leaving the AI to its corrupted duties.</p>
         </section>
@@ -88,25 +89,22 @@
             <h4>Design and Origin</h4>
             <p>KORO's physical manifestation, created using Asset Hero, is a large, imposing floating brain entity with distinct coloring. Its primary defense is a pair of heavy, semi-spherical shields made of impenetrable steel that clamp shut to protect its core and mechanically open when needed.</p>
 
-            <h4>The LLM Brain</h4>
-            <p>What truly sets KORO apart is its direct integration with a Large Language Model (LLM). Every few seconds, KORO's AI receives real-time game state information: current Biodome environmental stats, its own health status, major events like player deaths, a history of its recent attacks, and even its own recent dialogue. This constant stream of data feeds the LLM, which dynamically generates:</p>
+            <h4>The Adaptive AI Brain</h4>
+            <p>KORO's behavior is driven by an adaptive AI core that monitors the battlefield and its own condition. It adjusts its tactics based on its current health:</p>
             <ul>
-                <li><strong>Dialogue:</strong> The blue text messages displayed at the top of the screen are KORO's real-time thoughts and taunts, generated by the LLM based on the current situation.</li>
-                <li><strong>Strategy:</strong> The LLM doesn't just talk; it *decides*. Based on the game state, it chooses KORO's next action – whether to launch a specific attack, multiple attacks in sequence, or simply taunt the players. This means every encounter feels different, with KORO potentially adopting aggressive, defensive, or unpredictable strategies.</li>
+                <li><strong>Attack Frequency:</strong> As KORO takes damage, the time between its attack decisions shortens, leading to more frequent assaults.</li>
+                <li><strong>Attack Intensity:</strong> For attacks like Super Heating and Super Cooling, KORO chooses a higher intensity (more extreme temperatures) when its health is lower.</li>
+                <li><strong>Random Selection:</strong> KORO randomly selects its next attack from an available pool, preventing it from using the same attack twice in a row and respecting ability cooldowns. This keeps players guessing.</li>
             </ul>
 
             <h4>Shield Vulnerabilities</h4>
             <p>While the steel shields are impenetrable when closed, KORO must occasionally separate the two halves, exposing its core. Understanding *why* it opens is key to exploiting these moments:</p>
             <ul>
                 <li><strong>Temperature Regulation (Auto-Venting):</strong> If KORO pushes its internal temperature too high (during a Super Heating attack) or too low (during a Super Cooling attack), its safety protocols force the shields open automatically to vent and return to a stable temperature. This is a predictable consequence of its own aggressive attacks.</li>
-                <li><strong>Taunting:</strong> Independent of temperature, the LLM controlling KORO might decide to open the shields briefly as a taunt, perhaps underestimating the players or trying to lure them into a trap. This is less predictable and relies on the AI's whim.</li>
                 <li><strong>BFG Malfunction:</strong> A direct hit on the *closed* shield from the powerful BFG weapon overwhelms the shield's systems. This isn't a normal operation; it's a forced malfunction that causes the shields to fly open and stay open for several seconds, providing a critical window for attack.</li>
             </ul>
             <p>Regardless of the reason, any time the shield halves separate, KORO's core is vulnerable to direct hits from player Energy Rifles and especially the BFG (if it has enough energy and isn't recharging!).</p>
 
-            <h4>Dynamic TTS and Voice Degradation</h4>
-            <p>KORO's LLM-generated dialogue is brought to life through a full Text-To-Speech (TTS) solution, broadcasting its voice dynamically for all players to hear. But there's a twist: as players damage KORO, its voice begins to degrade. The TTS system introduces increasingly severe glitches, changes in tone and speed, and audible malfunctions, reflecting the physical damage KORO is sustaining. Its speech can become broken, distorted, and eventually almost incomprehensible, adding a layer of immersive feedback to the fight.</p>
-            
             <h4>Biodome Control Attacks</h4>
             <p>Leveraging its control over the Biodome's systems, KORO unleashes various environmental attacks:</p>
             <ul>
@@ -114,7 +112,9 @@
                 <li><strong>Super Cooling:</strong> The opposite of heating, KORO plunges the temperature, again causing unavoidable damage. The lighting shifts towards blue hues. Similar to heating, an overly aggressive cooling attack can force KORO's internal temperature too low, necessitating shield venting.</li>
                 <li><strong>UV Light Attack:</strong> KORO targets a random player with a focused UV beam that chases them. The beam damages players caught within it for every second of exposure. Evading the light is key.</li>
                 <li><strong>Blackout:</strong> KORO plunges the Biodome into darkness, severely hindering visibility and making navigation and spotting resources much harder.</li>
-                <li><strong>Attack Stacking:</strong> While KORO can't run conflicting attacks simultaneously (like heating and cooling), the LLM can strategically stack compatible attacks. Imagine dealing with rising temperatures while the lights are out, only for KORO to then activate a UV light attack on someone – chaos!</li>
+                <li><strong>Electrify Ground:</strong> KORO electrifies patches of the ground, creating temporary but painful hazard zones for players who step on them.</li>
+                <li><strong>Guard Minion Deployment:</strong> KORO spawns a hostile Guard Minion entity that actively hunts down and attacks players within the Biodome.</li>
+                <li><strong>Attack Combinations:</strong> KORO's AI can choose to activate multiple compatible attacks in succession or potentially overlap them, increasing the challenge (e.g., a Blackout followed by Electrified Ground).</li>
             </ul>
 
             <h4>Audio Cues</h4>
