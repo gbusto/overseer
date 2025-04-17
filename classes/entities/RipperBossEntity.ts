@@ -120,7 +120,7 @@ export default class RipperBossEntity extends Entity {
             this._labelSceneUI = new SceneUI({
                 attachedToEntity: this,
                 templateId: 'minion-label', // Use the new dedicated minion label template
-                state: { name: this.name || 'Ripper Boss' }, // Use entity name
+                state: { name: 'Guard Minion' }, // Use entity name
                 viewDistance: 10000, // Make it visible from very far away
                 offset: { x: 0, y: 1.5, z: 0 }, // Position label above the model (adjust Y if needed)
             });
