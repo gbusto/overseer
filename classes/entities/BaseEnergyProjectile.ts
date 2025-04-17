@@ -5,7 +5,8 @@ import {
   Vector3,
   World,
   EntityEvent,
-  Quaternion
+  Quaternion,
+  CollisionGroup
 } from 'hytopia';
 
 import type {
@@ -48,7 +49,11 @@ export default abstract class BaseEnergyProjectile extends Entity {
           {
             shape: ColliderShape.BALL,
             radius: 0.2,
-            isSensor: true,
+            // isSensor: true,
+            // collisionGroups: {
+            //   belongsTo: [CollisionGroup.ENTITY_SENSOR],
+            //   collidesWith: [CollisionGroup.BLOCK, CollisionGroup.ENTITY, CollisionGroup.PLAYER]
+            // }
           }
         ],
       },
@@ -150,8 +155,16 @@ export default abstract class BaseEnergyProjectile extends Entity {
    * Handle projectile collision with entities
    */
   protected _onCollisionEnter = ({ otherEntity, started }: { otherEntity: Entity, started: boolean }): void => {
+    // --- Add verbose logging at the very start --- 
+    this._logger.debug(`_onCollisionEnter called. Started: ${started}, Other Entity: ${otherEntity?.name || 'undefined'}, Shooter: ${this._shooter?.name || 'undefined'}`);
+
     if (!this.isSpawned || !otherEntity || otherEntity === this._shooter || !started) {
-      return;
+        // Add logging for why we are returning early
+        if (!this.isSpawned) this._logger.debug('Projectile not spawned, returning.');
+        if (!otherEntity) this._logger.debug('Collision with undefined entity, returning.');
+        if (otherEntity === this._shooter) this._logger.debug('Collision with self (shooter), returning.');
+        if (!started) this._logger.debug('Collision ended (started=false), returning.');
+        return;
     }
 
     this._logger.info(`Collision detected with entity: ${otherEntity.name} (Tag: ${otherEntity.tag}, Type: ${otherEntity.constructor.name})`);

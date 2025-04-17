@@ -68,21 +68,30 @@ export default class RipperBossEntity extends Entity {
                 type: RigidBodyType.DYNAMIC,
                 enabledRotations: { x: false, y: true, z: false }, // Allow turning
                 colliders: [
+                    // Main Solid Collider (for physics)
                     {
                         shape: ColliderShape.CAPSULE, 
                         radius: 0.4, 
                         halfHeight: 0.8, 
-                        // Add collision groups
                         collisionGroups: { 
                             belongsTo: [CollisionGroup.ENTITY],
-                            collidesWith: [CollisionGroup.BLOCK, CollisionGroup.ENTITY, CollisionGroup.PLAYER] // Collide with ground, other entities, and players
+                            collidesWith: [CollisionGroup.BLOCK, CollisionGroup.ENTITY, CollisionGroup.PLAYER] 
+                        }
+                    },
+                    // Secondary Sensor Collider (for hit detection)
+                    {
+                        shape: ColliderShape.CAPSULE, 
+                        radius: 0.5, // Slightly larger radius
+                        halfHeight: 0.9, // Slightly larger height
+                        isSensor: true,
+                        collisionGroups: { 
+                            belongsTo: [CollisionGroup.ENTITY], // Projectiles look for ENTITY group
+                            collidesWith: [] // Doesn't need to actively collide with anything
                         }
                     }
                 ],
                 gravityScale: 1.0,
-                // friction: 0.5, // Can add friction here or in collider if needed
             },
-            // Use SimpleEntityController for easier movement
             controller: new SimpleEntityController(),
         };
 
