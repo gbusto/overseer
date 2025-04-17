@@ -78,17 +78,6 @@ export default class RipperBossEntity extends Entity {
                             collidesWith: [CollisionGroup.BLOCK, CollisionGroup.ENTITY, CollisionGroup.PLAYER] 
                         }
                     },
-                    // Secondary Sensor Collider (for hit detection)
-                    {
-                        shape: ColliderShape.CAPSULE, 
-                        radius: 0.5, // Slightly larger radius
-                        halfHeight: 0.9, // Slightly larger height
-                        isSensor: true,
-                        collisionGroups: { 
-                            belongsTo: [CollisionGroup.ENTITY], // Projectiles look for ENTITY group
-                            collidesWith: [] // Doesn't need to actively collide with anything
-                        }
-                    }
                 ],
                 gravityScale: 1.0,
             },
