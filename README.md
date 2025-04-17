@@ -26,7 +26,7 @@ Decades after the visionary Verdant Horizons Corporation sealed Genesis Biodome 
 
 KORO, driven by damaged protocols, perceives you as a "bio-contaminant." It utilizes a health-based deterministic AI, becoming faster and more aggressive as it takes damage. Team up to exploit its vulnerabilities, manage its environmental attacks, and neutralize the Overseer before it purges all intruders.
 
-*(Note: Original development included experimental LLM and TTS features for KORO's personality and voice, but these are disabled in the default 'hytopia' mode for performance and reliability.)*
+*(Note: Original development included experimental LLM and TTS features for KORO's personality and voice, but these are disabled in the default 'hytopia' mode to be fully compatible with the SDK.)*
 
 ## Key Features
 
