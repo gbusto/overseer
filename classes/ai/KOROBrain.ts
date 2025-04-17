@@ -423,7 +423,9 @@ export class KOROBrain {
             this.logger.warn('Overseer reference missing in shouldUpdate. Using default 20s interval.');
             intervalToCheck = 20000; // Default to the starting interval
         } else {
-            const healthPercent = this._overseer.getHealth(); // Get current health
+            const currentHealth = this._overseer.getHealth();
+            const maxHealth = Math.max(1, this._overseer.getMaxHealth()); // Avoid division by zero
+            const healthPercent = (currentHealth / maxHealth) * 100;
             // Use the new health-based intervals
             if (healthPercent > 66) { 
                 intervalToCheck = 20000; // 20 seconds
@@ -716,7 +718,9 @@ export class KOROBrain {
       const isBfgHeld = false; // TODO: Implement BFG tracking
 
       // --- Health Pack Count ---
-      const healthPackCount = this._world.entityManager.getEntitiesByTag('healthpack')?.length ?? 0;
+      const currentHealth = this._overseer.getHealth();
+      const maxHealth = Math.max(1, this._overseer.getMaxHealth()); // Ensure maxHealth is at least 1 to avoid division by zero
+      const healthPercent = Math.round((currentHealth / maxHealth) * 100);
 
       // --- Attack Readiness ---
       const currentBiodomeTemp = this._overseer.getBiodomeTemperature();
@@ -728,7 +732,7 @@ export class KOROBrain {
       try {
           const snapshot: GameStateSnapshot = {
               koro_status: {
-                  health_percent: Math.round(this._overseer.getHealth()),
+                  health_percent: healthPercent, // Use calculated percentage
                   internal_temperature_f: this._overseer.getInternalTemperature(),
                   normal_internal_temp_f: this._overseer.getNormalInternalTemperature(),
                   critical_high_internal_temp_f: this._overseer.getAutoVentHighThreshold(),
@@ -740,7 +744,7 @@ export class KOROBrain {
                   normal_biodome_temp_f: this._overseer.getBiodomeNormalTemperature(),
                   heat_danger_biodome_temp_f: this._overseer.getBiodomeHeatDangerThreshold(),
                   cold_danger_biodome_temp_f: this._overseer.getBiodomeColdDangerThreshold(),
-                  available_health_packs: healthPackCount,
+                  available_health_packs: this._world.entityManager.getEntitiesByTag('healthpack')?.length ?? 0,
                   is_bfg_held_by_player: isBfgHeld,
                   can_initiate_environmental_attack: canAttack,
               },
