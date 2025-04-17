@@ -49,11 +49,6 @@ export default abstract class BaseEnergyProjectile extends Entity {
           {
             shape: ColliderShape.BALL,
             radius: 0.2,
-            // isSensor: true,
-            // collisionGroups: {
-            //   belongsTo: [CollisionGroup.ENTITY_SENSOR],
-            //   collidesWith: [CollisionGroup.BLOCK, CollisionGroup.ENTITY, CollisionGroup.PLAYER]
-            // }
           }
         ],
       },
