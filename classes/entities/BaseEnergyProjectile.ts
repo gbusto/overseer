@@ -16,6 +16,7 @@ import type {
 
 import { Logger } from '../../utils/logger';
 import OverseerEntity from './OverseerEntity';
+import RipperBossEntity from './RipperBossEntity';
 
 /**
  * Base class for energy projectiles used by energy weapons
@@ -153,7 +154,7 @@ export default abstract class BaseEnergyProjectile extends Entity {
       return;
     }
 
-    this._logger.info(`Collision detected with entity: ${otherEntity.name} (Tag: ${otherEntity.tag})`);
+    this._logger.info(`Collision detected with entity: ${otherEntity.name} (Tag: ${otherEntity.tag}, Type: ${otherEntity.constructor.name})`);
 
     // Check if we hit the overseer
     if (otherEntity.tag === 'overseer') {
@@ -167,6 +168,15 @@ export default abstract class BaseEnergyProjectile extends Entity {
         this._logger.info(`Damage blocked by Overseer (shield or invulnerable)`);
       }
     } 
+    // NEW: Check if we hit the Ripper Boss Minion
+    else if (otherEntity instanceof RipperBossEntity) {
+        this._logger.info(`Projectile hit RipperBossEntity.`);
+        // Type assertion is safe here because of instanceof check
+        const minion = otherEntity as RipperBossEntity;
+        minion.takeDamage(this._damage); // Apply damage
+        this._logger.info(`Applied ${this._damage} damage to RipperBossEntity`);
+        // No need to check for return value like overseer, assume damage always applies for now
+    }
     // Check if we hit one of the shield halves
     else if (otherEntity.name === 'OverseerShieldTop' || otherEntity.name === 'OverseerShieldBottom') {
       this._logger.info(`Hit overseer shield - no damage applied`);

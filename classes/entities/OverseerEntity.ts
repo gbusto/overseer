@@ -23,6 +23,7 @@ import { Logger } from '../../utils/logger';
 import GameManager from '../GameManager';
 import { GameState } from '../GameManager';
 import BiodomeController from '../BiodomeController';
+import RipperBossEntity from './RipperBossEntity';
 
 // Configuration for TTS API
 const TTS_API_URL = process.env.TTS_API_URL || 'http://localhost:8000/tts';
@@ -125,6 +126,9 @@ export default class OverseerEntity extends Entity {
   // Damage Flash Timeout
   private _damageFlashTimeout: NodeJS.Timeout | null = null;
   private _defaultTintColor: RgbColor | undefined = undefined;
+
+  // Active Minion Tracking
+  private _activeMinion: RipperBossEntity | null = null;
 
   constructor(options: Partial<EntityOptions> = {}) {
     // Set up the entity with fixed physics to stay in place
@@ -1655,127 +1659,165 @@ export default class OverseerEntity extends Entity {
       }
   }
 
+  // --- Minion Spawning Logic ---
+
+  /**
+   * Spawns a RipperBossEntity minion at a determined location.
+   * Called by KOROBrain.
+   * @returns True if the minion was spawned successfully, false otherwise.
+   */
+  public spawnMinion(): boolean {
+      if (!this._world || !this.isSpawned) {
+          this._logger.error('Cannot spawn minion: World or Overseer not ready.');
+          return false;
+      }
+
+      if (this._activeMinion && this._activeMinion.isSpawned) {
+          this._logger.warn('Cannot spawn minion: One is already active.');
+          return false;
+      }
+
+      // Play alarm sound
+      this.playAttackAlarm();
+      this._logger.info('Overseer playing attack alarm for minion spawn.');
+
+      // --- Determine spawn position --- START
+      // Fixed spawn position
+      const spawnPosition: Vector3Like = { x: 0, y: 15, z: 0 };
+      this._logger.info(`Determined fixed spawn position for minion: ${JSON.stringify(spawnPosition)}`);
+      // --- Determine spawn position --- END
+
+      // --- Spawn the RipperBossEntity --- START
+      const minion = new RipperBossEntity({
+        // Pass necessary options, like initial health or target acquisition logic if needed
+        name: 'Ripper Boss'
+      });
+
+      // Set the callback function for when the minion dies
+      minion.setDeathCallback(this._onMinionDeath.bind(this));
+
+      // Spawn the minion in the world
+      minion.spawn(this._world, spawnPosition);
+
+      // Store the reference to the active minion
+      this._activeMinion = minion;
+      this._logger.info('Ripper Minion spawned successfully.');
+
+      // --- Broadcast UI Warning --- 
+      const warningMessage = "WARNING: Overseer Minion Detected!";
+      const players = this._world.entityManager.getAllPlayerEntities();
+      players.forEach(playerEntity => {
+          // Optional chaining for safety
+          playerEntity.player?.ui?.sendData({
+              type: 'minion-spawn-warning', // New UI event type
+              message: warningMessage
+          });
+      });
+      this._logger.info(`Sent UI warning for minion spawn to ${players.length} players.`);
+      // --- End Broadcast ---
+
+      return true;
+  }
+
+  /**
+   * Callback function executed when the active minion dies.
+   * Clears the reference and notifies KOROBrain.
+   */
+  private _onMinionDeath(): void {
+      this._logger.info('Received death notification from active minion.');
+      this._activeMinion = null; // Clear the reference
+
+      // Notify the brain that the minion slot is free
+      if (this._brain) {
+          this._brain.reportMinionDeath();
+      } else {
+          this._logger.warn('Cannot report minion death: KORO Brain not found.');
+      }
+  }
+
+  // --- End Minion Spawning Logic ---
+
+
+  // --- Modify reset() method ---
   /**
    * Reset the Overseer state for a new game.
    */
   public reset(): void {
       this._logger.info('Resetting Overseer state...');
-      
+
+      // --- Despawn active minion if it exists --- START
+      if (this._activeMinion && this._activeMinion.isSpawned) {
+           this._logger.info('Despawning active minion during reset.');
+           // Use try-catch just in case despawn fails unexpectedly
+           try {
+              this._activeMinion.despawn();
+           } catch(err) {
+               this._logger.error('Error despawning active minion during reset:', err);
+           }
+      }
+      this._activeMinion = null; // Ensure reference is cleared
+      // --- Despawn active minion if it exists --- END
+
       // Reset health
       this.setMaxHealth(100);
       this.setHealth(this._maxHealth);
-      
-      // Set mode to disabled
+
+      // Set mode to disabled (KoroBrain handles its own state reset internally)
       this.setKoroMode('disabled');
-      
-      // Reset biodome temperature and disable damage/auto-reset
-      if (this._biodome) {
-          this._biodome.resetTemperature();
-          this._biodome.setEnvironmentalDamageEnabled(false);
-          this._biodome.setAutoResetEnabled(false);
-      }
-      
-      // Reset internal temperature
-      this._internalTemp = this._normalInternalTemp;
-      this._updateInternalTempUI();
-      
-      // Close shield
-      this.closeShield();
-      
-      // Ensure it's invulnerable
-      this.setInvulnerable(true);
-      
-      // Reset auto-venting state and cooldown
-      this._isAutoVenting = false;
-      this._autoVentCooldownUntil = 0;
-      this.setAutoVentEnabled(false); // Ensure feature is off
-      
-      // Reset BFG shield break state
-      this.setBFGShieldBreakEnabled(false);
-      
-      // Reset taunt state
-      this._isTaunting = false;
-      
-      // Reset malfunction state
-      this._isMalfunctioning = false;
-      
-      // --- Reset Damage Flash --- START
-      if (this._damageFlashTimeout) {
-        clearTimeout(this._damageFlashTimeout);
-        this._damageFlashTimeout = null;
-      }
-      // Ensure tint is reset to the stored default value
-      this.setTintColor(this._defaultTintColor); 
-      // --- Reset Damage Flash --- END
-      
-      // Clear any pending message timeouts
-      if (this._messageDisplayTimeoutId) {
-        clearTimeout(this._messageDisplayTimeoutId);
-        this._messageDisplayTimeoutId = null;
-        // Optionally clear the message from UI immediately
-        this.broadcastOverseerUIMessage('', 'none');
-      }
-      
+
+      // ... (rest of reset logic: biodome, internal temp, shield, invulnerability, etc.) ...
+       if (this._biodome) {
+           this._biodome.resetTemperature();
+           this._biodome.setEnvironmentalDamageEnabled(false);
+           this._biodome.setAutoResetEnabled(false);
+       }
+       this._internalTemp = this._normalInternalTemp;
+       this._updateInternalTempUI();
+       this.closeShield();
+       this.setInvulnerable(true);
+       this._isAutoVenting = false;
+       this._autoVentCooldownUntil = 0;
+       this.setAutoVentEnabled(false);
+       this.setBFGShieldBreakEnabled(false);
+       this._isTaunting = false;
+       this._isMalfunctioning = false;
+       if (this._damageFlashTimeout) {
+         clearTimeout(this._damageFlashTimeout);
+         this._damageFlashTimeout = null;
+       }
+       this.setTintColor(this._defaultTintColor);
+       if (this._messageDisplayTimeoutId) {
+         clearTimeout(this._messageDisplayTimeoutId);
+         this._messageDisplayTimeoutId = null;
+         this.broadcastOverseerUIMessage('', 'none');
+       }
+
+
       this._logger.info('Overseer state reset complete.');
   }
 
-  /**
-   * Set KORO's maximum health level.
-   * @param maxHealth The new maximum health value.
-   */
-  public setMaxHealth(maxHealth: number): void {
-      this._maxHealth = Math.max(1, maxHealth); // Ensure max health is at least 1
-      // Optionally clamp current health if it exceeds the new max
-      this._health = Math.min(this._health, this._maxHealth);
-      this._logger.info(`KORO max health set to ${this._maxHealth}`);
-      // Update UI immediately after changing max health
-      this.setHealth(this._health); 
-  }
+  // ... (rest of OverseerEntity class: setMaxHealth, getMaxHealth, playShieldHitSound, playAttackAlarm) ...
+   public setMaxHealth(maxHealth: number): void {
+       this._maxHealth = Math.max(1, maxHealth);
+       this._health = Math.min(this._health, this._maxHealth);
+       this._logger.info(`KORO max health set to ${this._maxHealth}`);
+       this.setHealth(this._health); 
+   }
+   public getMaxHealth(): number {
+       return this._maxHealth;
+   }
+   public playShieldHitSound(type: 'ricochet' | 'malfunction', position: Vector3Like): void {
+     if (!this.world || !this.isSpawned) return;
+     let audioToPlay: Audio | null = null;
+     if (type === 'ricochet' && this._shieldRicochetAudio) { audioToPlay = this._shieldRicochetAudio; }
+     else if (type === 'malfunction' && this._shieldMalfunctionAudio) { audioToPlay = this._shieldMalfunctionAudio; }
+     if (audioToPlay) { this._logger.debug(`Playing shield hit sound (${type}) at position: ${JSON.stringify(position)}`); audioToPlay.play(this.world, true); }
+     else { this._logger.warn(`Could not find audio component for shield hit type: ${type}`); }
+   }
+   public playAttackAlarm(): void {
+     if (!this.world || !this.isSpawned) return;
+     if (this._attackAlarmAudio) { this._logger.debug('Playing global attack alarm sound.'); this._attackAlarmAudio.play(this.world, true); }
+     else { this._logger.warn('Could not find audio component for attack alarm.'); }
+   }
 
-  /**
-   * Get KORO's current maximum health level.
-   */
-  public getMaxHealth(): number {
-      return this._maxHealth;
-  }
-
-  /**
-   * Plays a specific shield hit sound effect at a given position.
-   * @param type The type of sound to play ('ricochet' or 'malfunction').
-   * @param position The world position where the sound should originate.
-   */
-  public playShieldHitSound(type: 'ricochet' | 'malfunction', position: Vector3Like): void {
-    if (!this.world || !this.isSpawned) return; // Ensure world context exists
-
-    let audioToPlay: Audio | null = null;
-
-    if (type === 'ricochet' && this._shieldRicochetAudio) {
-      audioToPlay = this._shieldRicochetAudio;
-    } else if (type === 'malfunction' && this._shieldMalfunctionAudio) {
-      audioToPlay = this._shieldMalfunctionAudio;
-    }
-
-    if (audioToPlay) {
-      this._logger.debug(`Playing shield hit sound (${type}) at position: ${JSON.stringify(position)}`);
-      // Play the sound in the world, restarting if needed
-      audioToPlay.play(this.world, true); 
-    } else {
-      this._logger.warn(`Could not find audio component for shield hit type: ${type}`);
-    }
-  }
-
-  /**
-   * Plays the global attack alarm sound effect.
-   */
-  public playAttackAlarm(): void {
-    if (!this.world || !this.isSpawned) return; // Ensure world context exists
-
-    if (this._attackAlarmAudio) {
-      this._logger.debug('Playing global attack alarm sound.');
-      // Play the sound globally, restarting if needed
-      this._attackAlarmAudio.play(this.world, true); 
-    } else {
-      this._logger.warn('Could not find audio component for attack alarm.');
-    }
-  }
-}
+} // End OverseerEntity class

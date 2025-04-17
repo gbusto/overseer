@@ -16,6 +16,7 @@ import { Logger } from '../../utils/logger';
 import OverseerEntity from '../entities/OverseerEntity'; // Import OverseerEntity
 import GameManager, { GameState } from '../GameManager'; // Import GameManager AND GameState
 import GamePlayerEntity from '../entities/GamePlayerEntity'; // Import GamePlayerEntity
+import RipperBossEntity from '../entities/RipperBossEntity'; // Import the new entity
 
 // KORO Operational Modes
 export type KoroMode = 'disabled' | 'dev-no-llm' | 'dev-with-llm' | 'hytopia';
@@ -24,22 +25,26 @@ export type KoroMode = 'disabled' | 'dev-no-llm' | 'dev-with-llm' | 'hytopia';
 const DEFAULT_UPDATE_INTERVAL_MS = 8000; // Make interval configurable (8 seconds)
 const ENVIRONMENTAL_ATTACK_COOLDOWN_MS = 30000; // Cooldown between KORO attacks (30 seconds)
 
-// Define the deterministic attack sequence
+// Define the deterministic attack sequence including the new attack
+// --- TEMPORARILY MODIFIED FOR TESTING ---
 const DETERMINISTIC_ATTACK_SEQUENCE: KoroActionType[] = [
+    'attack_spawn_minion', // <-- Moved to front for testing
     'attack_heat',
     'taunt_shield',
     'attack_freeze',
     'attack_blackout',
     'attack_uv_light',
-    'taunt_shield', // Add taunt again for variety
+    'taunt_shield',
 ];
+// --- END TEMPORARY MODIFICATION ---
 
 // Define type for KORO actions for clarity
-type KoroActionType = z.infer<typeof KOROResponseSchema>['action'];
+// Add the new action type here
+type KoroActionType = z.infer<typeof KOROResponseSchema>['action'] | 'attack_spawn_minion';
 
 // Type for actions we actually return from deterministic logic (excluding 'none')
 type DeterministicActionDetail = {
-    action: Exclude<KoroActionType, 'none'>; // Exclude 'none' from possible actions
+    action: Exclude<KoroActionType, 'none'>; // Allow 'attack_spawn_minion'
     intensity?: 'low' | 'medium' | 'high';
 };
 
@@ -47,6 +52,7 @@ type DeterministicActionDetail = {
 const DETERMINISTIC_BLACKOUT_COOLDOWN_MS = 60000; // 60 seconds
 const DETERMINISTIC_UV_LIGHT_COOLDOWN_MS = 60000; // 60 seconds
 const DETERMINISTIC_TAUNT_COOLDOWN_MS = 45000;  // 45 seconds
+const DETERMINISTIC_MINION_SPAWN_COOLDOWN_MS = 90000; // 90 seconds cooldown for spawning minion
 
 // Define the structure of the game state snapshot we send to the LLM
 const GameStateSnapshotSchema = z.object({
@@ -172,6 +178,9 @@ export class KOROBrain {
   private _deterministicBlackoutReadyAt: number = 0;
   private _deterministicUvLightReadyAt: number = 0;
   private _deterministicTauntReadyAt: number = 0;
+  // New state for minion attack
+  private _deterministicMinionSpawnReadyAt: number = 0;
+  private _isMinionActive: boolean = false; // Track if a minion is currently alive
   // --- End State Variables ---
 
   constructor(overseer: OverseerEntity, gameManager: GameManager, world: World, updateInterval: number = DEFAULT_UPDATE_INTERVAL_MS) {
@@ -254,6 +263,7 @@ export class KOROBrain {
     this._deterministicBlackoutReadyAt = now;
     this._deterministicUvLightReadyAt = now;
     this._deterministicTauntReadyAt = now;
+    this._deterministicMinionSpawnReadyAt = now;
 
     switch (mode) {
       case 'disabled':
@@ -393,6 +403,16 @@ export class KOROBrain {
       this.addRecentEvent({ type: 'attack_cooldown_start', content: 'Environmental attack cooldown initiated.', priority: 'low'});
   }
 
+  // Method for Overseer to call when minion dies
+  public reportMinionDeath(): void {
+      this.logger.info('Received report: Minion died.');
+      this._isMinionActive = false;
+      // Optional: Immediately allow spawning again? Or respect cooldown?
+      // Let's respect the cooldown for now.
+      // const now = Date.now();
+      // this._deterministicMinionSpawnReadyAt = now; // Allow immediate respawn if desired
+  }
+
   // --- Update Logic ---
 
   public shouldUpdate(): boolean {
@@ -468,9 +488,11 @@ export class KOROBrain {
 
               // Convert LLM response action to the execution format if not 'none'
               if (llmResponse.action !== 'none') {
-                  actionsToExecute.push({ 
-                      action: llmResponse.action as Exclude<KoroActionType, 'none'>, // Type assertion needed as KOROResponse allows 'none'
-                      intensity: llmResponse.intensity 
+                  type LlmActionType = z.infer<typeof KOROResponseSchema>['action'];
+                  // Type assertion is sufficient, LLM action type cannot be 'attack_spawn_minion'
+                  actionsToExecute.push({
+                       action: llmResponse.action as Exclude<LlmActionType, 'none'>,
+                       intensity: llmResponse.intensity
                   });
               }
               // --- End LLM Path ---
@@ -490,7 +512,9 @@ export class KOROBrain {
                   // Add a check to satisfy the linter, although length > 0 is already confirmed
                   const firstAction = actionsToExecute[0];
                   if (firstAction) {
-                     this.addResponseToHistory({ action: firstAction.action, message: '<<deterministic_action>>' });
+                     // Map spawn action to 'none' for history logging purposes
+                     const actionForHistory = firstAction.action === 'attack_spawn_minion' ? 'none' : firstAction.action;
+                     this.addResponseToHistory({ action: actionForHistory, message: '<<deterministic_action>>' });
                   }
               }
               // --- End Deterministic Path ---
@@ -580,6 +604,23 @@ export class KOROBrain {
                             this.addRecentEvent({ type: 'attack_uv_light', content: 'KORO initiated UV light attack.', priority: 'medium' });
                             break;
                         
+                        case 'attack_spawn_minion': // <-- Handle new action execution
+                            this.logger.info('Attempting to execute minion spawn...');
+                            // Need a spawn position - OverseerEntity can decide this? Or GameManager?
+                            // Let OverseerEntity handle picking the spawn point for now.
+                            const spawnSuccess = this._overseer.spawnMinion(); // Assume Overseer method returns bool
+                            if (spawnSuccess) {
+                                this.logger.info('Overseer reported minion spawn successful.');
+                                executedSuccessfully = true;
+                                this._isMinionActive = true; // Set flag *after* confirming success
+                                // Add event?
+                                this.addRecentEvent({ type: 'minion_spawned', content: 'KORO spawned a minion.', priority: 'medium'});
+                            } else {
+                                this.logger.warn('Overseer reported minion spawn failed (maybe one already active?).');
+                                 // Don't set _isMinionActive = true if it failed
+                            }
+                            break;
+                        
                         // No 'none' case needed here as actionsToExecute excludes it
                     } // End switch
 
@@ -598,6 +639,10 @@ export class KOROBrain {
                             case 'taunt_shield':
                                 this._deterministicTauntReadyAt = now + DETERMINISTIC_TAUNT_COOLDOWN_MS;
                                 this.logger.info(`[Deterministic] Taunt cooldown set. Ready at: ${new Date(this._deterministicTauntReadyAt).toLocaleTimeString()}`);
+                                break;
+                            case 'attack_spawn_minion':
+                                this._deterministicMinionSpawnReadyAt = now + DETERMINISTIC_MINION_SPAWN_COOLDOWN_MS;
+                                this.logger.info(`[Deterministic] Minion Spawn cooldown set. Ready at: ${new Date(this._deterministicMinionSpawnReadyAt).toLocaleTimeString()}`);
                                 break;
                             // Temperature attacks use the main _environmentalAttackCooldownUntil, handled by recordEnvironmentalAttackEnd()
                         }
@@ -894,6 +939,8 @@ ${snapshot.interaction_history.recent_attacks_triggered.join(', ') || '(None rec
       recentEvents: KOROEvent[];
       recentResponses: KOROHistoricalResponse[];
       recentAttacks: string[];
+      isMinionActive: boolean;
+      minionSpawnReadyAt: number;
   } {
     return {
       brainProcessingEnabled: this._brainProcessingEnabled,
@@ -905,6 +952,8 @@ ${snapshot.interaction_history.recent_attacks_triggered.join(', ') || '(None rec
       recentEvents: [...this.worldState.recentEvents],
       recentResponses: [...this.recentResponses],
       recentAttacks: [...this._recentAttacks],
+      isMinionActive: this._isMinionActive,
+      minionSpawnReadyAt: this._deterministicMinionSpawnReadyAt,
     };
   }
 
@@ -933,71 +982,79 @@ ${snapshot.interaction_history.recent_attacks_triggered.join(', ') || '(None rec
   private _determineActionWithoutLLM(snapshot: GameStateSnapshot): DeterministicActionDetail[] {
     const now = Date.now();
     let selectedAction: DeterministicActionDetail | null = null;
-    const maxAttempts = DETERMINISTIC_ATTACK_SEQUENCE.length; // Prevent infinite loop in edge cases
-    const currentHealthPercent = snapshot.koro_status.health_percent; // Get health from snapshot
+    const maxAttempts = DETERMINISTIC_ATTACK_SEQUENCE.length;
+    const currentHealthPercent = snapshot.koro_status.health_percent;
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const currentIndex = this._nextDeterministicAttackIndex % DETERMINISTIC_ATTACK_SEQUENCE.length;
-      const candidateAction = DETERMINISTIC_ATTACK_SEQUENCE[currentIndex];
-      let isValid = false;
-      let intensity: 'low' | 'medium' | 'high' | undefined = undefined;
+        const currentIndex = this._nextDeterministicAttackIndex % DETERMINISTIC_ATTACK_SEQUENCE.length;
+        const candidateAction = DETERMINISTIC_ATTACK_SEQUENCE[currentIndex];
 
-      switch (candidateAction) {
-        case 'attack_heat':
-        case 'attack_freeze':
-          if (snapshot.game_context.can_initiate_environmental_attack) {
-            isValid = true;
-            // --- Determine Intensity based on Health ---
-            if (currentHealthPercent > 70) {
-                intensity = 'low';
-            } else if (currentHealthPercent > 30) {
-                intensity = 'medium';
-            } else {
-                intensity = 'high';
-            }
-            this.logger.debug(`[Deterministic] Temp attack ${candidateAction} chosen. Health: ${currentHealthPercent.toFixed(1)}% -> Intensity: ${intensity}`);
-            // Cooldown started after execution
-          }
-          break;
-        case 'attack_blackout':
-          if (now >= this._deterministicBlackoutReadyAt) {
-            isValid = true;
-          }
-          break;
-        case 'attack_uv_light':
-          if (now >= this._deterministicUvLightReadyAt) {
-            isValid = true;
-          }
-          break;
-        case 'taunt_shield':
-          if (now >= this._deterministicTauntReadyAt) {
-            isValid = true;
-          }
-          break;
-        case 'none': // Should not be in sequence
-          isValid = false; // Explicitly invalid in sequence
-          break;
-      }
+        // Ensure candidateAction is defined before switch (handles empty sequence edge case)
+        if (candidateAction === undefined) {
+            this.logger.error('[Deterministic] Candidate action is undefined. Check sequence array.');
+            this._nextDeterministicAttackIndex = (currentIndex + 1) % DETERMINISTIC_ATTACK_SEQUENCE.length; // Still advance index
+            continue; // Skip to next attempt
+        }
 
-      if (isValid) { // candidateAction cannot be 'none' if isValid is true here
-        selectedAction = { action: candidateAction as Exclude<KoroActionType, 'none'>, intensity };
-        this._nextDeterministicAttackIndex = (currentIndex + 1) % DETERMINISTIC_ATTACK_SEQUENCE.length; // Advance index
-        this.logger.info(`[Deterministic] Selected action: ${selectedAction.action} ${selectedAction.intensity ? `(Intensity: ${selectedAction.intensity})` : ''}`);
-        break; // Found a valid action
-      } else {
-          // If the current action is not valid, just increment the index to try the next one in the next update cycle
-           this._nextDeterministicAttackIndex = (currentIndex + 1) % DETERMINISTIC_ATTACK_SEQUENCE.length;
-          if (candidateAction !== 'none') { // Don't log skipping 'none' if it somehow got in sequence
-                this.logger.debug(`[Deterministic] Skipped action ${candidateAction} (Not ready/valid). Trying next.`);
-          }
-      }
+        let isValid = false;
+        let intensity: 'low' | 'medium' | 'high' | undefined = undefined;
+
+        switch (candidateAction) {
+            case 'attack_heat':
+            case 'attack_freeze':
+                if (snapshot.game_context.can_initiate_environmental_attack) {
+                    isValid = true;
+                    if (currentHealthPercent > 70) intensity = 'low';
+                    else if (currentHealthPercent > 30) intensity = 'medium';
+                    else intensity = 'high';
+                    this.logger.debug(`[Deterministic] Temp attack ${candidateAction} chosen. Health: ${currentHealthPercent.toFixed(1)}% -> Intensity: ${intensity}`);
+                }
+                break;
+            case 'attack_blackout':
+                if (now >= this._deterministicBlackoutReadyAt) isValid = true;
+                break;
+            case 'attack_uv_light':
+                if (now >= this._deterministicUvLightReadyAt) isValid = true;
+                break;
+            case 'taunt_shield':
+                if (now >= this._deterministicTauntReadyAt) isValid = true;
+                break;
+            case 'attack_spawn_minion':
+                 if (!this._isMinionActive && now >= this._deterministicMinionSpawnReadyAt) {
+                    isValid = true;
+                    this.logger.debug('[Deterministic] Minion spawn chosen.');
+                } else {
+                    if (this._isMinionActive) this.logger.debug('[Deterministic] Skipping minion spawn (already active).');
+                    if (now < this._deterministicMinionSpawnReadyAt) this.logger.debug('[Deterministic] Skipping minion spawn (cooldown).');
+                }
+                break;
+            case 'none':
+                 isValid = false;
+                 break;
+            default:
+                 // This check should now be safe as undefined is handled above
+                 const _exhaustiveCheck: never = candidateAction;
+                 this.logger.warn(`[Deterministic] Unknown action in sequence: ${_exhaustiveCheck}`);
+                 isValid = false;
+                 break;
+        } // End switch
+
+        if (isValid) {
+            selectedAction = { action: candidateAction as Exclude<KoroActionType, 'none'>, intensity };
+             this._nextDeterministicAttackIndex = (currentIndex + 1) % DETERMINISTIC_ATTACK_SEQUENCE.length;
+             this.logger.info(`[Deterministic] Selected action: ${selectedAction.action} ${selectedAction.intensity ? `(Intensity: ${selectedAction.intensity})` : ''}`);
+            break; 
+        } else {
+             this._nextDeterministicAttackIndex = (currentIndex + 1) % DETERMINISTIC_ATTACK_SEQUENCE.length;
+               if (candidateAction !== 'none' && candidateAction !== 'attack_spawn_minion') {
+                   this.logger.debug(`[Deterministic] Skipped action ${candidateAction} (Not ready/valid).`);
+               }
+        }
     } // End for loop
-
-    if (!selectedAction) {
-        this.logger.info('[Deterministic] No valid actions available in sequence this cycle.');
-        return [];
-    }
-
-    return [selectedAction];
-  }
+     if (!selectedAction) {
+         this.logger.info('[Deterministic] No valid actions available in sequence this cycle.');
+         return [];
+     }
+     return [selectedAction];
+}
 } 

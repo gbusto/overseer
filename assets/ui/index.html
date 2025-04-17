@@ -18,6 +18,13 @@
     <div id="overseer-health-text" class="overseer-health-text">100/100</div>
   </div>
 
+  <!-- NEW: Health bar for Minion -->
+  <div id="minion-health-container" class="minion-health-container">
+    <div class="minion-health-label">RIPPER BOSS</div>
+    <div id="minion-health-bar" class="minion-health-bar"></div>
+    <div id="minion-health-text" class="minion-health-text">20/20</div>
+  </div>
+
   <!-- Biodome status panel -->
   <div id="biodome-status-container" class="biodome-status-container">
     <div class="biodome-status-label">BIODOME STATUS</div>
@@ -392,7 +399,7 @@
   /* Biodome status styles */
   .biodome-status-container {
     position: fixed;
-    top: 110px; /* Increased from 75px to position below overseer health container */
+    top: 110px; /* Increase top value to make space */
     right: 20px;
     width: 200px;
     background-color: rgba(0, 0, 0, 0.5);
@@ -657,7 +664,7 @@
     text-shadow: 0 0 5px rgba(0, 0, 0, 1);
     z-index: 1001; /* Above overseer message */
     display: none; /* Hidden by default */
-    transition: opacity 0.3s ease-out; /* Add fade out transition */
+    transition: opacity 0.3s ease-out, border-color 0.3s ease, color 0.3s ease; /* Add transitions */
   }
 
   .attack-warning-panel.heat-warning {
@@ -672,6 +679,14 @@
       color: #00ccff;
       box-shadow: 0 0 15px rgba(0, 204, 255, 0.6);
       text-shadow: 0 0 5px rgba(0, 204, 255, 0.8);
+  }
+
+  /* NEW: Minion Warning Style */
+  .attack-warning-panel.minion-warning {
+      border-color: #FFD700; /* Gold */
+      color: #FFD700;
+      box-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
+      text-shadow: 0 0 5px rgba(255, 215, 0, 0.8);
   }
 
   .attack-warning-content {
@@ -773,6 +788,45 @@
     opacity: 0.8;
   }
   /* END: Welcome Card Styles */
+
+  /* NEW: Minion health bar styles */
+  .minion-health-container {
+    position: fixed;
+    top: 250px; /* Position below Overseer health */
+    right: 20px;
+    width: 200px; /* Slightly smaller */
+    background-color: rgba(0, 0, 0, 0.6);
+    border-radius: 4px;
+    padding: 4px;
+    color: white;
+    display: none; /* Hidden by default */
+    border: 1px solid #FFD700; /* Gold border */
+  }
+
+  .minion-health-label {
+    text-align: center;
+    font-weight: bold;
+    font-size: 11px; /* Smaller label */
+    margin-bottom: 4px;
+    color: #FFD700; /* Gold label */
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+  }
+
+  .minion-health-bar {
+    height: 12px; /* Smaller bar */
+    width: 100%;
+    background-color: #FFD700; /* Gold bar */
+    border-radius: 2px;
+    transition: width 0.3s ease-in-out;
+  }
+
+  .minion-health-text {
+    text-align: center;
+    font-size: 11px; /* Smaller text */
+    margin-top: 2px;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+  }
 </style>
 
 <!-- Template for weapon labels -->
@@ -817,6 +871,11 @@
   // NEW: Get references for welcome card elements
   const welcomeCard = document.getElementById('welcome-card');
   const welcomeTimerValue = document.getElementById('welcome-timer-value');
+
+  // NEW: Get Minion Health elements
+  const minionHealthContainer = document.getElementById('minion-health-container');
+  const minionHealthBar = document.getElementById('minion-health-bar');
+  const minionHealthText = document.getElementById('minion-health-text');
 
   // Initialize energy value
   let currentEnergy = 100;
@@ -1190,7 +1249,8 @@
             
             // Set message and class
             attackWarningContent.textContent = data.message || 'Environmental Anomaly Detected!';
-            attackWarningPanel.classList.remove('heat-warning', 'cold-warning'); // Clear old classes
+            // Make sure to clear all warning classes first
+            attackWarningPanel.classList.remove('heat-warning', 'cold-warning', 'minion-warning'); 
             if (data.attackType === 'heat') {
                 attackWarningPanel.classList.add('heat-warning');
             } else if (data.attackType === 'cold') {
@@ -1207,6 +1267,8 @@
                 // Use transitionend event or another timeout to set display:none after fade
                 setTimeout(() => {
                     attackWarningPanel.style.display = 'none';
+                    // Also clear classes after hiding
+                    attackWarningPanel.classList.remove('heat-warning', 'cold-warning');
                 }, 300); // Match CSS transition duration
                 attackWarningTimeout = null; // Clear timeout reference
             }, 3000); // Display duration
@@ -1219,6 +1281,57 @@
         showWelcomeCard();
         break;
       // *** END: Handle Welcome Card ***
+
+      // *** NEW: Handle Minion Spawn Warning ***
+      case 'minion-spawn-warning':
+        if (attackWarningPanel && attackWarningContent) {
+            // Clear any existing timeout
+            if (attackWarningTimeout) {
+                clearTimeout(attackWarningTimeout);
+            }
+
+            // Set message and class
+            attackWarningContent.textContent = data.message || 'Hostile Entity Detected!';
+            // Clear old classes first
+            attackWarningPanel.classList.remove('heat-warning', 'cold-warning', 'minion-warning');
+            // Add the specific minion warning class
+            attackWarningPanel.classList.add('minion-warning');
+
+            // Show the panel
+            attackWarningPanel.style.opacity = 1; // Ensure it's visible for transition
+            attackWarningPanel.style.display = 'block';
+
+            // Set timeout to hide after 3 seconds (same duration as other warnings)
+            attackWarningTimeout = setTimeout(() => {
+                attackWarningPanel.style.opacity = 0; // Start fade out
+                // Use transitionend event or another timeout to set display:none after fade
+                setTimeout(() => {
+                    attackWarningPanel.style.display = 'none';
+                     // Clear class after hiding
+                    attackWarningPanel.classList.remove('minion-warning');
+                }, 300); // Match CSS transition duration
+                attackWarningTimeout = null; // Clear timeout reference
+            }, 3000); // Display duration
+        }
+        break;
+      // *** END: Handle Minion Spawn Warning ***
+
+      // *** NEW: Handle Minion Health Update ***
+      case 'minion-health-update':
+        if (minionHealthContainer && minionHealthBar && minionHealthText) {
+          if (data.visible === false) {
+            minionHealthContainer.style.display = 'none';
+          } else {
+            minionHealthContainer.style.display = 'block';
+            const health = data.health || 0;
+            const maxHealth = data.maxHealth || 1;
+            const percent = (health / maxHealth) * 100;
+            minionHealthBar.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+            minionHealthText.textContent = `${Math.round(health)}/${Math.round(maxHealth)}`;
+          }
+        }
+        break;
+      // *** END: Handle Minion Health Update ***
     }
   });
   
@@ -1540,4 +1653,6 @@
   if (midGameJoinMessage) midGameJoinMessage.style.display = 'none';
   // NEW: Hide welcome card initially
   if (welcomeCard) welcomeCard.style.display = 'none';
+  // NEW: Hide minion health bar initially
+  if (minionHealthContainer) minionHealthContainer.style.display = 'none'; 
 </script> 
